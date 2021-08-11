@@ -1,0 +1,11 @@
+{
+  "domain": "edata",
+  "name": "e-data",
+  "documentation": "https://github.com/uvejota/homeassistant-edata/",
+  "issue_tracker": "https://github.com/uvejota/homeassistant-edata/issues",
+  "dependencies": [],
+  "codeowners": [],
+  "requirements": ["e-data>=0.1.7", "python-dateutil"],
+  "version": "0.0.1",
+  "iot_class": "cloud_polling"
+}

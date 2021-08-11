@@ -1,0 +1,10 @@
+{
+  "name": "e-data",
+  "render_readme": true,
+  "country": "ES",
+  "domains": [
+    "sensor"
+  ],
+  "homeassistant": "0.106.0",
+  "content_in_root" : true
+}
