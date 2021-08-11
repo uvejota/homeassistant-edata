@@ -72,11 +72,7 @@ class EdsSensor(Entity):
     async def async_update(self):
         """Fetch new state data for the sensor."""
         try:
-            date_ref = datetime (
-                datetime.today ().year, 
-                datetime.today ().month, 1, 0, 0, 0
-            )
-            self.edata.async_update ()
+            await self.edata.async_update ()
         except Exception as e:
             _LOGGER.error (e)
         # update attrs
