@@ -11,8 +11,8 @@ Esta integración para Home Assistant te permite seguir de un vistazo tus consum
 sensor:
   - platform: edata
     provider: datadis
-    username: !secret my_username 
-    password: !secret my_password 
+    username: !secret my_datadis_username 
+    password: !secret my_datadis_password 
     cups: !secret my_cups
 ```
 
@@ -38,10 +38,6 @@ La tarjeta anterior mostrará un informe con los siguientes datos:
 | cups | `string` | - | Identificador de su CUPS |
 | `contract_p1_kW` | `float` | `kW` | Potencia contratada en P1 en el contrato vigente |
 | `contract_p2_kW` | `float` | `kW` | Potencia contratada en P2 en el contrato vigente |
-| `today_kWh` | `float` | `kWh` | Consumo total registrado durante el día de hoy |
-| `today_p1_kWh` | `float` | `kWh` | Consumo en P1 registrado durante el día de hoy |
-| `today_p2_kWh` | `float` | `kWh` | Consumo en P2 registrado durante el día de hoy |
-| `today_p3_kWh` | `float` | `kWh` | Consumo en P3 registrado durante el día de hoy |
 | `yesterday_kWh` | `float` | `kWh` | Consumo total registrado durante el día de ayer |
 | `yesterday_p1_kWh` | `float` | `kWh` | Consumo en P1 registrado durante el día de ayer |
 | `yesterday_p2_kWh` | `float` | `kWh` | Consumo en P2 registrado durante el día de ayer |
@@ -53,7 +49,7 @@ La tarjeta anterior mostrará un informe con los siguientes datos:
 | `month_p2_kWh` | `float` | `kWh` | Consumo en P2 registrado durante el mes en curso |
 | `month_p3_kWh` | `float` | `kWh` | Consumo en P3 registrado durante el mes en curso |
 | `last_month_kWh` | `float` | `kWh` | Consumo total registrado durante el mes pasado |
-| `last_month_days_kWh` | `float` | `kWh` | Días computados en el mes pasado |
+| `last_month_days_kWh` | `float` | `d` | Días computados en el mes pasado |
 | `last_month_daily_kWh` | `float` | `kWh` | Consumo diario registrado durante el mes pasado |
 | `last_month_p1_kWh` | `float` | `kWh` | Consumo en P1 registrado durante el mes pasado |
 | `last_month_p2_kWh` | `float` | `kWh` | Consumo en P2 registrado durante el mes pasado |
@@ -67,4 +63,4 @@ La tarjeta anterior mostrará un informe con los siguientes datos:
 En este momento, la integración permite la siguiente configuración
 | Parámetro | Valores posibles | Recomendado |
 | ------------- | ------------- | ------------- |
-| `provider`  | `[datadis, edistribución]` | `datadis` |
+| `provider`  | `[datadis]` | `datadis` |
