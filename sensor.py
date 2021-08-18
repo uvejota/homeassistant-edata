@@ -24,12 +24,17 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Required(CONF_USERNAME): cv.string,
         vol.Required(CONF_PASSWORD): cv.string,
         vol.Required(CONF_CUPS): cv.string,
+        vol.Optional('debug_level'): cv.string,
     }
 )
 
 async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     entities = []
-    edata = ReportHelper (config[CONF_PROVIDER], config[CONF_USERNAME], config[CONF_PASSWORD], config[CONF_CUPS])
+    debug_level = logging.WARNING
+    if 'debug_level' in config:
+        if config['debug_level'] == 'INFO':
+            debug_level = logging.INFO
+    edata = ReportHelper (config[CONF_PROVIDER], config[CONF_USERNAME], config[CONF_PASSWORD], config[CONF_CUPS], debug_level)
     entities.append(EdsSensor(edata, name=f'edata_{config[CONF_CUPS][-4:]}'))
     add_entities(entities)
 
