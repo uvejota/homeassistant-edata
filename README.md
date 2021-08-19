@@ -20,6 +20,8 @@ A partir de este momento (tras reiniciar), le debería aparecer un nuevo sensor 
 
 ## Uso
 
+NOTA: esta sección trata la visualización de un informe en texto plano, más adelante encontrará instrucciones para la generación de gráficas.
+
 Los estadísticos recopilados por esta integración se almacenan, de momento, como atributos. Puede visualizarlos mediante la siguiente tarjeta, sustituyendo `_XXXX` cuando sea necesario (dos veces):
 ``` yaml
 type: markdown
@@ -31,7 +33,7 @@ content: >
 title: Informe
 ```
 
-La tarjeta anterior mostrará un informe con los siguientes datos:
+La tarjeta anterior mostrará un informe sencillo con los siguientes datos:
 
 | Parámetro | Tipo | Unidad | Significado |
 | ------------- | ------------- | ------------- | ------------- |
@@ -64,3 +66,196 @@ En este momento, la integración permite la siguiente configuración
 | Parámetro | Valores posibles | Recomendado |
 | ------------- | ------------- | ------------- |
 | `provider`  | `[datadis]` | `datadis` |
+
+## Generación de gráficos (en pruebas, sólo válido a partir de v0.1.7)
+
+A continuación se ofrecen una serie de tarjetas (en yaml) que permiten visualizar los datos obtenidos mediante gráficas interactivas generadas con un componente llamado apexcharts-card, que también debe instalarse manualmente o mediante HACS. Siga las instrucciones de https://github.com/RomRider/apexcharts-card y recuerde tener el repositorio a mano para personalizar las gráficas a continuación.
+
+Algunas consideraciones:
+
+* en las siguientes tarjetas deberá reemplazar XXXX por sus últimos cuatro dígitos del CUPS,
+* por motivos de tiempo y capacidades (no tengo ni puñetera idea de frontend, vaya), he optado por no desarrollar una tarjeta específica para este componente, por lo que su configuración mediante apexcharts no es inmediata y requiere lectura. Si algún desarrollador frontend se anima, podemos alinearnos para construir algo chulo.
+* de momento, sólo las siguientes gráficas están disponibles, pero se mejorarán y ampliarán en un futuro para añadir consumo por horas.
+
+### Consumo diario
+
+![GIF consumo diario](https://media.giphy.com/media/hnyH5DCpz9x4gzQWdi/giphy.gif) 
+
+``` yaml
+type: custom:apexcharts-card
+graph_span: 30d
+stacked: true
+span:
+  offset: '-1d'
+experimental:
+  brush: true
+header:
+  show: true
+  title: Consumo diario
+  show_states: false
+  colorize_states: false
+brush:
+  selection_span: 10d
+all_series_config:
+  type: column
+  show:
+    legend_value: false
+series:
+  - entity: sensor.edata_XXXX
+    name: Total
+    data_generator: |
+      return hass.connection.sendMessagePromise({
+      type: 'edata/consumptions/daily', 
+      scups: 'XXXX'}).then(
+          (resp) => {
+              return resp.map((data, index) => {
+                return [new Date(data['datetime']).getTime(), data['value_kWh']];
+              });
+          }
+      );
+    show:
+      in_chart: false
+      in_brush: true
+  - entity: sensor.edata_XXXX
+    name: Punta
+    data_generator: |
+      return hass.connection.sendMessagePromise({
+      type: 'edata/consumptions/daily', 
+      scups: 'XXXX'}).then(
+          (resp) => {
+              return resp.map((data, index) => {
+                return [new Date(data['datetime']).getTime(), data['value_p1_kWh']];
+              });
+          }
+      );
+  - entity: sensor.edata_XXXX
+    name: Llano
+    data_generator: |
+      return hass.connection.sendMessagePromise({
+      type: 'edata/consumptions/daily', 
+      scups: 'XXXX'}).then(
+          (resp) => {
+              return resp.map((data, index) => {
+                return [new Date(data['datetime']).getTime(), data['value_p2_kWh']];
+              });
+          }
+      );
+  - entity: sensor.edata_XXXX
+    name: Valle
+    data_generator: |
+      return hass.connection.sendMessagePromise({
+      type: 'edata/consumptions/daily', 
+      scups: 'XXXX'}).then(
+          (resp) => {
+              return resp.map((data, index) => {
+                return [new Date(data['datetime']).getTime(), data['value_p3_kWh']];
+              });
+          }
+      );
+```
+
+### Consumo mensual
+
+![GIF consumo mensual](https://media.giphy.com/media/PllEohghf0kuMgAO3F/giphy.gif) 
+
+``` yaml
+type: custom:apexcharts-card
+graph_span: 395d
+stacked: true
+header:
+  show: true
+  title: Consumo mensual
+  show_states: false
+  colorize_states: false
+all_series_config:
+  type: column
+  show:
+    legend_value: false
+series:
+  - entity: sensor.edata_XXXX
+    type: line
+    name: Total
+    data_generator: |
+      return hass.connection.sendMessagePromise({
+      type: 'edata/consumptions/monthly', 
+      scups: 'XXXX'}).then(
+          (resp) => {
+              return resp.map((data, index) => {
+                return [new Date(data['datetime']).getTime(), data['value_kWh']];
+              });
+          }
+      );
+    show:
+      in_chart: true
+  - entity: sensor.edata_XXXX
+    name: Punta
+    data_generator: |
+      return hass.connection.sendMessagePromise({
+      type: 'edata/consumptions/monthly', 
+      scups: 'XXXX'}).then(
+          (resp) => {
+              return resp.map((data, index) => {
+                return [new Date(data['datetime']).getTime(), data['value_p1_kWh']];
+              });
+          }
+      );
+  - entity: sensor.edata_XXXX
+    name: Llano
+    data_generator: |
+      return hass.connection.sendMessagePromise({
+      type: 'edata/consumptions/monthly', 
+      scups: 'XXXX'}).then(
+          (resp) => {
+              return resp.map((data, index) => {
+                return [new Date(data['datetime']).getTime(), data['value_p2_kWh']];
+              });
+          }
+      );
+  - entity: sensor.edata_XXXX
+    name: Valle
+    data_generator: |
+      return hass.connection.sendMessagePromise({
+      type: 'edata/consumptions/monthly', 
+      scups: 'XXXX'}).then(
+          (resp) => {
+              return resp.map((data, index) => {
+                return [new Date(data['datetime']).getTime(), data['value_p3_kWh']];
+              });
+          }
+      );
+```
+
+### Maxímetro
+
+![GIF consumo mensual](https://media.giphy.com/media/uCt6kqj7XN5K3PN4mE/giphy.gif)
+
+``` yaml
+type: custom:apexcharts-card
+graph_span: 1y
+span:
+  offset: '-30d'
+header:
+  show: true
+  title: Maxímetro
+  show_states: false
+  colorize_states: false
+chart_type: scatter
+series:
+  - entity: sensor.edata_XXXX
+    type: column
+    extend_to_end: false
+    show:
+      extremas: true
+      datalabels: false
+    data_generator: |
+      return hass.connection.sendMessagePromise({
+      type: 'edata/maximeter', 
+      scups: 'XXXX'}).then(
+          (resp) => {
+              console.log('Message success!', resp);
+              return resp.map((data, index) => {
+                return [new Date(data['datetime']).getTime(), data['value_kW']];
+              });
+          }
+      );
+```
