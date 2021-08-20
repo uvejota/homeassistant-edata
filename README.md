@@ -1,6 +1,8 @@
 # homeassistant-edata
 Esta integración para Home Assistant te permite seguir de un vistazo tus consumos y máximas potencias alcanzadas. Para ello, se apoya en proveedores de datos como datadis, por lo que necesitarás credenciales del mismo. 
 
+![Captura Dashboard](https://i.imgur.com/5a4Im8H.png) 
+
 ## Instrucciones
 
 1. Instala HACS en tu entorno de Home Assistant
@@ -186,7 +188,7 @@ series:
           }
       );
     show:
-      in_chart: true
+      in_chart: false
   - entity: sensor.edata_XXXX
     name: Punta
     data_generator: |
