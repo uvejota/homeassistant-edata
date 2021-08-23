@@ -5,7 +5,7 @@
   "issue_tracker": "https://github.com/uvejota/homeassistant-edata/issues",
   "dependencies": [],
   "codeowners": [],
-  "requirements": ["e-data==0.2.6", "python-dateutil"],
+  "requirements": ["e-data==0.2.9", "python-dateutil"],
   "version": 0.1,
   "iot_class": "cloud_polling"
 }

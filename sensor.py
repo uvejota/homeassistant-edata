@@ -154,7 +154,7 @@ class EdataSensor(Entity):
                 self.hass.data[DOMAIN][scups.upper()][i] = self.edata.data[i]
         
         # update state
-        self._state = self._get_attr_value('cups')
+        self._state = self.edata.last_update if self.edata.last_update > datetime(1970, 1, 1) else None
 
     def _get_attr_value (self, attr):
         try:
