@@ -1,7 +1,7 @@
 # homeassistant-edata
 Esta integración para Home Assistant te permite seguir de un vistazo tus consumos y máximas potencias alcanzadas. Para ello, se apoya en proveedores de datos como datadis, por lo que necesitarás credenciales del mismo. 
 
-![Captura Dashboard](https://i.imgur.com/5a4Im8H.png) 
+![Captura Dashboard](https://i.imgur.com/P4TcGLH.png) 
 
 ## Instrucciones
 
@@ -12,7 +12,6 @@ Esta integración para Home Assistant te permite seguir de un vistazo tus consum
 ``` yaml
 sensor:
   - platform: edata
-    provider: datadis
     username: !secret my_datadis_username 
     password: !secret my_datadis_password 
     cups: !secret my_cups
@@ -63,12 +62,6 @@ La tarjeta anterior mostrará un informe sencillo con los siguientes datos:
 | `max_power_mean_kW` | `float` | `kW` | Media de las potencias máximas registradas en los últimos 12 meses |
 | `max_power_90perc_kW` | `float` | `kW` | Percentil 90 de las potencias máximas registradas en los últimos 12 meses |
 
-## Configuración personalizada
-En este momento, la integración permite la siguiente configuración
-| Parámetro | Valores posibles | Recomendado |
-| ------------- | ------------- | ------------- |
-| `provider`  | `[datadis]` | `datadis` |
-
 ## Generación de gráficos (en pruebas, sólo válido a partir de v0.1.7)
 
 A continuación se ofrecen una serie de tarjetas (en yaml) que permiten visualizar los datos obtenidos mediante gráficas interactivas generadas con un componente llamado apexcharts-card, que también debe instalarse manualmente o mediante HACS. Siga las instrucciones de https://github.com/RomRider/apexcharts-card y recuerde tener el repositorio a mano para personalizar las gráficas a continuación.
@@ -100,11 +93,13 @@ brush:
   selection_span: 10d
 all_series_config:
   type: column
+  unit: kWh
   show:
     legend_value: false
 series:
   - entity: sensor.edata_XXXX
     name: Total
+    type: column
     data_generator: |
       return hass.connection.sendMessagePromise({
       type: 'edata/consumptions/daily', 
@@ -164,6 +159,13 @@ series:
 type: custom:apexcharts-card
 graph_span: 395d
 stacked: true
+yaxis:
+  - id: eje
+    opposite: false
+    max: '|+20|'
+    min: ~0
+    apex_config:
+      forceNiceScale: true
 header:
   show: true
   title: Consumo mensual
@@ -171,6 +173,9 @@ header:
   colorize_states: false
 all_series_config:
   type: column
+  unit: kWh
+  yaxis_id: eje
+  extend_to_end: false
   show:
     legend_value: false
 series:
@@ -188,7 +193,7 @@ series:
           }
       );
     show:
-      in_chart: false
+      in_chart: true
   - entity: sensor.edata_XXXX
     name: Punta
     data_generator: |
@@ -229,7 +234,7 @@ series:
 
 ### Maxímetro
 
-![GIF consumo mensual](https://media.giphy.com/media/uCt6kqj7XN5K3PN4mE/giphy.gif)
+![Captura consumo mensual](https://i.imgur.com/sgPQbfd.png)
 
 ``` yaml
 type: custom:apexcharts-card
@@ -244,8 +249,10 @@ header:
 chart_type: scatter
 series:
   - entity: sensor.edata_XXXX
+    name: Potencia máxima
     type: column
     extend_to_end: false
+    unit: kW
     show:
       extremas: true
       datalabels: false
@@ -254,10 +261,140 @@ series:
       type: 'edata/maximeter', 
       scups: 'XXXX'}).then(
           (resp) => {
-              console.log('Message success!', resp);
               return resp.map((data, index) => {
                 return [new Date(data['datetime']).getTime(), data['value_kW']];
               });
           }
       );
+
+```
+
+### Detalle: ayer
+
+![Captura ayer](https://i.imgur.com/tfYnVn3.png) 
+
+``` yaml
+type: custom:apexcharts-card
+chart_type: pie
+header:
+  show: true
+  title: Ayer
+  show_states: true
+  colorize_states: true
+  floating: true
+all_series_config:
+  unit: kWh
+  show:
+    legend_value: true
+    in_header: false
+apex_config:
+  chart:
+    height: 250px
+series:
+  - entity: sensor.edata_XXXX
+    attribute: yesterday_kWh
+    show:
+      in_chart: false
+      in_header: true
+    name: Total
+  - entity: sensor.edata_XXXX
+    attribute: yesterday_p1_kWh
+    name: Punta
+  - entity: sensor.edata_XXXX
+    attribute: yesterday_p2_kWh
+    name: Llano
+  - entity: sensor.edata_XXXX
+    attribute: yesterday_p3_kWh
+    name: Valle
+```
+
+### Detalle: mes en curso
+
+![Captura mes en curso](https://i.imgur.com/1MOF0jk.png) 
+
+``` yaml
+type: custom:apexcharts-card
+chart_type: pie
+header:
+  show: true
+  title: Mes en curso
+  show_states: true
+  colorize_states: true
+  floating: true
+all_series_config:
+  show:
+    legend_value: true
+    in_header: false
+  unit: kWh
+apex_config:
+  chart:
+    height: 250px
+series:
+  - entity: sensor.edata_XXXX
+    attribute: month_kWh
+    show:
+      in_chart: false
+      in_header: true
+    name: Total
+  - entity: sensor.edata_XXXX
+    attribute: month_p1_kWh
+    name: Punta
+  - entity: sensor.edata_XXXX
+    attribute: month_p2_kWh
+    name: Llano
+  - entity: sensor.edata_XXXX
+    attribute: month_p3_kWh
+    name: Valle
+  - entity: sensor.edata_XXXX
+    unit: €
+    attribute: month_pvpc_€
+    show:
+      in_chart: false
+      in_header: true
+    name: PVPC
+```
+### Detalle: mes anterior
+
+![Captura mes pasado](https://i.imgur.com/UcXkbXB.png) 
+
+``` yaml
+type: custom:apexcharts-card
+chart_type: pie
+header:
+  show: true
+  title: Mes pasado
+  show_states: true
+  colorize_states: true
+  floating: true
+all_series_config:
+  show:
+    legend_value: true
+    in_header: false
+  unit: kWh
+apex_config:
+  chart:
+    height: 250px
+series:
+  - entity: sensor.edata_XXXX
+    attribute: last_month_kWh
+    show:
+      in_chart: false
+      in_header: true
+    name: Total
+  - entity: sensor.edata_XXXX
+    attribute: last_month_p1_kWh
+    name: Punta
+  - entity: sensor.edata_XXXX
+    attribute: last_month_p2_kWh
+    name: Llano
+  - entity: sensor.edata_XXXX
+    attribute: last_month_p3_kWh
+    name: Valle
+  - entity: sensor.edata_XXXX
+    unit: €
+    attribute: last_month_pvpc_€
+    show:
+      in_chart: false
+      in_header: true
+    name: PVPC
 ```
