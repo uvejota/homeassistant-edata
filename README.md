@@ -153,7 +153,7 @@ series:
 
 ### Consumo mensual
 
-![GIF consumo mensual](https://media.giphy.com/media/PllEohghf0kuMgAO3F/giphy.gif) 
+![GIF consumo mensual](https://i.imgur.com/sgPQbfd.png) 
 
 ``` yaml
 type: custom:apexcharts-card
@@ -234,7 +234,7 @@ series:
 
 ### Maxímetro
 
-![Captura consumo mensual](https://i.imgur.com/sgPQbfd.png)
+![Captura maximetro](https://media.giphy.com/media/uCt6kqj7XN5K3PN4mE/giphy.gif)
 
 ``` yaml
 type: custom:apexcharts-card
