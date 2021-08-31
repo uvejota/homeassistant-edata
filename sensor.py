@@ -7,7 +7,9 @@ from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from homeassistant.helpers.storage import Store
-from edata.helpers import ReportHelper, ATTRIBUTES
+from edata.helpers import *
+from edata.connectors import *
+from edata.processors import *
 from .const import DOMAIN, STORAGE_VERSION, STORAGE_KEY_PREAMBLE
 from .websockets import *
 from .store import DateTimeEncoder, DataTools
@@ -35,10 +37,9 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     experimental = config.get('experimental', False)
     hass.data.setdefault(DOMAIN, {})
     entities.append(EdataSensor(hass, config[CONF_USERNAME], config[CONF_PASSWORD], config[CONF_CUPS], experimental=experimental))
-    for e in entities:
-        await e.try_load_storage()
-    async_add_entities(entities, True)
+    async_add_entities(entities)
     async_register_websockets (hass)
+    return True
 
 
 class EdataSensor(SensorEntity):
@@ -54,6 +55,7 @@ class EdataSensor(SensorEntity):
         self._cups = cups  
         self._experimental = experimental
         self._state = 'loading'
+        self._attributes = {}
         self._hass = hass
         self._cups = cups.upper()
         self._scups = cups[-4:].upper()
@@ -62,17 +64,19 @@ class EdataSensor(SensorEntity):
         self._hass.data[DOMAIN][self._scups] = {}
         self._store = Store (hass, STORAGE_VERSION, f"{STORAGE_KEY_PREAMBLE}_{self._scups}", encoder=DateTimeEncoder)
         self._last_stored = datetime (1970, 1, 1)
-        self._helper = ReportHelper ('datadis', usr, pwd, cups, experimental=experimental)
 
-    async def try_load_storage (self):
+    async def async_added_to_hass(self):
         try:
             serialized_data = await self._store.async_load()
             old_data = json.loads(json.dumps(serialized_data), object_hook=DataTools.datetime_parser)
             if old_data is not None and old_data != {}:
                 if DataTools.check_integrity(old_data):
-                    self._helper = ReportHelper ('datadis', self._usr, self._pwd, self._cups, data=old_data, experimental=self._experimental) # storage_dir='.storage'
+                    self._helper = EdataHelper ('datadis', self._usr, self._pwd, self._cups, data=old_data, experimental=self._experimental)
                     self._helper.process_data ()
+                    self._attributes = self._helper.attributes
+                    self._hass.data[DOMAIN][self._scups] = self._helper.data
                 else:
+                    self._helper = EdataHelper ('datadis', self._usr, self._pwd, self._cups, experimental=self._experimental)
                     _LOGGER.warning ('wrong database structure, wiping data')
         except Exception as e:
             _LOGGER.exception (e)
@@ -84,37 +88,26 @@ class EdataSensor(SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        """Return the state attributes."""
-        '''
-        attrs = {}
-        for attr in self._helper.attributes:
-            attrs[attr] = f"{self._get_attr_value(attr)} {ATTRIBUTES[attr] if ATTRIBUTES[attr] is not None else ''}" if self._get_attr_value(attr) is not None else '-'
-        '''
-        return self._helper.attributes
+        return self._attributes
 
     async def async_update(self):
         """Fetch new state data for the sensor."""
         # update data asynchronously
-        self._hass.data[DOMAIN][self._scups] = await self.async_data_update ()
-
-    async def async_data_update (self):
         try:
-            await self._helper.async_update ()
-            if self._helper.last_update > datetime(1970, 1, 1):
-                if (datetime.now() - self._last_stored) > self.STORAGE_INTERVAL:
-                    # do store
-                    self._last_stored = datetime.now()
-                    await self._store.async_save(self._helper.data)
-                self._state = self._helper.last_update.strftime("%Y-%m-%d %H:%M")
-            return self._helper.data
+            res = await self._hass.async_add_executor_job(self._update)
+            if res and (datetime.now() - self._last_stored) > self.STORAGE_INTERVAL:
+                # do store
+                self._last_stored = datetime.now()
+                await self._store.async_save(self._data)
         except Exception as e:
             _LOGGER.error ('uncaught exception when updating data')
             _LOGGER.exception (e)
 
-    def _get_attr_value (self, attr):
-        try:
-            return self._helper.attributes[attr]
-        except Exception:
-            return None
-
-    
+    def _update (self):
+        if self._helper.update ():
+            self._state = self._helper.last_update.strftime("%Y-%m-%d %H:%M")
+            self._attributes = self._helper.attributes.copy()
+            self._data = self._helper.data.copy()
+            return True
+        else:
+            return False
