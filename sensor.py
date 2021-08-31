@@ -64,6 +64,7 @@ class EdataSensor(SensorEntity):
         self._hass.data[DOMAIN][self._scups] = {}
         self._store = Store (hass, STORAGE_VERSION, f"{STORAGE_KEY_PREAMBLE}_{self._scups}", encoder=DateTimeEncoder)
         self._last_stored = datetime (1970, 1, 1)
+        self._last_update = datetime (1970, 1, 1)
 
     async def async_added_to_hass(self):
         try:
@@ -104,10 +105,12 @@ class EdataSensor(SensorEntity):
             _LOGGER.exception (e)
 
     def _update (self):
-        if self._helper.update ():
+        self._helper.update ()
+        if self._last_update != self._helper.last_update:
             self._state = self._helper.last_update.strftime("%Y-%m-%d %H:%M")
             self._attributes = self._helper.attributes.copy()
             self._data = self._helper.data.copy()
+            self._last_update = self._helper.last_update
             return True
         else:
             return False
