@@ -1,9 +1,11 @@
 import logging
 import voluptuous as vol
 import json
+from homeassistant.core import CoreState, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.reload import async_setup_reload_service
 from homeassistant.components.sensor import SensorEntity, PLATFORM_SCHEMA
-from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
+from homeassistant.const import CONF_USERNAME, CONF_PASSWORD, EVENT_HOMEASSISTANT_START
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from homeassistant.helpers.storage import Store
@@ -16,7 +18,7 @@ from .store import DateTimeEncoder, DataTools
 
 # HA variables
 _LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(seconds=30)
+SCAN_INTERVAL = timedelta(minutes=30)
 
 # Custom configuration entries
 CONF_CUPS = 'cups'
@@ -33,6 +35,8 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 )
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+    await async_setup_reload_service(hass, DOMAIN, ['sensor'])
+
     entities = []
     experimental = config.get('experimental', False)
     hass.data.setdefault(DOMAIN, {})
@@ -65,8 +69,15 @@ class EdataSensor(SensorEntity):
         self._store = Store (hass, STORAGE_VERSION, f"{STORAGE_KEY_PREAMBLE}_{self._scups}", encoder=DateTimeEncoder)
         self._last_stored = datetime (1970, 1, 1)
         self._last_update = datetime (1970, 1, 1)
+        self._helper = EdataHelper ('datadis', self._usr, self._pwd, self._cups, experimental=self._experimental)
 
     async def async_added_to_hass(self):
+
+        @callback
+        def force_refresh(*args):
+            """Force the component to refresh."""
+            self.async_schedule_update_ha_state(True)
+
         try:
             serialized_data = await self._store.async_load()
             old_data = json.loads(json.dumps(serialized_data), object_hook=DataTools.datetime_parser)
@@ -77,10 +88,14 @@ class EdataSensor(SensorEntity):
                     self._attributes = self._helper.attributes
                     self._hass.data[DOMAIN][self._scups] = self._helper.data
                 else:
-                    self._helper = EdataHelper ('datadis', self._usr, self._pwd, self._cups, experimental=self._experimental)
                     _LOGGER.warning ('wrong database structure, wiping data')
         except Exception as e:
             _LOGGER.exception (e)
+        finally:
+            if self._hass.state == CoreState.running:
+                force_refresh()
+            else:
+                self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, force_refresh)
 
     @property
     def state(self):
@@ -108,9 +123,10 @@ class EdataSensor(SensorEntity):
         self._helper.update ()
         if self._last_update != self._helper.last_update:
             self._state = self._helper.last_update.strftime("%Y-%m-%d %H:%M")
-            self._attributes = self._helper.attributes.copy()
-            self._data = self._helper.data.copy()
+            self._attributes = self._helper.attributes
+            self._data = self._helper.data
             self._last_update = self._helper.last_update
+            self._hass.data[DOMAIN][self._scups] = self._data
             return True
         else:
             return False
