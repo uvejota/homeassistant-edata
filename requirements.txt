@@ -1,2 +1,2 @@
-e-data==0.2.14
+e-data==0.2.15
 python-dateutil
