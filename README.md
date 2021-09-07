@@ -1,9 +1,9 @@
 # homeassistant-edata
-Esta integración para Home Assistant te permite seguir de un vistazo tus consumos y máximas potencias alcanzadas. Para ello, se apoya en proveedores de datos como datadis, por lo que necesitarás credenciales del mismo. 
+Esta integración para Home Assistant te permite seguir de un vistazo tus consumos y máximas potencias alcanzadas, obteniendo sus datos desde datadis, y ofreciendo técnicas para su representación gráfica en lovelace mediante el componente apexcharts-card. 
 
 ![Captura Dashboard](https://i.imgur.com/P4TcGLH.png) 
 
-## Índice
+## Wiki
 1. [Principal][principal]
 2. [Instalación][instalacion]
 3. [Parámetros][parametros]
