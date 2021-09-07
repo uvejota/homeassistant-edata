@@ -3,6 +3,7 @@ import voluptuous as vol
 from .const import DOMAIN
 from homeassistant.core import callback
 from homeassistant.components import websocket_api
+from datetime import datetime, timedelta
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -10,7 +11,9 @@ _LOGGER = logging.getLogger(__name__)
 def websocket_get_daily_data(hass, connection, msg):
     """Publish daily consumptions list data."""
     try:
-        connection.send_result(msg["id"], hass.data[DOMAIN][msg["scups"].upper()].get('consumptions_daily_sum', []))
+        data = hass.data[DOMAIN][msg["scups"].upper()].get('consumptions_daily_sum', [])
+        filtered_data = [x for x in data if ((datetime.today().date() - datetime.strptime(x['datetime'], '%Y-%m-%d').date()) < timedelta (days=30))]
+        connection.send_result(msg["id"], filtered_data)
     except Exception as e:
         _LOGGER.exception (e)
         connection.send_result(msg["id"], [])
