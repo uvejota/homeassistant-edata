@@ -7,11 +7,8 @@ from homeassistant.helpers.reload import async_setup_reload_service
 from homeassistant.components.sensor import SensorEntity, PLATFORM_SCHEMA
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD, EVENT_HOMEASSISTANT_START
 from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
 from homeassistant.helpers.storage import Store
-from edata.helpers import *
-from edata.connectors import *
-from edata.processors import *
+from edata.helpers import EdataHelper
 from .const import DOMAIN, STORAGE_VERSION, STORAGE_KEY_PREAMBLE
 from .websockets import *
 from .store import DateTimeEncoder, DataTools
@@ -23,6 +20,8 @@ SCAN_INTERVAL = timedelta(minutes=30)
 # Custom configuration entries
 CONF_CUPS = 'cups'
 CONF_PROVIDER = 'provider'
+CONF_EXPERIMENTAL = 'experimental'
+CONF_DEBUG = 'debug'
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -30,7 +29,8 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Required(CONF_USERNAME): cv.string,
         vol.Required(CONF_PASSWORD): cv.string,
         vol.Required(CONF_CUPS): cv.string,
-        vol.Optional('experimental'): cv.boolean,
+        vol.Optional(CONF_EXPERIMENTAL): cv.boolean,
+        vol.Optional(CONF_DEBUG): cv.boolean
     }
 )
 
@@ -38,11 +38,16 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     await async_setup_reload_service(hass, DOMAIN, ['sensor'])
 
     entities = []
-    experimental = config.get('experimental', False)
+    experimental = config.get(CONF_EXPERIMENTAL, False)
+    debug = config.get(CONF_DEBUG, False)
     hass.data.setdefault(DOMAIN, {})
     entities.append(EdataSensor(hass, config[CONF_USERNAME], config[CONF_PASSWORD], config[CONF_CUPS], experimental=experimental))
     async_add_entities(entities)
     async_register_websockets (hass)
+
+    if debug:
+        logging.getLogger("edata").setLevel(logging.INFO)
+
     return True
 
 
