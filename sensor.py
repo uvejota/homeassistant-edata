@@ -129,27 +129,12 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
                         sum=_sum,
                     ))
                 _p = du.get_pvpc_tariff (data["datetime"])
-                if _p == 'p1':
-                    _sum["p1"] += data["value_kWh"]
-                    statistics["p1"].append (StatisticData(
-                        start=dt_util.as_local(data["datetime"]),
-                        state=data["value_kWh"],
-                        sum=_sum["p1"],
-                    ))
-                elif _p == 'p2':
-                    _sum["p2"] += data["value_kWh"]
-                    statistics["p2"].append (StatisticData(
-                        start=dt_util.as_local(data["datetime"]),
-                        state=data["value_kWh"],
-                        sum=_sum["p2"],
-                    ))
-                elif _p == 'p3':
-                    _sum["p3"] += data["value_kWh"]
-                    statistics["p3"].append (StatisticData(
-                        start=dt_util.as_local(data["datetime"]),
-                        state=data["value_kWh"],
-                        sum=_sum["p3"],
-                    ))
+                _sum[_p] += data["value_kWh"]
+                statistics[_p].append (StatisticData(
+                    start=dt_util.as_local(data["datetime"]),
+                    state=data["value_kWh"],
+                    sum=_sum[_p],
+                ))
 
         for _scope in ["total", "p1", "p2", "p3"]:
             if len(statistics[_scope]) > 0:
