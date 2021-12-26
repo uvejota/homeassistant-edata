@@ -127,7 +127,7 @@ class EdataSensor(SensorEntity):
     def _update (self):
         self._helper.update ()
         if self._last_update != self._helper.last_update:
-            self._state = self._helper.last_update.strftime("%Y-%m-%d %H:%M")
+            self._state = self._helper.attributes['last_registered_kWh_date'].strftime("%Y-%m-%d %H:%M")
             self._attributes = self._helper.attributes
             self._data = self._helper.data
             self._last_update = self._helper.last_update
