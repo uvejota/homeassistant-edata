@@ -108,8 +108,10 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         last_stats = {x: await hass.async_add_executor_job(
                 get_last_statistics, hass, 1, statistic_id[x], True
             ) for x in ["total", "p1", "p2", "p3"]}
+
+        reset = False
         _sum = {
-            x: last_stats[x].get("sum", 0) if last_stats else 0 
+            x: last_stats[x].get("sum", 0) if last_stats and not reset else 0 
             for x in ["total", "p1", "p2", "p3"]
             }
 
@@ -121,12 +123,12 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         }
 
         for data in api.data.get("consumptions", {}):
-            if not last_stats or dt_util.as_local(data["datetime"]) >= dt_util.parse_datetime(last_stats["total"][statistic_id["total"]][0]["end"]):
-                _sum += data["value_kWh"]
-                statistics.append (StatisticData(
+            if reset or not last_stats or dt_util.as_local(data["datetime"]) >= dt_util.parse_datetime(last_stats["total"][statistic_id["total"]][0]["end"]):
+                _sum["total"] += data["value_kWh"]
+                statistics["total"].append (StatisticData(
                         start=dt_util.as_local(data["datetime"]),
                         state=data["value_kWh"],
-                        sum=_sum,
+                        sum=_sum["total"],
                     ))
                 _p = du.get_pvpc_tariff (data["datetime"])
                 _sum[_p] += data["value_kWh"]
