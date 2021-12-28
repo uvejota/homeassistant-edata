@@ -78,12 +78,13 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     async def async_update_data():
         """Fetch data from edata endpoint."""
         try:
-            last_changed = api.attributes.get('last_registered_kWh_date', datetime(1970, 1, 1))
+            last_changed = api.attributes.get('last_registered_kWh_date', None)
             await hass.async_add_executor_job(api.update)
             hass.data[DOMAIN][scups] = api.data
-            if (api.attributes['last_registered_kWh_date'] - last_changed) > timedelta (hours=24):
+            if ( last_changed is None or 
+                (api.attributes.get('last_registered_kWh_date', datetime(1970, 1, 1)) - last_changed) > timedelta (hours=24) ):
                 await store.async_save(api.data)
-            await _insert_statistics ()
+            await _insert_statistics (last_changed is None)
             return {
                 "state": STATE_READY,
                 "attributes": api.attributes,
@@ -97,7 +98,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
                 "data": hass.data[DOMAIN][scups]
             }
 
-    async def _insert_statistics ():
+    async def _insert_statistics (reset=False):
         """ Insert edata statistics """
         statistic_id = {}
         statistic_id["total"] = (f"{DOMAIN}:{scups.lower()}_consumption")
@@ -109,9 +110,8 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
                 get_last_statistics, hass, 1, statistic_id[x], True
             ) for x in ["total", "p1", "p2", "p3"]}
 
-        reset = False
         _sum = {
-            x: last_stats[x].get("sum", 0) if last_stats and not reset else 0 
+            x: last_stats[x].get("sum", 0) if last_stats[x] and not reset else 0 
             for x in ["total", "p1", "p2", "p3"]
             }
 
@@ -122,21 +122,30 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
             'p3': []
         }
 
+        try:
+            last_stats_time = last_stats["total"][statistic_id["total"]][0]["end"] 
+        except KeyError as e:
+            last_stats_time = None
+
+        should_reset = reset
         for data in api.data.get("consumptions", {}):
-            if reset or not last_stats or dt_util.as_local(data["datetime"]) >= dt_util.parse_datetime(last_stats["total"][statistic_id["total"]][0]["end"]):
+            if reset or last_stats_time is None or dt_util.as_local(data["datetime"]) >= dt_util.parse_datetime(last_stats["total"][statistic_id["total"]][0]["end"]):
+                _p = du.get_pvpc_tariff (data["datetime"])
                 _sum["total"] += data["value_kWh"]
                 statistics["total"].append (StatisticData(
                         start=dt_util.as_local(data["datetime"]),
                         state=data["value_kWh"],
                         sum=_sum["total"],
+                        last_reset=data["datetime"] if should_reset else None
                     ))
-                _p = du.get_pvpc_tariff (data["datetime"])
                 _sum[_p] += data["value_kWh"]
                 statistics[_p].append (StatisticData(
                     start=dt_util.as_local(data["datetime"]),
                     state=data["value_kWh"],
                     sum=_sum[_p],
+                    last_reset=data["datetime"] if should_reset else None
                 ))
+                should_reset = False
 
         for _scope in ["total", "p1", "p2", "p3"]:
             if len(statistics[_scope]) > 0:

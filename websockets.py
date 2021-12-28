@@ -14,8 +14,10 @@ def websocket_get_daily_data(hass, connection, msg):
         data = hass.data[DOMAIN][msg["scups"].upper()].get('consumptions_daily_sum', [])
         filtered_data = [x for x in data if ((datetime.today().date() - datetime.strptime(x['datetime'], '%Y-%m-%d').date()) < timedelta (days=30))]
         connection.send_result(msg["id"], filtered_data)
+    except KeyError as e:
+        _LOGGER.error ("the provided scups parameter is not correct: %s", msg["scups"].upper())
     except Exception as e:
-        _LOGGER.exception (e)
+        _LOGGER.exception ("unhandled exception when processing websockets", e)
         connection.send_result(msg["id"], [])
 
 @callback
@@ -23,8 +25,10 @@ def websocket_get_monthly_data(hass, connection, msg):
     """Publish monthly consumptions list data."""
     try:
         connection.send_result(msg["id"], hass.data[DOMAIN][msg["scups"].upper()].get('consumptions_monthly_sum', []))
+    except KeyError as e:
+        _LOGGER.error ("the provided scups parameter is not correct: %s", msg["scups"].upper())
     except Exception as e:
-        _LOGGER.exception (e)
+        _LOGGER.exception ("unhandled exception when processing websockets", e)
         connection.send_result(msg["id"], [])
 
 @callback
@@ -32,8 +36,10 @@ def websocket_get_maximeter(hass, connection, msg):
     """Publish maximeter list data."""
     try:
         connection.send_result(msg["id"], hass.data[DOMAIN][msg["scups"].upper()].get('maximeter', []))
+    except KeyError as e:
+        _LOGGER.error ("the provided scups parameter is not correct: %s", msg["scups"].upper())
     except Exception as e:
-        _LOGGER.exception (e)
+        _LOGGER.exception ("unhandled exception when processing websockets", e)
         connection.send_result(msg["id"], [])
 
 def async_register_websockets (hass):
