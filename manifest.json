@@ -3,9 +3,9 @@
   "name": "e-data",
   "documentation": "https://github.com/uvejota/homeassistant-edata/",
   "issue_tracker": "https://github.com/uvejota/homeassistant-edata/issues",
-  "dependencies": [],
+  "dependencies": ["recorder"],
   "codeowners": ["@uvejota"],
   "requirements": ["e-data==0.3.7", "python-dateutil"],
-  "version": "0.1.9",
+  "version": "2021.12.1",
   "iot_class": "cloud_polling"
 }

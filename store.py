@@ -60,3 +60,10 @@ class DataTools ():
                         pass
             return json_dict
 
+async def async_load_storage (store):
+    serialized_data = await store.async_load()
+    old_data = json.loads(json.dumps(serialized_data), object_hook=DataTools.datetime_parser)
+    if old_data is not None and old_data != {}:
+        if DataTools.check_integrity(old_data):
+            return old_data
+    return False
