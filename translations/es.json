@@ -1,0 +1,23 @@
+{
+    "title": "Integración edata",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Configurar integración",
+                "data": {
+                    "username": "Nombre de usuario",
+                    "password": "Contraseña",
+                    "cups": "CUPS",
+                    "experimental": "Experimental"
+                }
+            }
+        },
+        "error": {
+            "already_configured": "Este CUPS ya está configurado"
+        },
+        "abort": {
+            "unknown": "Error desconocido",
+            "already_configured": "Este CUPS ya está configurado"
+        }
+    }
+}

@@ -7,10 +7,10 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.reload import async_setup_reload_service
 from homeassistant.components.sensor import SensorEntity, PLATFORM_SCHEMA
 from homeassistant.const import (
-    CONF_USERNAME, 
-    CONF_PASSWORD, 
-    EVENT_HOMEASSISTANT_START, 
-    ENERGY_KILO_WATT_HOUR, 
+    CONF_USERNAME,
+    CONF_PASSWORD,
+    EVENT_HOMEASSISTANT_START,
+    ENERGY_KILO_WATT_HOUR,
     POWER_KILO_WATT
 )
 from homeassistant.helpers.update_coordinator import (
@@ -35,19 +35,9 @@ from homeassistant.util import dt as dt_util
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(minutes=30)
 
-# Custom configuration entries
-CONF_CUPS = 'cups'
-CONF_PROVIDER = 'provider'
-CONF_EXPERIMENTAL = 'experimental'
-CONF_DEBUG = 'debug'
-
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Optional(CONF_PROVIDER): cv.string,
-        vol.Required(CONF_USERNAME): cv.string,
-        vol.Required(CONF_PASSWORD): cv.string,
-        vol.Required(CONF_CUPS): cv.string,
-        vol.Optional(CONF_EXPERIMENTAL): cv.boolean,
         vol.Optional(CONF_DEBUG): cv.boolean
     }
 )
@@ -56,16 +46,22 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     await async_setup_reload_service(hass, DOMAIN, ['sensor'])
     hass.data.setdefault(DOMAIN, {})
 
-    usr = config[CONF_USERNAME]
-    pwd = config[CONF_PASSWORD]
-    cups = config[CONF_CUPS]
-    scups = cups[-4:]
-    experimental = config.get(CONF_EXPERIMENTAL, False)
-
     if config.get(CONF_DEBUG, False):
         logging.getLogger("edata").setLevel(logging.INFO)
-    
-    # load old data if any 
+
+    async_register_websockets(hass)
+
+    return True
+
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    """Set up entry."""
+    usr = config_entry.data[CONF_USERNAME]
+    pwd = config_entry.data[CONF_PASSWORD]
+    cups = config_entry.data[CONF_CUPS]
+    scups = cups[-4:]
+    experimental = config_entry.data[CONF_EXPERIMENTAL]
+
+    # load old data if any
     store = Store (hass, STORAGE_VERSION, f"{STORAGE_KEY_PREAMBLE}_{scups}", encoder=DateTimeEncoder)
     prev_data = await async_load_storage (store)
     if prev_data:
@@ -81,7 +77,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
             last_changed = api.attributes.get('last_registered_kWh_date', None)
             await hass.async_add_executor_job(api.update)
             hass.data[DOMAIN][scups] = api.data
-            if ( last_changed is None or 
+            if ( last_changed is None or
                 (api.attributes.get('last_registered_kWh_date', datetime(1970, 1, 1)) - last_changed) > timedelta (hours=24) ):
                 await store.async_save(api.data)
             await _insert_statistics (last_changed is None)
@@ -111,7 +107,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
             ) for x in ["total", "p1", "p2", "p3"]}
 
         _sum = {
-            x: last_stats[x].get("sum", 0) if last_stats[x] and not reset else 0 
+            x: last_stats[x].get("sum", 0) if last_stats[x] and not reset else 0
             for x in ["total", "p1", "p2", "p3"]
             }
 
@@ -123,7 +119,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         }
 
         try:
-            last_stats_time = last_stats["total"][statistic_id["total"]][0]["end"] 
+            last_stats_time = last_stats["total"][statistic_id["total"]][0]["end"]
         except KeyError as e:
             last_stats_time = None
 
@@ -170,7 +166,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     if prev_data:
         coordinator.data = {
             "state": STATE_LOADING,
-            "attributes": api.attributes, 
+            "attributes": api.attributes,
             "data": hass.data[DOMAIN][scups]
         }
 
@@ -188,12 +184,11 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     # build sensor entities
 
     entities = []
-    entities.append (EdataSensor(coordinator))
+    entities.append(EdataSensor(coordinator))
     async_add_entities(entities)
 
-    async_register_websockets (hass)
-
     return True
+
 
 class EdataSensor(CoordinatorEntity, SensorEntity):
     """Representation of an e-data Sensor."""
