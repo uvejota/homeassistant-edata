@@ -1,49 +1,62 @@
 import logging
-import voluptuous as vol
-from .const import DOMAIN
-from homeassistant.core import callback
-from homeassistant.components import websocket_api
 from datetime import datetime, timedelta
 
+import voluptuous as vol
+from homeassistant.components import websocket_api
+from homeassistant.core import callback
+
+from .const import DOMAIN
+
 _LOGGER = logging.getLogger(__name__)
+
 
 @callback
 def websocket_get_daily_data(hass, connection, msg):
     """Publish daily consumptions list data."""
     try:
-        data = hass.data[DOMAIN][msg["scups"].upper()].get('consumptions_daily_sum', [])
-        filtered_data = [x for x in data if ((datetime.today().date() - datetime.strptime(x['datetime'], '%Y-%m-%d').date()) < timedelta (days=30))]
+        data = hass.data[DOMAIN][msg["scups"].upper()].get(
+            'consumptions_daily_sum', [])
+        filtered_data = [x for x in data if ((datetime.today().date(
+        ) - datetime.strptime(x['datetime'], '%Y-%m-%d').date()) < timedelta(days=30))]
         connection.send_result(msg["id"], filtered_data)
     except KeyError as e:
-        _LOGGER.error ("the provided scups parameter is not correct: %s", msg["scups"].upper())
+        _LOGGER.error(
+            "the provided scups parameter is not correct: %s", msg["scups"].upper())
     except Exception as e:
-        _LOGGER.exception ("unhandled exception when processing websockets", e)
+        _LOGGER.exception("unhandled exception when processing websockets", e)
         connection.send_result(msg["id"], [])
+
 
 @callback
 def websocket_get_monthly_data(hass, connection, msg):
     """Publish monthly consumptions list data."""
     try:
-        connection.send_result(msg["id"], hass.data[DOMAIN][msg["scups"].upper()].get('consumptions_monthly_sum', []))
+        connection.send_result(msg["id"], hass.data[DOMAIN][msg["scups"].upper()].get(
+            'consumptions_monthly_sum', []))
     except KeyError as e:
-        _LOGGER.error ("the provided scups parameter is not correct: %s", msg["scups"].upper())
+        _LOGGER.error(
+            "the provided scups parameter is not correct: %s", msg["scups"].upper())
     except Exception as e:
-        _LOGGER.exception ("unhandled exception when processing websockets", e)
+        _LOGGER.exception("unhandled exception when processing websockets", e)
         connection.send_result(msg["id"], [])
+
 
 @callback
 def websocket_get_maximeter(hass, connection, msg):
     """Publish maximeter list data."""
     try:
-        connection.send_result(msg["id"], hass.data[DOMAIN][msg["scups"].upper()].get('maximeter', []))
+        connection.send_result(
+            msg["id"], hass.data[DOMAIN][msg["scups"].upper()].get('maximeter', []))
     except KeyError as e:
-        _LOGGER.error ("the provided scups parameter is not correct: %s", msg["scups"].upper())
+        _LOGGER.error(
+            "the provided scups parameter is not correct: %s", msg["scups"].upper())
     except Exception as e:
-        _LOGGER.exception ("unhandled exception when processing websockets", e)
+        _LOGGER.exception("unhandled exception when processing websockets", e)
         connection.send_result(msg["id"], [])
 
-def async_register_websockets (hass):
-    
+
+def async_register_websockets(hass):
+
     hass.components.websocket_api.async_register_command(
         f"{DOMAIN}/consumptions/daily",
         websocket_get_daily_data,
