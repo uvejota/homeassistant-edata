@@ -49,12 +49,12 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     if config.get(CONF_DEBUG, False):
         logging.getLogger("edata").setLevel(logging.INFO)
 
-    async_register_websockets(hass)
-
     return True
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up entry."""
+    hass.data.setdefault(DOMAIN, {})
+
     usr = config_entry.data[CONF_USERNAME]
     pwd = config_entry.data[CONF_PASSWORD]
     cups = config_entry.data[CONF_CUPS]
@@ -186,6 +186,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     entities = []
     entities.append(EdataSensor(coordinator))
     async_add_entities(entities)
+    async_register_websockets(hass)
 
     return True
 
