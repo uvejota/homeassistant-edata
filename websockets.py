@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timedelta
 
 import voluptuous as vol
 from homeassistant.components import websocket_api
@@ -15,9 +14,8 @@ def websocket_get_daily_data(hass, connection, msg):
     """Publish daily consumptions list data."""
     try:
         data = hass.data[DOMAIN][msg["scups"].upper()].get(
-            'consumptions_daily_sum', [])
-        filtered_data = [x for x in data if ((datetime.today().date(
-        ) - datetime.strptime(x['datetime'], '%Y-%m-%d').date()) < timedelta(days=30))]
+            'ws_consumptions_day', [])
+        filtered_data = data[-30:]
         connection.send_result(msg["id"], filtered_data)
     except KeyError as e:
         _LOGGER.error(
@@ -32,7 +30,7 @@ def websocket_get_monthly_data(hass, connection, msg):
     """Publish monthly consumptions list data."""
     try:
         connection.send_result(msg["id"], hass.data[DOMAIN][msg["scups"].upper()].get(
-            'consumptions_monthly_sum', []))
+            'ws_consumptions_month', []))
     except KeyError as e:
         _LOGGER.error(
             "the provided scups parameter is not correct: %s", msg["scups"].upper())
