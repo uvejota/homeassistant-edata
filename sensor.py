@@ -28,7 +28,9 @@ from homeassistant.components.recorder.statistics import (
     async_add_external_statistics,
     get_last_statistics,
     statistics_during_period,
+    clear_statistics
 )
+from homeassistant.components.recorder.const import DATA_INSTANCE
 from homeassistant.util import dt as dt_util
 
 # HA variables
@@ -101,17 +103,17 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     async def _insert_statistics (reset=False):
         """ Insert edata statistics """
         statistic_id = {}
-        statistic_id["total"] = (f"{DOMAIN}:{scups.lower()}_consumption")
-        statistic_id["p1"] = (f"{DOMAIN}:{scups.lower()}_p1_consumption")
-        statistic_id["p2"] = (f"{DOMAIN}:{scups.lower()}_p2_consumption")
-        statistic_id["p3"] = (f"{DOMAIN}:{scups.lower()}_p3_consumption")
+        statistic_id["total"] = f"{DOMAIN}:{scups.lower()}_consumption"
+        statistic_id["p1"] = f"{DOMAIN}:{scups.lower()}_p1_consumption"
+        statistic_id["p2"] = f"{DOMAIN}:{scups.lower()}_p2_consumption"
+        statistic_id["p3"] = f"{DOMAIN}:{scups.lower()}_p3_consumption"
 
         last_stats = {x: await hass.async_add_executor_job(
                 get_last_statistics, hass, 1, statistic_id[x], True
             ) for x in ["total", "p1", "p2", "p3"]}
 
         _sum = {
-            x: last_stats[x].get("sum", 0) if last_stats[x] and not reset else 0 
+            x: last_stats[x][statistic_id[x]][0].get("sum", 0) if last_stats[x] and not reset else 0 
             for x in ["total", "p1", "p2", "p3"]
             }
 
@@ -122,42 +124,41 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
             'p3': []
         }
 
+        if reset:
+            _LOGGER.warning (f"clearing statistics for {[statistic_id[x] for x in statistic_id]}")
+            await hass.async_add_executor_job(clear_statistics, hass.data[DATA_INSTANCE], [statistic_id[x] for x in statistic_id])
+
         try:
             last_stats_time = last_stats["total"][statistic_id["total"]][0]["end"] 
         except KeyError as e:
             last_stats_time = None
 
-        should_reset = reset
         for data in api.data.get("consumptions", {}):
-            if reset or last_stats_time is None or dt_util.as_local(data["datetime"]) >= dt_util.parse_datetime(last_stats["total"][statistic_id["total"]][0]["end"]):
+            if reset or last_stats_time is None or dt_util.as_local(data["datetime"]) >= dt_util.parse_datetime(last_stats_time):
                 _p = du.get_pvpc_tariff (data["datetime"])
                 _sum["total"] += data["value_kWh"]
                 statistics["total"].append (StatisticData(
                         start=dt_util.as_local(data["datetime"]),
                         state=data["value_kWh"],
-                        sum=_sum["total"],
-                        last_reset=data["datetime"] if should_reset else None
+                        sum=_sum["total"]
                     ))
                 _sum[_p] += data["value_kWh"]
                 statistics[_p].append (StatisticData(
                     start=dt_util.as_local(data["datetime"]),
                     state=data["value_kWh"],
-                    sum=_sum[_p],
-                    last_reset=data["datetime"] if should_reset else None
+                    sum=_sum[_p]
                 ))
-                should_reset = False
 
-        for _scope in ["total", "p1", "p2", "p3"]:
-            if len(statistics[_scope]) > 0:
-                metadata = StatisticMetaData(
-                    has_mean=False,
-                    has_sum=True,
-                    name=f"{DOMAIN}_{scups} {_scope} energy consumption",
-                    source=DOMAIN,
-                    statistic_id=statistic_id[_scope],
-                    unit_of_measurement=ENERGY_KILO_WATT_HOUR,
-                )
-                async_add_external_statistics(hass, metadata, statistics[_scope])
+        for _scope in ["p1", "p2", "p3", "total"]:
+            metadata = StatisticMetaData(
+                has_mean=False,
+                has_sum=True,
+                name=f"{DOMAIN}_{scups} {_scope} energy consumption",
+                source=DOMAIN,
+                statistic_id=statistic_id[_scope],
+                unit_of_measurement=ENERGY_KILO_WATT_HOUR,
+            )
+            async_add_external_statistics(hass, metadata, statistics[_scope])
 
     coordinator = DataUpdateCoordinator(
         hass,
