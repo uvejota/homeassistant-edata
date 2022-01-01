@@ -1,16 +1,21 @@
 import json
 import logging
+from calendar import monthrange
 from collections import OrderedDict
 from datetime import datetime, timedelta
 
 import voluptuous as vol
+from dateutil.relativedelta import relativedelta
+from edata.connectors import DatadisConnector
 from edata.helpers import EdataHelper
 from edata.processors import DataUtils as du
+from edata.processors import MaximeterProcessor
 from homeassistant.components.recorder.const import DATA_INSTANCE
 from homeassistant.components.recorder.models import (StatisticData,
                                                       StatisticMetaData)
 from homeassistant.components.recorder.statistics import (
-    async_add_external_statistics, clear_statistics, get_last_statistics,
+    async_add_external_statistics, clear_statistics, day_start_end,
+    get_last_statistics, month_start_end, same_day, same_month,
     statistics_during_period)
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.const import (CONF_PASSWORD, CONF_USERNAME,
@@ -57,7 +62,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     usr = config[CONF_USERNAME]
     pwd = config[CONF_PASSWORD]
     cups = config[CONF_CUPS]
-    scups = cups[-4:]
+    scups = cups[-4:].upper()
     experimental = config.get(CONF_EXPERIMENTAL, False)
 
     if config.get(CONF_DEBUG, False):
@@ -75,125 +80,210 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     else:
         api = EdataHelper('datadis', usr, pwd, cups, experimental=experimental)
 
-    statistic_id = {}
-    statistic_id["total"] = f"{DOMAIN}:{scups.lower()}_consumption"
-    statistic_id["p1"] = f"{DOMAIN}:{scups.lower()}_p1_consumption"
-    statistic_id["p2"] = f"{DOMAIN}:{scups.lower()}_p2_consumption"
-    statistic_id["p3"] = f"{DOMAIN}:{scups.lower()}_p3_consumption"
+    # same but with connector
+    # conn = DatadisConnector (usr, pwd)
+
+    consumption_stats_id = {
+        "total": f"{DOMAIN}:{scups.lower()}_consumption",
+        "p1": f"{DOMAIN}:{scups.lower()}_p1_consumption",
+        "p2": f"{DOMAIN}:{scups.lower()}_p2_consumption",
+        "p3": f"{DOMAIN}:{scups.lower()}_p3_consumption",
+    }
 
     async def async_update_data():
         """Fetch data from edata endpoint."""
-
+        attributes = {
+            x: None for x in ATTRIBUTES if x not in EXPERIMENTAL_ATTRS}
+        state = STATE_LOADING
         try:
-            last_changed = api.attributes.get('last_registered_kWh_date', None)
             await hass.async_add_executor_job(api.update)
-            stats_ok = await _load_statistics()
-            hass.data[DOMAIN][scups] = api.data
-            if (last_changed is None or
-                    (api.attributes.get('last_registered_kWh_date', datetime(1970, 1, 1)) - last_changed) > timedelta(hours=24)):
+
+            # read cups
+            for i in api.data['supplies']:
+                if i['cups'] == cups:
+                    attributes["cups"] = cups
+                    break
+
+            # read latest contract
+            most_recent_date = datetime(1970, 1, 1)
+            for i in api.data['contracts']:
+                if i['date_end'] > most_recent_date:
+                    most_recent_date = i['date_end']
+                    attributes['contract_p1_kW'] = i.get('power_p1', None)
+                    attributes['contract_p2_kW'] = i.get('power_p2', None)
+                    break
+
+            # process maximeter data
+            if len(api.data['maximeter']) > 0:
+                processor = MaximeterProcessor(api.data['maximeter'])
+                attributes['max_power_kW'] = processor.output['stats'].get(
+                    'value_max_kW', None)
+                attributes['max_power_date'] = processor.output['stats'].get(
+                    'date_max', None)
+                attributes['max_power_mean_kW'] = processor.output['stats'].get(
+                    'value_mean_kW', None)
+                attributes['max_power_90perc_kW'] = processor.output['stats'].get(
+                    'value_tile90_kW', None)
+
+            hass.data[DOMAIN][scups] = api.data  # old
+
+            # load and process recent statistics
+            if hass.data[DOMAIN][scups].get("attributes", None) is None:
+                attrs = await async_load_statistics()
+                last_record = attrs['last_registered_kWh_date']
+            else:
+                last_record = hass.data[DOMAIN][scups]["attributes"]["last_registered_kWh_date"]
+            last_record = dt_util.parse_datetime(last_record)
+
+            # update statistics
+            attrs = await async_update_statistics(attrs is None)
+            attrs.update({x: round(attrs[x], 2)
+                         for x in attrs if ATTRIBUTES[x] is not None})
+            attributes.update(attrs)
+            hass.data[DOMAIN][scups]["attributes"] = attributes
+
+            if (dt_util.parse_datetime(attributes['last_registered_kWh_date']) - last_record) > timedelta(hours=24):
                 await store.async_save(api.data)
-            await _insert_statistics(last_changed is None or not stats_ok)
-            await _load_statistics()
-            return {
-                "state": STATE_READY,
-                "attributes": api.attributes,
-                "data": hass.data[DOMAIN][scups]
-            }
+
+            state = STATE_READY
         except Exception as e:
             _LOGGER.exception('unhandled exception when updating data %s', e)
-            return {
-                "state": STATE_ERROR,
-                "attributes": api.attributes,
-                "data": hass.data[DOMAIN][scups]
-            }
+            state = STATE_ERROR
 
-    async def _insert_statistics(reset=False):
-        """ Insert edata statistics """
+        return {
+            "state": state,
+            "attributes": attributes,
+            "data": hass.data[DOMAIN][scups]
+        }
 
+    async def async_update_statistics(reset=False):
+        """ Insert new edata statistics """
+        # fetch latest stats
         last_stats = {x: await hass.async_add_executor_job(
-            get_last_statistics, hass, 1, statistic_id[x], True
+            get_last_statistics, hass, 1, consumption_stats_id[x], True
         ) for x in ["total", "p1", "p2", "p3"]}
-
+        # get sum
         _sum = {
-            x: last_stats[x][statistic_id[x]][0].get(
+            x: last_stats[x][consumption_stats_id[x]][0].get(
                 "sum", 0) if last_stats[x] and not reset else 0
             for x in ["total", "p1", "p2", "p3"]
         }
-
-        statistics = {
+        # build stats lists
+        consumptions = {
             'total': [],
             'p1': [],
             'p2': [],
             'p3': []
         }
-
+        # wipe data if needed
         if reset:
             _LOGGER.warning(
-                f"clearing statistics for {[statistic_id[x] for x in statistic_id]}")
-            await hass.async_add_executor_job(clear_statistics, hass.data[DATA_INSTANCE], [statistic_id[x] for x in statistic_id])
-
+                f"clearing statistics for {[consumption_stats_id[x] for x in consumption_stats_id]}")
+            await hass.async_add_executor_job(clear_statistics, hass.data[DATA_INSTANCE], [consumption_stats_id[x] for x in consumption_stats_id])
+        # get last record time
         try:
-            last_stats_time = last_stats["total"][statistic_id["total"]][0]["end"]
+            last_stats_time = last_stats["total"][consumption_stats_id["total"]][0]["end"]
         except KeyError as e:
             last_stats_time = None
-
-        for data in api.data.get("consumptions", {}):
+        # prepare additive stats
+        for data in api.data.get("consumptions", []):
             if reset or last_stats_time is None or dt_util.as_local(data["datetime"]) >= dt_util.parse_datetime(last_stats_time):
                 _p = du.get_pvpc_tariff(data["datetime"])
                 _sum["total"] += data["value_kWh"]
-                statistics["total"].append(StatisticData(
+                consumptions["total"].append(StatisticData(
                     start=dt_util.as_local(data["datetime"]),
                     state=data["value_kWh"],
                     sum=_sum["total"]
                 ))
                 _sum[_p] += data["value_kWh"]
-                statistics[_p].append(StatisticData(
+                consumptions[_p].append(StatisticData(
                     start=dt_util.as_local(data["datetime"]),
                     state=data["value_kWh"],
                     sum=_sum[_p]
                 ))
-
+        # insert stats
         for _scope in ["p1", "p2", "p3", "total"]:
             metadata = StatisticMetaData(
                 has_mean=False,
                 has_sum=True,
                 name=f"{DOMAIN}_{scups} {_scope} energy consumption",
                 source=DOMAIN,
-                statistic_id=statistic_id[_scope],
+                statistic_id=consumption_stats_id[_scope],
                 unit_of_measurement=ENERGY_KILO_WATT_HOUR,
             )
-            async_add_external_statistics(hass, metadata, statistics[_scope])
+            async_add_external_statistics(hass, metadata, consumptions[_scope])
+        return await async_load_statistics()
 
-    async def _load_statistics():
+    async def async_load_statistics():
+        """ Load existing statistics into attributes and websockets """
         stats_ok = True
         stats = {}
-        for _aggr_method in ["month", "day", "hour"]:
-            _stats = await hass.async_add_executor_job(statistics_during_period, hass, dt_util.as_local(datetime(1970, 1, 1)), None, [statistic_id[x] for x in statistic_id], _aggr_method)
-            stats[_aggr_method] = {}
-            for x in _stats:
-                _data = _stats[x]
-                _sum = 0
-                for i in _data:
-                    date = dt_util.as_local(
-                        dt_util.parse_datetime(i['start'])).isoformat()
-                    if date not in stats[_aggr_method]:
-                        stats[_aggr_method][date] = {
-                            'datetime': date, 'value_kWh': 0, 'value_p1_kWh': 0, 'value_p2_kWh': 0, 'value_p3_kWh': 0}
-                    for x in ["total", "p1", "p2", "p3"]:
-                        if statistic_id[x] == i['statistic_id']:
-                            _key = 'value_kWh' if x == 'total' else f"value_{x}_kWh"
-                            _inc = round(i['sum'] - _sum, 2)
-                            stats[_aggr_method][date][_key] = _inc
-                            _sum = i['sum']
-                            if _inc < 0:
-                                stats_ok = False
-                            break
-                    if stats_ok == False:
-                        return stats_ok
-            hass.data[DOMAIN][scups.upper()][f"ws_consumptions_{_aggr_method}"] = sorted([
-                stats[_aggr_method][x] for x in stats[_aggr_method]
-            ], key=lambda d: dt_util.parse_datetime(d['datetime']))
-        return stats_ok
+        attrs = {}
+        last_stats = await hass.async_add_executor_job(
+            get_last_statistics, hass, 1, consumption_stats_id["total"], True
+        )
+        if last_stats:
+            last_record = dt_util.parse_datetime(
+                last_stats[consumption_stats_id["total"]][0]["end"]) - timedelta(hours=1)
+            for _aggr_method in ["month", "day"]:
+                _stats = await hass.async_add_executor_job(statistics_during_period, hass, dt_util.as_local(datetime(1970, 1, 1)), None, [consumption_stats_id[x] for x in consumption_stats_id], _aggr_method)
+                stats[_aggr_method] = {}
+                for x in _stats:
+                    _data = _stats[x]
+                    _sum = 0
+                    for i in _data:
+                        _dt = dt_util.as_local(
+                            dt_util.parse_datetime(i['start']))
+                        date = _dt.isoformat()
+                        if date not in stats[_aggr_method]:
+                            stats[_aggr_method][date] = {
+                                'datetime': date, 'value_kWh': 0, 'value_p1_kWh': 0, 'value_p2_kWh': 0, 'value_p3_kWh': 0}
+                        for x in ["total", "p1", "p2", "p3"]:
+                            if consumption_stats_id[x] == i['statistic_id']:
+                                _key = 'value_kWh' if x == 'total' else f"value_{x}_kWh"
+                                _inc = round(i['sum'] - _sum, 2)
+                                stats[_aggr_method][date][_key] = _inc
+                                _sum = i['sum']
+                                if _inc < 0:
+                                    stats_ok = False
+                                break
+                # load websockets data
+                hass.data[DOMAIN][scups.upper()][f"ws_consumptions_{_aggr_method}"] = sorted([
+                    stats[_aggr_method][x] for x in stats[_aggr_method]
+                ], key=lambda d: dt_util.parse_datetime(d['datetime']))
+            attrs["last_registered_kWh_date"] = dt_util.as_local(
+                last_record).isoformat()
+            # load yesterday attributes
+            ydates = day_start_end(datetime.now() - timedelta(days=1))
+            _date_str = dt_util.as_local(ydates[0]).isoformat()
+            if _date_str in stats["day"]:
+                attrs["yesterday_kWh"] = stats["day"][_date_str]["value_kWh"]
+                attrs["yesterday_p1_kWh"] = stats["day"][_date_str]["value_p1_kWh"]
+                attrs["yesterday_p2_kWh"] = stats["day"][_date_str]["value_p2_kWh"]
+                attrs["yesterday_p3_kWh"] = stats["day"][_date_str]["value_p3_kWh"]
+                attrs["yesterday_hours"] = (
+                    (ydates[1] - ydates[0]).seconds / 3600.0) if last_record > ydates[1] else ((last_record - ydates[0]).seconds / 3600.0)
+            # load current month attributes
+            cmdates = month_start_end(datetime.now().replace(day=1))
+            _date_str = dt_util.as_local(cmdates[0]).isoformat()
+            if _date_str in stats["month"]:
+                attrs["month_kWh"] = stats["month"][_date_str]["value_kWh"]
+                attrs["month_p1_kWh"] = stats["month"][_date_str]["value_p1_kWh"]
+                attrs["month_p2_kWh"] = stats["month"][_date_str]["value_p2_kWh"]
+                attrs["month_p3_kWh"] = stats["month"][_date_str]["value_p3_kWh"]
+                attrs["month_days"] = (
+                    cmdates[1] - cmdates[0]).days if last_record > cmdates[1] else (last_record - cmdates[0]).days
+            # load last month attributes
+            lmdates = month_start_end(cmdates[0] - relativedelta(months=1))
+            _date_str = dt_util.as_local(lmdates[0]).isoformat()
+            if _date_str in stats["month"]:
+                attrs["last_month_kWh"] = stats["month"][_date_str]["value_kWh"]
+                attrs["last_month_p1_kWh"] = stats["month"][_date_str]["value_p1_kWh"]
+                attrs["last_month_p2_kWh"] = stats["month"][_date_str]["value_p2_kWh"]
+                attrs["last_month_p3_kWh"] = stats["month"][_date_str]["value_p3_kWh"]
+                attrs["last_month_days"] = (
+                    lmdates[1] - lmdates[0]).days if last_record > lmdates[1] else (last_record - lmdates[0]).days
+            return attrs if stats_ok else None
 
     coordinator = DataUpdateCoordinator(
         hass,
