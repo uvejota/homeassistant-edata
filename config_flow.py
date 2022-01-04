@@ -64,12 +64,21 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = "already_configured"
         else:
             await self.async_set_unique_id(user_input[CONF_CUPS])
+            self._abort_if_unique_id_configured()
             extra_data = {"scups": user_input[CONF_CUPS][-4:]}
             return self.async_create_entry(title=info["title"], data={**user_input, **extra_data})
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
+
+    async def async_step_import(self, import_data: dict[str, Any]) -> FlowResult:
+        """Import data from yaml config"""
+        await self.async_set_unique_id(import_data[CONF_CUPS])
+        self._abort_if_unique_id_configured()
+        scups = import_data[CONF_CUPS][-4:]
+        extra_data = {"scups": scups}
+        return self.async_create_entry(title=scups, data={**import_data, **extra_data})
 
 class AlreadyConfigured(HomeAssistantError):
     """Error to indicate CUPS is already configured"""

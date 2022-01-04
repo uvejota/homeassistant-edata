@@ -2,6 +2,7 @@ import logging, json
 import voluptuous as vol
 from collections import OrderedDict
 from homeassistant.core import CoreState, callback
+from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.reload import async_setup_reload_service
@@ -37,24 +38,63 @@ from homeassistant.util import dt as dt_util
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(minutes=30)
 
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-    {
-        vol.Optional(CONF_PROVIDER): cv.string,
-        vol.Optional(CONF_DEBUG): cv.boolean
-    }
+
+PLATFORM_SCHEMA = vol.All(
+        cv.deprecated(CONF_USERNAME),
+        cv.deprecated(CONF_PASSWORD),
+        cv.deprecated(CONF_CUPS),
+        cv.deprecated(CONF_EXPERIMENTAL),
+        cv.deprecated(CONF_PROVIDER),
+        PLATFORM_SCHEMA.extend((
+            {
+                vol.Optional(CONF_DEBUG): cv.boolean,
+                vol.Optional(CONF_PROVIDER): cv.string,
+                vol.Optional(CONF_USERNAME): cv.string,
+                vol.Optional(CONF_PASSWORD): cv.string,
+                vol.Optional(CONF_CUPS): cv.string,
+                vol.Optional(CONF_EXPERIMENTAL): cv.boolean,
+            }
+        ),
+    )
 )
 
+
+VALID_ENTITY_CONFIG = vol.Schema({
+    vol.Required(CONF_USERNAME): cv.string,
+    vol.Required(CONF_PASSWORD): cv.string,
+    vol.Required(CONF_CUPS): cv.string,
+    vol.Optional(CONF_EXPERIMENTAL, default=False): cv.boolean,
+    # vol.Optional(CONF_PROVIDER): cv.string
+}, extra=vol.REMOVE_EXTRA)
+
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    await async_setup_reload_service(hass, DOMAIN, ['sensor'])
+    """Import edata configuration from YAML."""
     hass.data.setdefault(DOMAIN, {})
 
     if config.get(CONF_DEBUG, False):
         logging.getLogger("edata").setLevel(logging.INFO)
 
+    if any(key in config for key in [CONF_USERNAME, CONF_PASSWORD, CONF_CUPS, CONF_EXPERIMENTAL, CONF_PROVIDER]):
+        try:
+            validated_config = VALID_ENTITY_CONFIG(config)
+            _LOGGER.warning(
+                "Loading edata sensor via platform setup is deprecated. It will be imported into Home Assistant integration. Please remove it from your configuration"
+            )
+            hass.async_create_task(
+                hass.config_entries.flow.async_init(
+                    DOMAIN,
+                    context={"source": SOURCE_IMPORT},
+                    data=validated_config,
+                )
+            )
+        except vol.Error as ex:
+            _LOGGER.warning("Invalid config '%s': %s", config, ex)
+
     return True
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up entry."""
+    await async_setup_reload_service(hass, DOMAIN, ['sensor'])
     hass.data.setdefault(DOMAIN, {})
 
     usr = config_entry.data[CONF_USERNAME]
