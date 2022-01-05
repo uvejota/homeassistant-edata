@@ -25,5 +25,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     return unload_ok
 
+
 async def async_remove_entry(hass, entry) -> None:
     """Handle removal of an entry."""

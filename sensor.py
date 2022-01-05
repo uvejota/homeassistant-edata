@@ -1,38 +1,33 @@
-import logging, json
-import voluptuous as vol
+import json
+import logging
 from collections import OrderedDict
-from homeassistant.core import CoreState, callback
-from homeassistant.config_entries import SOURCE_IMPORT
-from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.storage import Store
-from homeassistant.helpers.reload import async_setup_reload_service
-from homeassistant.components.sensor import SensorEntity, PLATFORM_SCHEMA
-from homeassistant.const import (
-    CONF_USERNAME,
-    CONF_PASSWORD,
-    EVENT_HOMEASSISTANT_START,
-    ENERGY_KILO_WATT_HOUR,
-    POWER_KILO_WATT
-)
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-)
 from datetime import datetime, timedelta
+
+import voluptuous as vol
 from edata.helpers import EdataHelper
 from edata.processors import DataUtils as du
-from .const import *
-from .websockets import *
-from .store import DateTimeEncoder, async_load_storage
-from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
-from homeassistant.components.recorder.statistics import (
-    async_add_external_statistics,
-    get_last_statistics,
-    statistics_during_period,
-    clear_statistics
-)
 from homeassistant.components.recorder.const import DATA_INSTANCE
+from homeassistant.components.recorder.models import (StatisticData,
+                                                      StatisticMetaData)
+from homeassistant.components.recorder.statistics import (
+    async_add_external_statistics, clear_statistics, get_last_statistics,
+    statistics_during_period)
+from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
+from homeassistant.config_entries import SOURCE_IMPORT
+from homeassistant.const import (CONF_PASSWORD, CONF_USERNAME,
+                                 ENERGY_KILO_WATT_HOUR,
+                                 EVENT_HOMEASSISTANT_START, POWER_KILO_WATT)
+from homeassistant.core import CoreState, callback
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.reload import async_setup_reload_service
+from homeassistant.helpers.storage import Store
+from homeassistant.helpers.update_coordinator import (CoordinatorEntity,
+                                                      DataUpdateCoordinator)
 from homeassistant.util import dt as dt_util
+
+from .const import *
+from .store import DateTimeEncoder, async_load_storage
+from .websockets import *
 
 # HA variables
 _LOGGER = logging.getLogger(__name__)
