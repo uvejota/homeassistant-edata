@@ -1,0 +1,23 @@
+{
+    "title": "Integració edata",
+    "config": {
+        "abort": {
+            "already_configured": "CUPS ja configurat",
+            "unknown": "S'ha produït un error desconegut"
+        },
+        "error": {
+            "already_configured": "Aquest CUPS ja ha estat configurat"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "cups": "CUPS",
+                    "experimental": "Experimental",
+                    "password": "Contrasenya",
+                    "username": "Nom d'usuari"
+                },
+                "title": "Configuració de la integració"
+            }
+        }
+    }
+}
