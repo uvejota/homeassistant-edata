@@ -1,38 +1,24 @@
 import json
 import logging
-<<<<<<< HEAD
 from calendar import monthrange
-=======
->>>>>>> dev
 from collections import OrderedDict
 from datetime import datetime, timedelta
 
 import voluptuous as vol
-<<<<<<< HEAD
 from dateutil.relativedelta import relativedelta
 from edata.connectors import DatadisConnector
 from edata.helpers import EdataHelper
 from edata.processors import DataUtils as du
 from edata.processors import MaximeterProcessor
-=======
-from edata.helpers import EdataHelper
-from edata.processors import DataUtils as du
->>>>>>> dev
 from homeassistant.components.recorder.const import DATA_INSTANCE
 from homeassistant.components.recorder.models import (StatisticData,
                                                       StatisticMetaData)
 from homeassistant.components.recorder.statistics import (
-<<<<<<< HEAD
     async_add_external_statistics, clear_statistics, day_start_end,
     get_last_statistics, month_start_end, same_day, same_month,
     statistics_during_period)
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
-=======
-    async_add_external_statistics, clear_statistics, get_last_statistics,
-    statistics_during_period)
-from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.config_entries import SOURCE_IMPORT
->>>>>>> dev
 from homeassistant.const import (CONF_PASSWORD, CONF_USERNAME,
                                  ENERGY_KILO_WATT_HOUR,
                                  EVENT_HOMEASSISTANT_START, POWER_KILO_WATT)
@@ -73,8 +59,6 @@ PLATFORM_SCHEMA = vol.All(
 )
 
 
-<<<<<<< HEAD
-=======
 VALID_ENTITY_CONFIG = vol.Schema({
     vol.Required(CONF_USERNAME): cv.string,
     vol.Required(CONF_PASSWORD): cv.string,
@@ -83,7 +67,6 @@ VALID_ENTITY_CONFIG = vol.Schema({
     # vol.Optional(CONF_PROVIDER): cv.string
 }, extra=vol.REMOVE_EXTRA)
 
->>>>>>> dev
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Import edata configuration from YAML."""
     hass.data.setdefault(DOMAIN, {})
@@ -114,21 +97,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     await async_setup_reload_service(hass, DOMAIN, ['sensor'])
     hass.data.setdefault(DOMAIN, {})
 
-<<<<<<< HEAD
-    usr = config[CONF_USERNAME]
-    pwd = config[CONF_PASSWORD]
-    cups = config[CONF_CUPS]
-    scups = cups[-4:].upper()
-    experimental = config.get(CONF_EXPERIMENTAL, False)
-
-    if config.get(CONF_DEBUG, False):
-        logging.getLogger("edata").setLevel(logging.INFO)
-
-    # load old data if any
-    store = Store(hass, STORAGE_VERSION,
-                  f"{STORAGE_KEY_PREAMBLE}_{scups}", encoder=DateTimeEncoder)
-    prev_data = await async_load_storage(store)
-=======
     usr = config_entry.data[CONF_USERNAME]
     pwd = config_entry.data[CONF_PASSWORD]
     cups = config_entry.data[CONF_CUPS]
@@ -138,7 +106,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     # load old data if any
     store = Store (hass, STORAGE_VERSION, f"{STORAGE_KEY_PREAMBLE}_{scups}", encoder=DateTimeEncoder)
     prev_data = await async_load_storage (store)
->>>>>>> dev
     if prev_data:
         api = EdataHelper('datadis',  usr, pwd, cups,
                           data=prev_data, experimental=experimental)
@@ -164,7 +131,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         state = STATE_LOADING
         try:
             await hass.async_add_executor_job(api.update)
-<<<<<<< HEAD
 
             # read cups
             for i in api.data['supplies']:
@@ -211,34 +177,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             hass.data[DOMAIN][scups]["attributes"] = attributes
 
             if (dt_util.parse_datetime(attributes['last_registered_kWh_date']) - last_record) > timedelta(hours=24):
-=======
-            hass.data[DOMAIN][scups] = api.data
-            if ( last_changed is None or
-                (api.attributes.get('last_registered_kWh_date', datetime(1970, 1, 1)) - last_changed) > timedelta (hours=24) ):
->>>>>>> dev
                 await store.async_save(api.data)
 
             state = STATE_READY
         except Exception as e:
-<<<<<<< HEAD
             _LOGGER.exception('unhandled exception when updating data %s', e)
             state = STATE_ERROR
-=======
-            _LOGGER.exception ('unhandled exception when updating data %s', e)
-            return {
-                "state": STATE_ERROR,
-                "attributes": api.attributes,
-                "data": hass.data[DOMAIN][scups]
-            }
-
-    async def _insert_statistics (reset=False):
-        """ Insert edata statistics """
-        statistic_id = {}
-        statistic_id["total"] = f"{DOMAIN}:{scups.lower()}_consumption"
-        statistic_id["p1"] = f"{DOMAIN}:{scups.lower()}_p1_consumption"
-        statistic_id["p2"] = f"{DOMAIN}:{scups.lower()}_p2_consumption"
-        statistic_id["p3"] = f"{DOMAIN}:{scups.lower()}_p3_consumption"
->>>>>>> dev
 
         return {
             "state": state,
@@ -254,12 +198,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         ) for x in ["total", "p1", "p2", "p3"]}
         # get sum
         _sum = {
-<<<<<<< HEAD
             x: last_stats[x][consumption_stats_id[x]][0].get(
                 "sum", 0) if last_stats[x] and not reset else 0
-=======
-            x: last_stats[x][statistic_id[x]][0].get("sum", 0) if last_stats[x] and not reset else 0
->>>>>>> dev
             for x in ["total", "p1", "p2", "p3"]
         }
         # build stats lists
@@ -269,7 +209,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             'p2': [],
             'p3': []
         }
-<<<<<<< HEAD
         # wipe data if needed
         if reset:
             _LOGGER.warning(
@@ -290,45 +229,19 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     state=data["value_kWh"],
                     sum=_sum["total"]
                 ))
-=======
-
-        if reset:
-            _LOGGER.warning (f"clearing statistics for {[statistic_id[x] for x in statistic_id]}")
-            await hass.async_add_executor_job(clear_statistics, hass.data[DATA_INSTANCE], [statistic_id[x] for x in statistic_id])
-
-        try:
-            last_stats_time = last_stats["total"][statistic_id["total"]][0]["end"]
-        except KeyError as e:
-            last_stats_time = None
-
-        for data in api.data.get("consumptions", {}):
-            if reset or last_stats_time is None or dt_util.as_local(data["datetime"]) >= dt_util.parse_datetime(last_stats_time):
-                _p = du.get_pvpc_tariff (data["datetime"])
-                _sum["total"] += data["value_kWh"]
-                statistics["total"].append (StatisticData(
-                        start=dt_util.as_local(data["datetime"]),
-                        state=data["value_kWh"],
-                        sum=_sum["total"]
-                    ))
->>>>>>> dev
                 _sum[_p] += data["value_kWh"]
                 consumptions[_p].append(StatisticData(
                     start=dt_util.as_local(data["datetime"]),
                     state=data["value_kWh"],
                     sum=_sum[_p]
                 ))
-<<<<<<< HEAD
         # insert stats
-=======
-
->>>>>>> dev
         for _scope in ["p1", "p2", "p3", "total"]:
             metadata = StatisticMetaData(
                 has_mean=False,
                 has_sum=True,
                 name=f"{DOMAIN}_{scups} {_scope} energy consumption",
                 source=DOMAIN,
-<<<<<<< HEAD
                 statistic_id=consumption_stats_id[_scope],
                 unit_of_measurement=ENERGY_KILO_WATT_HOUR,
             )
@@ -405,12 +318,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                 attrs["last_month_days"] = (
                     lmdates[1] - lmdates[0]).days if last_record > lmdates[1] else (last_record - lmdates[0]).days
             return attrs if stats_ok else None
-=======
-                statistic_id=statistic_id[_scope],
-                unit_of_measurement=ENERGY_KILO_WATT_HOUR,
-            )
-            async_add_external_statistics(hass, metadata, statistics[_scope])
->>>>>>> dev
 
     coordinator = DataUpdateCoordinator(
         hass,
@@ -444,10 +351,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     entities = []
     entities.append(EdataSensor(coordinator))
     async_add_entities(entities)
-<<<<<<< HEAD
-
-=======
->>>>>>> dev
     async_register_websockets(hass)
 
     return True
