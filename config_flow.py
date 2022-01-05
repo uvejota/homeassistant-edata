@@ -5,17 +5,13 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant import config_entries
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.const import (
-    CONF_USERNAME,
-    CONF_PASSWORD,
-)
 
-from .const import DOMAIN, CONF_CUPS, CONF_EXPERIMENTAL
+from .const import CONF_CUPS, CONF_EXPERIMENTAL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +23,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_EXPERIMENTAL): bool,
     }
 )
+
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect.
@@ -79,6 +76,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         scups = import_data[CONF_CUPS][-4:]
         extra_data = {"scups": scups}
         return self.async_create_entry(title=scups, data={**import_data, **extra_data})
+
 
 class AlreadyConfigured(HomeAssistantError):
     """Error to indicate CUPS is already configured"""
