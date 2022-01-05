@@ -1,0 +1,23 @@
+{
+    "title": "edata integration",
+    "config": {
+        "abort": {
+            "already_configured": "CUPS is already configured",
+            "unknown": "Unknown error occurred"
+        },
+        "error": {
+            "already_configured": "This CUPS is already configured"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "cups": "CUPS",
+                    "experimental": "Experimental",
+                    "password": "Password",
+                    "username": "Username"
+                },
+                "title": "Set up integration"
+            }
+        }
+    }
+}

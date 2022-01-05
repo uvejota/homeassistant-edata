@@ -1,9 +1,14 @@
 import json
 from datetime import date, datetime
 from json import JSONEncoder
+<<<<<<< HEAD
 
+=======
+>>>>>>> dev
 
 # subclass JSONEncoder
+
+
 class DateTimeEncoder(JSONEncoder):
     # Override the default method
     def default(self, obj):

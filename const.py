@@ -38,3 +38,9 @@ ATTRIBUTES = {
 }
 
 EXPERIMENTAL_ATTRS = []
+
+# Custom configuration entries
+CONF_CUPS = 'cups'
+CONF_PROVIDER = 'provider'
+CONF_EXPERIMENTAL = 'experimental'
+CONF_DEBUG = 'debug'
