@@ -63,7 +63,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(user_input[CONF_CUPS])
             self._abort_if_unique_id_configured()
             extra_data = {"scups": user_input[CONF_CUPS][-4:]}
-            return self.async_create_entry(title=info["title"], data={**user_input, **extra_data})
+            return self.async_create_entry(
+                title=info["title"], data={**user_input, **extra_data}
+            )
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
