@@ -1,35 +1,27 @@
 import logging
-from datetime import datetime, timedelta
-
 import voluptuous as vol
-from edata.helpers import EdataHelper
-from edata.processors import DataUtils as du
-from homeassistant.components.recorder.const import DATA_INSTANCE
-from homeassistant.components.recorder.models import (StatisticData,
-                                                      StatisticMetaData)
-from homeassistant.components.recorder.statistics import (
-    async_add_external_statistics, clear_statistics, get_last_statistics)
+from .coordinator import EdataCoordinator
+
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.config_entries import SOURCE_IMPORT
-from homeassistant.const import (CONF_PASSWORD, CONF_USERNAME,
-                                 ENERGY_KILO_WATT_HOUR,
-                                 EVENT_HOMEASSISTANT_START)
+from homeassistant.const import (
+    CONF_PASSWORD,
+    CONF_USERNAME,
+    EVENT_HOMEASSISTANT_START,
+)
 from homeassistant.core import CoreState, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.reload import async_setup_reload_service
 from homeassistant.helpers.storage import Store
-from homeassistant.helpers.update_coordinator import (CoordinatorEntity,
-                                                      DataUpdateCoordinator)
-from homeassistant.util import dt as dt_util
-
-from .const import *
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+)
 from .store import DateTimeEncoder, async_load_storage
 from .websockets import *
+from .const import *
 
 # HA variables
 _LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(minutes=30)
-
 
 PLATFORM_SCHEMA = vol.All(
     cv.deprecated(CONF_USERNAME),
@@ -111,137 +103,21 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     experimental = config_entry.data[CONF_EXPERIMENTAL]
 
     # load old data if any
+
     store = Store(
         hass,
         STORAGE_VERSION,
         f"{STORAGE_KEY_PREAMBLE}_{scups}",
         encoder=DateTimeEncoder,
     )
-    prev_data = await async_load_storage(store)
-    if prev_data:
-        api = EdataHelper(
-            "datadis", usr, pwd, cups, data=prev_data, experimental=experimental
-        )
-        api.process_data()
-        hass.data[DOMAIN][scups] = api.data
-    else:
-        api = EdataHelper("datadis", usr, pwd, cups, experimental=experimental)
-
-    async def async_update_data():
-        """Fetch data from edata endpoint."""
-        try:
-            last_changed = api.attributes.get("last_registered_kWh_date", None)
-            await hass.async_add_executor_job(api.update)
-            hass.data[DOMAIN][scups] = api.data
-            if last_changed is None or (
-                api.attributes.get(
-                    "last_registered_kWh_date", datetime(1970, 1, 1))
-                - last_changed
-            ) > timedelta(hours=24):
-                await store.async_save(api.data)
-            await _insert_statistics(last_changed is None)
-            return {
-                "state": STATE_READY,
-                "attributes": api.attributes,
-                "data": hass.data[DOMAIN][scups],
-            }
-        except Exception as e:
-            _LOGGER.exception("unhandled exception when updating data %s", e)
-            return {
-                "state": STATE_ERROR,
-                "attributes": api.attributes,
-                "data": hass.data[DOMAIN][scups],
-            }
-
-    async def _insert_statistics(reset=False):
-        """Insert edata statistics"""
-        statistic_id = {}
-        statistic_id["total"] = f"{DOMAIN}:{scups.lower()}_consumption"
-        statistic_id["p1"] = f"{DOMAIN}:{scups.lower()}_p1_consumption"
-        statistic_id["p2"] = f"{DOMAIN}:{scups.lower()}_p2_consumption"
-        statistic_id["p3"] = f"{DOMAIN}:{scups.lower()}_p3_consumption"
-
-        last_stats = {
-            x: await hass.async_add_executor_job(
-                get_last_statistics, hass, 1, statistic_id[x], True
-            )
-            for x in ["total", "p1", "p2", "p3"]
-        }
-
-        _sum = {
-            x: last_stats[x][statistic_id[x]][0].get("sum", 0)
-            if last_stats[x] and not reset
-            else 0
-            for x in ["total", "p1", "p2", "p3"]
-        }
-
-        statistics = {"total": [], "p1": [], "p2": [], "p3": []}
-
-        if reset:
-            _LOGGER.warning(
-                f"clearing statistics for {[statistic_id[x] for x in statistic_id]}"
-            )
-            await hass.async_add_executor_job(
-                clear_statistics,
-                hass.data[DATA_INSTANCE],
-                [statistic_id[x] for x in statistic_id],
-            )
-
-        try:
-            last_stats_time = last_stats["total"][statistic_id["total"]][0]["end"]
-        except KeyError as e:
-            last_stats_time = None
-
-        for data in api.data.get("consumptions", {}):
-            if (
-                reset
-                or last_stats_time is None
-                or dt_util.as_local(data["datetime"])
-                >= dt_util.parse_datetime(last_stats_time)
-            ):
-                _p = du.get_pvpc_tariff(data["datetime"])
-                _sum["total"] += data["value_kWh"]
-                statistics["total"].append(
-                    StatisticData(
-                        start=dt_util.as_local(data["datetime"]),
-                        state=data["value_kWh"],
-                        sum=_sum["total"],
-                    )
-                )
-                _sum[_p] += data["value_kWh"]
-                statistics[_p].append(
-                    StatisticData(
-                        start=dt_util.as_local(data["datetime"]),
-                        state=data["value_kWh"],
-                        sum=_sum[_p],
-                    )
-                )
-
-        for _scope in ["p1", "p2", "p3", "total"]:
-            metadata = StatisticMetaData(
-                has_mean=False,
-                has_sum=True,
-                name=f"{DOMAIN}_{scups} {_scope} energy consumption",
-                source=DOMAIN,
-                statistic_id=statistic_id[_scope],
-                unit_of_measurement=ENERGY_KILO_WATT_HOUR,
-            )
-            async_add_external_statistics(hass, metadata, statistics[_scope])
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name=f"edata_{scups}",
-        update_method=async_update_data,
-        update_interval=timedelta(minutes=30),
+    storage = await async_load_storage(store)
+    prev_data = (
+        {x: storage.get(x, []) for x in ["supplies", "contracts"]} if storage else None
     )
 
-    if prev_data:
-        coordinator.data = {
-            "state": STATE_LOADING,
-            "attributes": api.attributes,
-            "data": hass.data[DOMAIN][scups],
-        }
+    coordinator = EdataCoordinator(hass, usr, pwd, cups, prev_data)
+    if prev_data is not None:
+        await coordinator.load_data()
 
     # postpone first refresh to speed up startup
     @callback
@@ -252,11 +128,9 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     if hass.state == CoreState.running:
         await async_first_refresh()
     else:
-        hass.bus.async_listen_once(
-            EVENT_HOMEASSISTANT_START, async_first_refresh)
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, async_first_refresh)
 
     # build sensor entities
-
     entities = []
     entities.append(EdataSensor(coordinator))
     async_add_entities(entities)
@@ -279,17 +153,17 @@ class EdataSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        return (
-            self.coordinator.data.get("state", None)
-            if self.coordinator.data is not None
-            else None
-        )
+        try:
+            return self.coordinator.data.get("state", None)
+        except AttributeError as _:
+            return STATE_LOADING
+        except Exception as _:
+            return STATE_ERROR
 
     @property
     def extra_state_attributes(self):
         """Return the state attributes."""
-        return (
-            self.coordinator.data.get("attributes", {})
-            if self.coordinator.data is not None
-            else {}
-        )
+        try:
+            return self.coordinator.data.get("attributes", {})
+        except Exception as _:
+            return {}
