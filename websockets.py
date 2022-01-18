@@ -14,14 +14,14 @@ def websocket_get_daily_data(hass, connection, msg):
     """Publish daily consumptions list data."""
     try:
         data = hass.data[DOMAIN][msg["scups"].upper()].get("ws_consumptions_day", [])
-        filtered_data = data[-30:]
+        filtered_data = data[-msg.get("records", 30) :]
         connection.send_result(msg["id"], filtered_data)
-    except KeyError as e:
+    except KeyError as _:
         _LOGGER.error(
-            "the provided scups parameter is not correct: %s", msg["scups"].upper()
+            "The provided scups parameter is not correct: %s", msg["scups"].upper()
         )
-    except Exception as e:
-        _LOGGER.exception("unhandled exception when processing websockets", e)
+    except Exception as _:
+        _LOGGER.exception("Unhandled exception when processing websockets", _)
         connection.send_result(msg["id"], [])
 
 
@@ -33,12 +33,12 @@ def websocket_get_monthly_data(hass, connection, msg):
             msg["id"],
             hass.data[DOMAIN][msg["scups"].upper()].get("ws_consumptions_month", []),
         )
-    except KeyError as e:
+    except KeyError as _:
         _LOGGER.error(
-            "the provided scups parameter is not correct: %s", msg["scups"].upper()
+            "The provided scups parameter is not correct: %s", msg["scups"].upper()
         )
-    except Exception as e:
-        _LOGGER.exception("unhandled exception when processing websockets", e)
+    except Exception as _:
+        _LOGGER.exception("Unhandled exception when processing websockets", _)
         connection.send_result(msg["id"], [])
 
 
@@ -47,14 +47,14 @@ def websocket_get_maximeter(hass, connection, msg):
     """Publish maximeter list data."""
     try:
         connection.send_result(
-            msg["id"], hass.data[DOMAIN][msg["scups"].upper()].get("maximeter", [])
+            msg["id"], hass.data[DOMAIN][msg["scups"].upper()].get("ws_maximeter", [])
         )
-    except KeyError as e:
+    except KeyError as _:
         _LOGGER.error(
-            "the provided scups parameter is not correct: %s", msg["scups"].upper()
+            "The provided scups parameter is not correct: %s", msg["scups"].upper()
         )
-    except Exception as e:
-        _LOGGER.exception("unhandled exception when processing websockets", e)
+    except Exception as _:
+        _LOGGER.exception("Unhandled exception when processing websockets", _)
         connection.send_result(msg["id"], [])
 
 
@@ -67,6 +67,7 @@ def async_register_websockets(hass):
             {
                 vol.Required("type"): f"{DOMAIN}/consumptions/daily",
                 vol.Required("scups"): str,
+                vol.Optional("records"): int,
             }
         ),
     )
@@ -78,6 +79,7 @@ def async_register_websockets(hass):
             {
                 vol.Required("type"): f"{DOMAIN}/consumptions/monthly",
                 vol.Required("scups"): str,
+                vol.Optional("records"): int,
             }
         ),
     )
@@ -86,6 +88,10 @@ def async_register_websockets(hass):
         f"{DOMAIN}/maximeter",
         websocket_get_maximeter,
         websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
-            {vol.Required("type"): f"{DOMAIN}/maximeter", vol.Required("scups"): str}
+            {
+                vol.Required("type"): f"{DOMAIN}/maximeter",
+                vol.Required("scups"): str,
+                vol.Optional("records"): int,
+            }
         ),
     )
