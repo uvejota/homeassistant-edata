@@ -115,7 +115,6 @@ class EdataCoordinator(DataUpdateCoordinator):
                 self.hass.data[DATA_INSTANCE],
                 [self.stat_ids[x] for x in self.stat_ids],
             )
-            self.reset = False
 
         # fetch last statistics found
         last_stats = {
@@ -154,7 +153,7 @@ class EdataCoordinator(DataUpdateCoordinator):
                 datetime.today() - timedelta(days=30),
             )
             if last_kWh_record is not None and last_kW_record is not None
-            else datetime(1970, 1, 1),
+            else datetime.today() - timedelta(days=365),
             datetime.today(),
         )
 
@@ -236,12 +235,16 @@ class EdataCoordinator(DataUpdateCoordinator):
         # compile state and attributes
         if something_changed:
             ## Load contractual data
-            if False is await self.load_data():
+            if False is await self.load_data() and not self.reset:
                 _LOGGER.warning(
                     "Inconsistent stored data for %s, attempting to autofix it by wiping and rebuilding stats",
                     self.id.upper(),
                 )
                 await self._async_update_data()
+
+        # put reset flag down
+        if self.reset:
+            self.reset = False
 
         return self._data
 
