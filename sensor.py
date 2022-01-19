@@ -1,28 +1,24 @@
 import logging
-
 import voluptuous as vol
+from .coordinator import EdataCoordinator
+
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.config_entries import SOURCE_IMPORT
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, EVENT_HOMEASSISTANT_START
+from homeassistant.const import (
+    CONF_PASSWORD,
+    CONF_USERNAME,
+    EVENT_HOMEASSISTANT_START,
+)
 from homeassistant.core import CoreState, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.reload import async_setup_reload_service
 from homeassistant.helpers.storage import Store
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
-
-from .const import (
-    CONF_CUPS,
-    CONF_DEBUG,
-    CONF_EXPERIMENTAL,
-    CONF_PROVIDER,
-    STATE_ERROR,
-    STORAGE_ELEMENTS,
-    STORAGE_KEY_PREAMBLE,
-    STORAGE_VERSION,
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
 )
-from .coordinator import EdataCoordinator
 from .store import DateTimeEncoder, async_load_storage
 from .websockets import *
+from .const import *
 
 # HA variables
 _LOGGER = logging.getLogger(__name__)
@@ -115,15 +111,13 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         encoder=DateTimeEncoder,
     )
     storage = await async_load_storage(store)
-    coordinator = EdataCoordinator(
-        hass,
-        usr,
-        pwd,
-        cups,
-        prev_data={x: storage.get(x, []) for x in STORAGE_ELEMENTS}
-        if storage
-        else None,
+    prev_data = (
+        {x: storage.get(x, []) for x in ["supplies", "contracts"]} if storage else None
     )
+
+    coordinator = EdataCoordinator(hass, usr, pwd, cups, prev_data)
+    if prev_data is not None:
+        await coordinator.load_data()
 
     # postpone first refresh to speed up startup
     @callback
@@ -155,14 +149,21 @@ class EdataSensor(CoordinatorEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_name = coordinator.name
-        self._data = coordinator.hass.data[DOMAIN][coordinator.id.upper()]
 
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        return self._data.get("state", STATE_ERROR)
+        try:
+            return self.coordinator.data.get("state", None)
+        except AttributeError as _:
+            return STATE_LOADING
+        except Exception as _:
+            return STATE_ERROR
 
     @property
     def extra_state_attributes(self):
         """Return the state attributes."""
-        return self._data.get("attributes", {})
+        try:
+            return self.coordinator.data.get("attributes", {})
+        except Exception as _:
+            return {}

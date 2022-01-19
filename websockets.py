@@ -14,14 +14,14 @@ def websocket_get_daily_data(hass, connection, msg):
     """Publish daily consumptions list data."""
     try:
         data = hass.data[DOMAIN][msg["scups"].upper()].get("ws_consumptions_day", [])
-        # served data is filtered so only last 'records' records are represented
-        connection.send_result(msg["id"], data[-msg.get("records", 30) :])
+        filtered_data = data[-msg.get("records", 30) :]
+        connection.send_result(msg["id"], filtered_data)
     except KeyError as _:
         _LOGGER.error(
             "The provided scups parameter is not correct: %s", msg["scups"].upper()
         )
     except Exception as _:
-        _LOGGER.exception("Unhandled exception when processing websockets: %s", _)
+        _LOGGER.exception("Unhandled exception when processing websockets", _)
         connection.send_result(msg["id"], [])
 
 
@@ -38,7 +38,7 @@ def websocket_get_monthly_data(hass, connection, msg):
             "The provided scups parameter is not correct: %s", msg["scups"].upper()
         )
     except Exception as _:
-        _LOGGER.exception("Unhandled exception when processing websockets: %s", _)
+        _LOGGER.exception("Unhandled exception when processing websockets", _)
         connection.send_result(msg["id"], [])
 
 
@@ -54,7 +54,7 @@ def websocket_get_maximeter(hass, connection, msg):
             "The provided scups parameter is not correct: %s", msg["scups"].upper()
         )
     except Exception as _:
-        _LOGGER.exception("Unhandled exception when processing websockets: %s", _)
+        _LOGGER.exception("Unhandled exception when processing websockets", _)
         connection.send_result(msg["id"], [])
 
 
@@ -79,6 +79,7 @@ def async_register_websockets(hass):
             {
                 vol.Required("type"): f"{DOMAIN}/consumptions/monthly",
                 vol.Required("scups"): str,
+                vol.Optional("records"): int,
             }
         ),
     )
@@ -90,6 +91,7 @@ def async_register_websockets(hass):
             {
                 vol.Required("type"): f"{DOMAIN}/maximeter",
                 vol.Required("scups"): str,
+                vol.Optional("records"): int,
             }
         ),
     )
