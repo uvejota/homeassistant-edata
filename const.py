@@ -1,6 +1,7 @@
 DOMAIN = "edata"
 STORAGE_KEY_PREAMBLE = f"{DOMAIN}.storage"
 STORAGE_VERSION = 1
+STORAGE_ELEMENTS = ["supplies", "contracts"]
 
 STATE_LOADING = "loading"
 STATE_ERROR = "error"
@@ -11,6 +12,8 @@ CONF_CUPS = "cups"
 CONF_PROVIDER = "provider"
 CONF_EXPERIMENTAL = "experimental"
 CONF_DEBUG = "debug"
+CONF_ENABLE_BILLING = "billing"
+
 
 # sensor attributes
 ATTRIBUTES = {
