@@ -1,3 +1,5 @@
+"""Websockets related definitions"""
+
 import logging
 
 import voluptuous as vol
@@ -46,9 +48,10 @@ def websocket_get_monthly_data(hass, connection, msg):
 def websocket_get_maximeter(hass, connection, msg):
     """Publish maximeter list data."""
     try:
-        connection.send_result(
-            msg["id"], hass.data[DOMAIN][msg["scups"].upper()].get("ws_maximeter", [])
-        )
+        data = hass.data[DOMAIN][msg["scups"].upper()].get("ws_maximeter", [])
+        if "tariff" in msg:
+            data = [x for x in data if x[f"value_p{msg['tariff']}_kW"] > 0]
+        connection.send_result(msg["id"], data)
     except KeyError as _:
         _LOGGER.error(
             "The provided scups parameter is not correct: %s", msg["scups"].upper()
@@ -59,7 +62,9 @@ def websocket_get_maximeter(hass, connection, msg):
 
 
 def async_register_websockets(hass):
+    """Register websockets into HA API"""
 
+    # for daily consumptions
     hass.components.websocket_api.async_register_command(
         f"{DOMAIN}/consumptions/daily",
         websocket_get_daily_data,
@@ -72,6 +77,7 @@ def async_register_websockets(hass):
         ),
     )
 
+    # for monthly consumptions
     hass.components.websocket_api.async_register_command(
         f"{DOMAIN}/consumptions/monthly",
         websocket_get_monthly_data,
@@ -83,6 +89,7 @@ def async_register_websockets(hass):
         ),
     )
 
+    # for maximeter
     hass.components.websocket_api.async_register_command(
         f"{DOMAIN}/maximeter",
         websocket_get_maximeter,
@@ -90,6 +97,7 @@ def async_register_websockets(hass):
             {
                 vol.Required("type"): f"{DOMAIN}/maximeter",
                 vol.Required("scups"): str,
+                vol.Optional("tariff"): int,
             }
         ),
     )
