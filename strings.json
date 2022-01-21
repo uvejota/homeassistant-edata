@@ -19,5 +19,23 @@
             "unknown": "Unknown error occurred",
             "already_configured": "CUPS is already configured"
         }
+    },
+    "options": {
+            "step": {
+              "init": {
+                "title": "Configuration",
+                "data": {
+                    "p1_kw_year_€": "EUR cost of KW in P1 per year",
+                    "p2_kw_year_€": "EUR cost of KW in P2 per year",
+                    "p1_kwh_€": "EUR cost of KWH in P1",
+                    "p2_kwh_€": "EUR cost of KWH in P2",
+                    "p3_kwh_€": "EUR cost of KWH in P3",
+                    "meter_month_€": "Meter cost per month",
+                    "market_kw_year_€": "Market cost per year",
+                    "electricity_tax": "Electricity tax (e.g., 1.05 = 5%)",
+                    "iva": "IVA tax (e.g., 1.21 = 21%)"
+                }
+            }
+        }
     }
 }

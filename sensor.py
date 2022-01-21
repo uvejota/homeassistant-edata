@@ -6,15 +6,24 @@ from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, EVENT_HOMEASSISTANT_START
 from homeassistant.core import CoreState, callback
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.reload import async_setup_reload_service
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+    CONF_BILLING,
     CONF_CUPS,
     CONF_DEBUG,
     CONF_EXPERIMENTAL,
     CONF_PROVIDER,
+    PRICE_ELECTRICITY_TAX,
+    PRICE_IVA,
+    PRICE_MARKET_KW_YEAR,
+    PRICE_METER_MONTH,
+    PRICE_P1_KW_YEAR,
+    PRICE_P1_KWH,
+    PRICE_P2_KW_YEAR,
+    PRICE_P2_KWH,
+    PRICE_P3_KWH,
     STATE_ERROR,
     STORAGE_ELEMENTS,
     STORAGE_KEY_PREAMBLE,
@@ -97,14 +106,26 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up entry."""
-    await async_setup_reload_service(hass, DOMAIN, ["sensor"])
     hass.data.setdefault(DOMAIN, {})
 
     usr = config_entry.data[CONF_USERNAME]
     pwd = config_entry.data[CONF_PASSWORD]
     cups = config_entry.data[CONF_CUPS]
     scups = cups[-4:]
-    experimental = config_entry.data[CONF_EXPERIMENTAL]
+
+    billing = None
+    if config_entry.options.get(CONF_BILLING, False):
+        billing = {
+            PRICE_P1_KW_YEAR: config_entry.options.get(PRICE_P1_KW_YEAR),
+            PRICE_P2_KW_YEAR: config_entry.options.get(PRICE_P2_KW_YEAR),
+            PRICE_P1_KWH: config_entry.options.get(PRICE_P1_KWH),
+            PRICE_P2_KWH: config_entry.options.get(PRICE_P2_KWH),
+            PRICE_P3_KWH: config_entry.options.get(PRICE_P3_KWH),
+            PRICE_METER_MONTH: config_entry.options.get(PRICE_METER_MONTH),
+            PRICE_MARKET_KW_YEAR: config_entry.options.get(PRICE_MARKET_KW_YEAR),
+            PRICE_ELECTRICITY_TAX: config_entry.options.get(PRICE_ELECTRICITY_TAX),
+            PRICE_IVA: config_entry.options.get(PRICE_IVA),
+        }
 
     # load old data if any
 
@@ -120,6 +141,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         usr,
         pwd,
         cups,
+        billing,
         prev_data={x: storage.get(x, []) for x in STORAGE_ELEMENTS}
         if storage
         else None,

@@ -7,7 +7,6 @@ import numpy as np
 from dateutil.relativedelta import relativedelta
 from edata.connectors import DatadisConnector
 from edata.processors import DataUtils as du
-from py import test
 from homeassistant.components.recorder.const import DATA_INSTANCE
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
 from homeassistant.components.recorder.statistics import (
@@ -67,6 +66,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         username: str,
         password: str,
         cups: str,
+        billing: dict[str, float] = None,
         prev_data=None,
     ) -> None:
         """Initialize the data handler."""
@@ -74,6 +74,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         self.reset = prev_data is None
 
         self._experimental = False
+        self._billing = billing
         self.cups = cups.upper()
         self.id = self.cups[-4:].lower()
 
