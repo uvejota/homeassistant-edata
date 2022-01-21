@@ -1,7 +1,8 @@
+"""Data structures definitions"""
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, TypedDict
+from typing import TypedDict
 
 
 class WSConsumption(TypedDict):
@@ -24,15 +25,12 @@ class WSMaxPower(TypedDict):
     value_p3_kW: float
 
 
-def init_consumption(datetime: str | datetime) -> WSConsumption:
-    """Initializer for a WSConsumption TypedDict"""
-    return WSConsumption(
-        datetime=datetime, value_kWh=0, value_p1_kWh=0, value_p2_kWh=0, value_p3_kWh=0
-    )
+# Initializer for a WSConsumption TypedDict
+init_consumption = lambda dt: WSConsumption(
+    datetime=dt, value_kWh=0, value_p1_kWh=0, value_p2_kWh=0, value_p3_kWh=0
+)
 
-
-def init_maxpower(datetime: str | datetime) -> WSMaxPower:
-    """Initializer for a WSMaxPower TypedDict"""
-    return WSMaxPower(
-        datetime=datetime, value_kW=0, value_p1_kW=0, value_p2_kW=0, value_p3_kW=0
-    )
+# Initializer for a WSMaxPower TypedDict
+init_maxpower = lambda dt: WSMaxPower(
+    datetime=dt, value_kW=0, value_p1_kW=0, value_p2_kW=0, value_p3_kW=0
+)
