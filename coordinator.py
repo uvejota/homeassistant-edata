@@ -172,7 +172,8 @@ class EdataCoordinator(DataUpdateCoordinator):
                     WARN_INCONSISTENT_STORAGE,
                     self.id.upper(),
                 )
-        elif self.reset:
+
+        if self.reset:
             await self._clear_all_statistics()
 
         # fetch last stats
