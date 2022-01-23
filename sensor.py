@@ -6,15 +6,25 @@ from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, EVENT_HOMEASSISTANT_START
 from homeassistant.core import CoreState, callback
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.reload import async_setup_reload_service
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+    CONF_BILLING,
     CONF_CUPS,
     CONF_DEBUG,
     CONF_EXPERIMENTAL,
     CONF_PROVIDER,
+    DOMAIN,
+    PRICE_ELECTRICITY_TAX,
+    PRICE_IVA,
+    PRICE_MARKET_KW_YEAR,
+    PRICE_METER_MONTH,
+    PRICE_P1_KW_YEAR,
+    PRICE_P1_KWH,
+    PRICE_P2_KW_YEAR,
+    PRICE_P2_KWH,
+    PRICE_P3_KWH,
     STATE_ERROR,
     STORAGE_ELEMENTS,
     STORAGE_KEY_PREAMBLE,
@@ -22,7 +32,7 @@ from .const import (
 )
 from .coordinator import EdataCoordinator
 from .store import DateTimeEncoder, async_load_storage
-from .websockets import *
+from .websockets import async_register_websockets
 
 # HA variables
 _LOGGER = logging.getLogger(__name__)
@@ -67,6 +77,8 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     if config.get(CONF_DEBUG, False):
         logging.getLogger("edata").setLevel(logging.INFO)
 
+    logging.getLogger("edata").setLevel(logging.INFO)
+
     if any(
         key in config
         for key in [
@@ -97,33 +109,40 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up entry."""
-    await async_setup_reload_service(hass, DOMAIN, ["sensor"])
     hass.data.setdefault(DOMAIN, {})
 
     usr = config_entry.data[CONF_USERNAME]
     pwd = config_entry.data[CONF_PASSWORD]
     cups = config_entry.data[CONF_CUPS]
     scups = cups[-4:]
-    experimental = config_entry.data[CONF_EXPERIMENTAL]
+
+    billing = (
+        {
+            PRICE_P1_KW_YEAR: config_entry.options.get(PRICE_P1_KW_YEAR),
+            PRICE_P2_KW_YEAR: config_entry.options.get(PRICE_P2_KW_YEAR),
+            PRICE_P1_KWH: config_entry.options.get(PRICE_P1_KWH),
+            PRICE_P2_KWH: config_entry.options.get(PRICE_P2_KWH),
+            PRICE_P3_KWH: config_entry.options.get(PRICE_P3_KWH),
+            PRICE_METER_MONTH: config_entry.options.get(PRICE_METER_MONTH),
+            PRICE_MARKET_KW_YEAR: config_entry.options.get(PRICE_MARKET_KW_YEAR),
+            PRICE_ELECTRICITY_TAX: config_entry.options.get(PRICE_ELECTRICITY_TAX),
+            PRICE_IVA: config_entry.options.get(PRICE_IVA),
+        }
+        if config_entry.options.get(CONF_BILLING, False)
+        else None
+    )
 
     # load old data if any
-
-    store = Store(
-        hass,
-        STORAGE_VERSION,
-        f"{STORAGE_KEY_PREAMBLE}_{scups}",
-        encoder=DateTimeEncoder,
+    storage = await async_load_storage(
+        Store(
+            hass,
+            STORAGE_VERSION,
+            f"{STORAGE_KEY_PREAMBLE}_{scups}",
+            encoder=DateTimeEncoder,
+        )
     )
-    storage = await async_load_storage(store)
-    coordinator = EdataCoordinator(
-        hass,
-        usr,
-        pwd,
-        cups,
-        prev_data={x: storage.get(x, []) for x in STORAGE_ELEMENTS}
-        if storage
-        else None,
-    )
+    prev_data = {x: storage.get(x, []) for x in STORAGE_ELEMENTS} if storage else None
+    coordinator = EdataCoordinator(hass, usr, pwd, cups, billing, prev_data=prev_data)
 
     # postpone first refresh to speed up startup
     @callback
@@ -136,10 +155,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     else:
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, async_first_refresh)
 
-    # build sensor entities
-    entities = []
-    entities.append(EdataSensor(coordinator))
-    async_add_entities(entities)
+    # add sensor entities
+    async_add_entities([EdataSensor(coordinator)])
+
+    # register websockets
     async_register_websockets(hass)
 
     return True

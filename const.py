@@ -14,7 +14,19 @@ CONF_CUPS = "cups"
 CONF_PROVIDER = "provider"
 CONF_EXPERIMENTAL = "experimental"
 CONF_DEBUG = "debug"
-CONF_ENABLE_BILLING = "billing"
+CONF_BILLING = "billing"
+CONF_WIPE = "wipe_data"
+
+# pricing settings
+PRICE_P1_KW_YEAR = "p1_kw_year_eur"
+PRICE_P2_KW_YEAR = "p2_kw_year_eur"
+PRICE_P1_KWH = "p1_kwh_eur"
+PRICE_P2_KWH = "p2_kwh_eur"
+PRICE_P3_KWH = "p3_kwh_eur"
+PRICE_METER_MONTH = "meter_month_eur"
+PRICE_MARKET_KW_YEAR = "market_kw_year_eur"
+PRICE_ELECTRICITY_TAX = "electricity_tax"
+PRICE_IVA = "iva"
 
 DATA_STATE = "state"
 DATA_ATTRIBUTES = "attributes"
@@ -61,8 +73,9 @@ EXPERIMENTAL_ATTRS = []
 
 COORDINATOR_ID = lambda scups: f"{DOMAIN}_{scups}"
 
-STAT_TITLE_KWH = lambda id, scope: f"{DOMAIN}_{id} {scope} energy consumption"
-STAT_TITLE_KW = lambda id, scope: f"{DOMAIN}_{id} {scope} maximeter"
+STAT_TITLE_KWH = lambda id, scope: f"{id.upper()} {scope} consumption"
+STAT_TITLE_KW = lambda id, scope: f"{id.upper()} {scope} maximeter"
+STAT_TITLE_EUR = lambda id, scope: f"{id.upper()} {scope} cost"
 
 STAT_ID_KWH = lambda scups: f"{DOMAIN}:{scups}_consumption"
 STAT_ID_P1_KWH = lambda scups: f"{DOMAIN}:{scups}_p1_consumption"
@@ -72,6 +85,11 @@ STAT_ID_P3_KWH = lambda scups: f"{DOMAIN}:{scups}_p3_consumption"
 STAT_ID_KW = lambda scups: f"{DOMAIN}:{scups}_maximeter"
 STAT_ID_P1_KW = lambda scups: f"{DOMAIN}:{scups}_p1_maximeter"
 STAT_ID_P2_KW = lambda scups: f"{DOMAIN}:{scups}_p2_maximeter"
+
+STAT_ID_EUR = lambda scups: f"{DOMAIN}:{scups}_cost"
+STAT_ID_ENERGY_EUR = lambda scups: f"{DOMAIN}:{scups}_energy_cost"
+STAT_ID_POWER_EUR = lambda scups: f"{DOMAIN}:{scups}_power_cost"
+
 
 WARN_INCONSISTENT_STORAGE = "Inconsistent stored data for %s, attempting to autofix it by wiping and rebuilding stats"
 WARN_STATISTICS_CLEAR = "Clearing statistics for %s"
