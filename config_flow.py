@@ -10,13 +10,9 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import config_validation as cv
-
-from edata.connectors import DatadisConnector
 
 from .const import (
     CONF_CUPS,
-    CONF_EXPERIMENTAL,
     DOMAIN,
     CONF_BILLING,
     PRICE_ELECTRICITY_TAX,
@@ -160,7 +156,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     vol.Required(
                         PRICE_MARKET_KW_YEAR,
                         default=self.config_entry.options.get(
-                            PRICE_MARKET_KW_YEAR, 0.81
+                            PRICE_MARKET_KW_YEAR, 3.113
                         ),
                     ): float,
                     vol.Required(
