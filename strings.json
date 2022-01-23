@@ -21,8 +21,8 @@
         }
     },
     "options": {
-            "step": {
-              "init": {
+        "step": {
+            "init": {
                 "title": "Configuration",
                 "data": {
                     "p1_kw_year_eur": "EUR cost of KW in P1 per year",
