@@ -5,11 +5,11 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any
 
-import time
 import numpy as np
 from dateutil.relativedelta import relativedelta
 from edata.connectors import DatadisConnector
 from edata.processors import DataUtils as du
+from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.const import DATA_INSTANCE
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
 from homeassistant.components.recorder.statistics import (
@@ -22,12 +22,9 @@ from homeassistant.components.recorder.statistics import (
     statistics_during_period,
 )
 from homeassistant.const import CURRENCY_EURO, ENERGY_KILO_WATT_HOUR, POWER_KILO_WATT
-from homeassistant.core import HassJob, HomeAssistant
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import (
-    async_call_later,
     async_track_point_in_utc_time,
-    async_track_time_interval,
-    async_track_utc_time_change,
 )
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -64,7 +61,6 @@ from .const import (
     STAT_TITLE_KW,
     STAT_TITLE_KWH,
     STATE_LOADING,
-    STATE_READY,
     STORAGE_ELEMENTS,
     STORAGE_KEY_PREAMBLE,
     STORAGE_VERSION,
@@ -178,7 +174,7 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         # fetch last stats
         last_stats = {
-            x: await self.hass.async_add_executor_job(
+            x: await get_instance(self.hass).async_add_executor_job(
                 get_last_statistics, self.hass, 1, self.sid[x], True
             )
             for x in self.sid
@@ -198,7 +194,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             full_update = True
 
         # fetch last month or last 365 days
-        await self.hass.async_add_executor_job(
+        await get_instance(self.hass).async_add_executor_job(
             self._datadis.update,
             self.cups,
             min(
@@ -284,7 +280,7 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         # read last statistics
         last_stats = {
-            x: await self.hass.async_add_executor_job(
+            x: await get_instance(self.hass).async_add_executor_job(
                 get_last_statistics, self.hass, 1, self.sid[x], True
             )
             for x in self.sid
@@ -305,7 +301,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         consumptions = {}
         for aggr in ("month", "day"):
             # for each aggregation method (month/day)
-            _stats = await self.hass.async_add_executor_job(
+            _stats = await get_instance(self.hass).async_add_executor_job(
                 statistics_during_period,
                 self.hass,
                 dt_util.as_local(datetime(1970, 1, 1)),
@@ -399,7 +395,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             )
 
         # Load maximeter
-        _stats = await self.hass.async_add_executor_job(
+        _stats = await get_instance(self.hass).async_add_executor_job(
             statistics_during_period,
             self.hass,
             dt_util.as_local(datetime(1970, 1, 1)),
@@ -451,7 +447,9 @@ class EdataCoordinator(DataUpdateCoordinator):
 
     async def _clear_all_statistics(self):
         # get all ids starting with edata:xxxx
-        all_ids = await self.hass.async_add_executor_job(list_statistic_ids, self.hass)
+        all_ids = await get_instance(self.hass).async_add_executor_job(
+            list_statistic_ids, self.hass
+        )
         to_clear = [
             x["statistic_id"]
             for x in all_ids
@@ -463,7 +461,7 @@ class EdataCoordinator(DataUpdateCoordinator):
                 WARN_STATISTICS_CLEAR,
                 to_clear,
             )
-            await self.hass.async_add_executor_job(
+            await get_instance(self.hass).async_add_executor_job(
                 clear_statistics,
                 self.hass.data[DATA_INSTANCE],
                 to_clear,
