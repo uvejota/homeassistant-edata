@@ -6,28 +6,21 @@ from edata.helpers import EdataHelper
 from edata.processors import DataUtils as du
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.const import DATA_INSTANCE
-from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
+from homeassistant.components.recorder.models import (StatisticData,
+                                                      StatisticMetaData)
 from homeassistant.components.recorder.statistics import (
-    async_add_external_statistics,
-    clear_statistics,
-    get_last_statistics,
-)
+    async_add_external_statistics, clear_statistics, get_last_statistics)
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.config_entries import SOURCE_IMPORT
-from homeassistant.const import (
-    CONF_PASSWORD,
-    CONF_USERNAME,
-    ENERGY_KILO_WATT_HOUR,
-    EVENT_HOMEASSISTANT_START,
-)
+from homeassistant.const import (CONF_PASSWORD, CONF_USERNAME,
+                                 ENERGY_KILO_WATT_HOUR,
+                                 EVENT_HOMEASSISTANT_START)
 from homeassistant.core import CoreState, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.reload import async_setup_reload_service
 from homeassistant.helpers.storage import Store
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-)
+from homeassistant.helpers.update_coordinator import (CoordinatorEntity,
+                                                      DataUpdateCoordinator)
 from homeassistant.util import dt as dt_util
 
 from .const import *
