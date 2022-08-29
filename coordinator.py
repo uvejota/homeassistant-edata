@@ -194,7 +194,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             full_update = True
 
         # fetch last month or last 365 days
-        await get_instance(self.hass).async_add_executor_job(
+        await self.hass.async_add_executor_job(
             self._datadis.update,
             self.cups,
             min(
