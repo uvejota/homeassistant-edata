@@ -4,22 +4,30 @@ from datetime import datetime, timedelta
 import voluptuous as vol
 from edata.helpers import EdataHelper
 from edata.processors import DataUtils as du
+from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.const import DATA_INSTANCE
-from homeassistant.components.recorder.models import (StatisticData,
-                                                      StatisticMetaData)
+from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
 from homeassistant.components.recorder.statistics import (
-    async_add_external_statistics, clear_statistics, get_last_statistics)
+    async_add_external_statistics,
+    clear_statistics,
+    get_last_statistics,
+)
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.config_entries import SOURCE_IMPORT
-from homeassistant.const import (CONF_PASSWORD, CONF_USERNAME,
-                                 ENERGY_KILO_WATT_HOUR,
-                                 EVENT_HOMEASSISTANT_START)
+from homeassistant.const import (
+    CONF_PASSWORD,
+    CONF_USERNAME,
+    ENERGY_KILO_WATT_HOUR,
+    EVENT_HOMEASSISTANT_START,
+)
 from homeassistant.core import CoreState, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.reload import async_setup_reload_service
 from homeassistant.helpers.storage import Store
-from homeassistant.helpers.update_coordinator import (CoordinatorEntity,
-                                                      DataUpdateCoordinator)
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+)
 from homeassistant.util import dt as dt_util
 
 from .const import *
@@ -131,11 +139,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         """Fetch data from edata endpoint."""
         try:
             last_changed = api.attributes.get("last_registered_kWh_date", None)
-            await hass.async_add_executor_job(api.update)
+            await get_instance(hass).async_add_executor_job(api.update)
             hass.data[DOMAIN][scups] = api.data
             if last_changed is None or (
-                api.attributes.get(
-                    "last_registered_kWh_date", datetime(1970, 1, 1))
+                api.attributes.get("last_registered_kWh_date", datetime(1970, 1, 1))
                 - last_changed
             ) > timedelta(hours=24):
                 await store.async_save(api.data)
@@ -162,7 +169,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         statistic_id["p3"] = f"{DOMAIN}:{scups.lower()}_p3_consumption"
 
         last_stats = {
-            x: await hass.async_add_executor_job(
+            x: await get_instance(hass).async_add_executor_job(
                 get_last_statistics, hass, 1, statistic_id[x], True
             )
             for x in ["total", "p1", "p2", "p3"]
@@ -181,7 +188,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             _LOGGER.warning(
                 f"clearing statistics for {[statistic_id[x] for x in statistic_id]}"
             )
-            await hass.async_add_executor_job(
+            await get_instance(hass).async_add_executor_job(
                 clear_statistics,
                 hass.data[DATA_INSTANCE],
                 [statistic_id[x] for x in statistic_id],
@@ -252,8 +259,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     if hass.state == CoreState.running:
         await async_first_refresh()
     else:
-        hass.bus.async_listen_once(
-            EVENT_HOMEASSISTANT_START, async_first_refresh)
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, async_first_refresh)
 
     # build sensor entities
 
