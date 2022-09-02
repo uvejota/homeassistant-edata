@@ -1,4 +1,9 @@
+[![HACS Supported](https://img.shields.io/badge/HACS-Supported-green.svg)](https://github.com/custom-components/hacs)
+![GitHub Activity](https://img.shields.io/github/commit-activity/y/uvejota/homeassistant-edata.svg?label=commits)
+[![Stable](https://img.shields.io/github/release/uvejota/homeassistant-edata.svg)](https://github.com/uvejota/homeassistant-edata/releases/latest)
+
 # homeassistant-edata
+
 Esta integración para Home Assistant te permite seguir de un vistazo tus consumos y máximas potencias alcanzadas, obteniendo sus datos desde datadis, y ofreciendo técnicas para su representación gráfica en lovelace mediante el componente apexcharts-card, además de integrar los datos con la plataforma de energía (beta).
 
 ![Captura Dashboard](https://i.imgur.com/P4TcGLH.png)
@@ -77,13 +82,13 @@ La versión más reciente de edata (>= `2022.01.0`) es compatible con las estad�
 | `edata:xxxx_maximeter` | `mean` | `kW` | Maxímetro |
 | `edata:xxxx_p1_maximeter` | `mean` | `kW` | Maxímetro P1 |
 | `edata:xxxx_p2_maximeter` | `mean` | `kW` | Maxímetro P2 |
-| * `edata:xxxx_cost` | `float` | `€` | Coste total |
-| * `edata:xxxx_power_cost` | `float` | `€` | Coste (término de potencia) |
-| * `edata:xxxx_energy_cost` | `float` | `€` | Coste (término de energía) |
+| `edata:xxxx_cost`*  | `float` | `€` | Coste total |
+| `edata:xxxx_power_cost`*  | `float` | `€` | Coste (término de potencia) |
+| `edata:xxxx_energy_cost`*  | `float` | `€` | Coste (término de energía) |
 
 \* Los campos marcados con asterisco no están habilitados por defecto, y se habilitan en Ajustes > Dispositivos y Servicios > XXXX (edata) - Configurar. Tendrá que configurar los costes asociados a cada término (según su contrato).
 
-**NOTA: no se da soporte, de momento, a PVPC ni al coste asociado a la excepción ibérica (tope del gas) por la dificultad en la obtención de datos masivos y al mantenimiento de la integración.**
+**NOTA:** no se da soporte, de momento, a PVPC ni al coste asociado a la excepción ibérica (tope del gas) por la dificultad en la obtención de datos masivos y al mantenimiento de la integración.
 
 ## Representación gráfica de los datos (requiere apexcharts-card)
 
@@ -92,7 +97,7 @@ La versión más reciente de edata (>= `2022.01.0`) es compatible con las estad�
 Puede visualizarlos a modo de informe mediante la siguiente tarjeta, **sustituyendo `xxxx`, en minúscula, cuando sea necesario (dos veces)**:
 
 <details>
-<summary>He leído las instrucciones en negrita y no voy a ignorarlas vilmente</summary>
+<summary>He leído las instrucciones en negrita y no voy a ignorarlas vilmente (hacer click para mostrar)</summary>
 
 ``` yaml
 type: markdown
@@ -499,4 +504,4 @@ Respuesta larga: porque la API de datadis es impredecible y a veces responde dat
 > Esperar, sé que parece una mierda, pero confía en mí. La integración está preparada para consultar cada hora los datos que le faltan, es por este motivo que cuanto más datos te faltan, más tarda. Ella solita tratará de averigüar los huecos y solventarlos.
 
 ¡Pero es que los huecos me han destrozado el panel de estadísticas!
-> De momento, puedes regenerarlos manualmente mediante un servicio (recreate_statistics).
+> De momento, puedes regenerar las estadísticas manualmente mediante un servicio (Herramientas para desarrolladores > Servicios > edata.recreate_statistics).
