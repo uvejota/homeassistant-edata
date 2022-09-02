@@ -15,12 +15,9 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up edata from a config entry."""
 
-    # hass_data = dict(entry.data)
     # Registers update listener to update config entry when options are updated.
-    entry.add_update_listener(options_update_listener)
-    # Store a reference to the unsubscribe function to cleanup if an entry is unloaded.
-    # hass_data["unsub_options_update_listener"] = unsub_options_update_listener
-    # hass.data[DOMAIN][entry.entry_id] = hass_data
+    unsub_options_update_listener = entry.add_update_listener(options_update_listener)
+    entry.async_on_unload(unsub_options_update_listener)
 
     hass.config_entries.async_setup_platforms(entry, PLATFORMS)
 
@@ -31,7 +28,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.data.get("scups"))
+        hass.data[DOMAIN][entry.data.get("scups").upper()] = {}
 
     return unload_ok
 
