@@ -16,6 +16,7 @@ CONF_EXPERIMENTAL = "experimental"
 CONF_DEBUG = "debug"
 CONF_BILLING = "billing"
 CONF_WIPE = "wipe_data"
+CONF_AUTHORIZEDNIF = "authorized_nif"
 
 # pricing settings
 PRICE_P1_KW_YEAR = "p1_kw_year_eur"

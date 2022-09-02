@@ -5,9 +5,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any
 
-import numpy as np
-from dateutil.relativedelta import relativedelta
-from edata.connectors import DatadisConnector
+from edata.helpers import EdataHelper
 from edata.processors import DataUtils as du
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.const import DATA_INSTANCE
@@ -15,17 +13,12 @@ from homeassistant.components.recorder.models import StatisticData, StatisticMet
 from homeassistant.components.recorder.statistics import (
     async_add_external_statistics,
     clear_statistics,
-    day_start_end,
     get_last_statistics,
     list_statistic_ids,
-    month_start_end,
     statistics_during_period,
 )
 from homeassistant.const import CURRENCY_EURO, ENERGY_KILO_WATT_HOUR, POWER_KILO_WATT
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.event import (
-    async_track_point_in_utc_time,
-)
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
@@ -36,7 +29,6 @@ from .const import (
     DATA_ATTRIBUTES,
     DATA_CONTRACTS,
     DATA_STATE,
-    DATA_SUPPLIES,
     DOMAIN,
     PRICE_ELECTRICITY_TAX,
     PRICE_IVA,
@@ -85,6 +77,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         username: str,
         password: str,
         cups: str,
+        authorized_nif: str,
         billing: dict[str, float] = None,
         prev_data=None,
     ) -> None:
@@ -108,13 +101,16 @@ class EdataCoordinator(DataUpdateCoordinator):
             )
 
         self.cups = cups.upper()
+        self.authorized_nif = authorized_nif
         self.id = self.cups[-4:].lower()
 
         # init data shared store
         hass.data[DOMAIN][self.id.upper()] = {}
 
         # the api object
-        self._datadis = DatadisConnector(username, password, data=prev_data)
+        self._datadis = EdataHelper(
+            username, password, self.cups, self.authorized_nif, data=prev_data
+        )
 
         # shared storage
         # making self._data to reference hass.data[DOMAIN][self.id.upper()] so we can use it like an alias
@@ -122,6 +118,9 @@ class EdataCoordinator(DataUpdateCoordinator):
         self._data.update(
             {DATA_STATE: STATE_LOADING, DATA_ATTRIBUTES: {x: None for x in ATTRIBUTES}}
         )
+
+        if prev_data is not None:
+            self._load_data(preprocess=True)
 
         # stat id aliases
         self.sid = {
@@ -162,7 +161,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             not self.reset
             and self._data.get(DATA_STATE, STATE_LOADING) == STATE_LOADING
         ):
-            if False is await self.load_data():
+            if False is await self._test_statistics_integrity():
                 self.reset = True
                 _LOGGER.warning(
                     WARN_INCONSISTENT_STORAGE,
@@ -170,70 +169,26 @@ class EdataCoordinator(DataUpdateCoordinator):
                 )
 
         if self.reset:
-            await self._clear_all_statistics()
-
-        # fetch last stats
-        last_stats = {
-            x: await get_instance(self.hass).async_add_executor_job(
-                get_last_statistics, self.hass, 1, self.sid[x], True
-            )
-            for x in self.sid
-        }
-
-        # get last record local datetime and eval if any stat is missing
-        full_update = False
-        last_record_dt = {}
-        try:
-            last_record_dt = {
-                x: dt_util.parse_datetime(last_stats[x][self.sid[x]][0]["end"])
-                for x in self.sid
-            }
-        except KeyError as _:
-            if not self.reset:
-                _LOGGER.warning(WARN_MISSING_STATS, self.id)
-            full_update = True
+            await self.clear_all_statistics()
 
         # fetch last month or last 365 days
-        await self.hass.async_add_executor_job(
+        await get_instance(self.hass).async_add_executor_job(
             self._datadis.update,
-            self.cups,
-            min(
-                (last_record_dt["kWh"].replace(tzinfo=None)),
-                (last_record_dt["kW"].replace(tzinfo=None)),
-                datetime.today() - relativedelta(months=1),
-            )
-            if not full_update
-            else datetime.today() - timedelta(days=365),
-            datetime.now(),
+            datetime.today() - timedelta(days=365),  # since: 1 year ago
+            datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+            - timedelta(minutes=1),  # to: yesterday midnight
         )
 
-        new_stats = {x: [] for x in self.sid}
+        await self.update_statistics()
 
-        new_stats.update(
-            self._build_consumption_and_cost_stats(
-                dt_from=last_record_dt.get("kWh", None),
-                last_stats=last_stats,
-            )
-        )
+        self._load_data()
 
-        new_stats.update(
-            self._build_maximeter_stats(dt_from=last_record_dt.get("kW", None))
-        )
-
-        await self._add_statistics(new_stats)
-
-        # schedule state and attributes reload
-        async def reload(*args):
-            if False is await self.load_data() and not self.reset:
-                _LOGGER.warning(
-                    WARN_INCONSISTENT_STORAGE,
-                    self.id.upper(),
-                )
-                await self._async_update_data()
-
-        async_track_point_in_utc_time(
-            self.hass, reload, dt_util.utcnow() + timedelta(minutes=5)
-        )
+        await Store(
+            self.hass,
+            STORAGE_VERSION,
+            f"{STORAGE_KEY_PREAMBLE}_{self.id.upper()}",
+            encoder=DateTimeEncoder,
+        ).async_save(self._datadis.data)
 
         # put reset flag down
         if self.reset:
@@ -241,63 +196,38 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         return self._data
 
-    async def load_data(self):
+    def _load_data(self, preprocess=False):
         """Load data found in built-in statistics into state, attributes and websockets"""
 
-        # reference to attributes shared storage
-        attrs = self._data[DATA_ATTRIBUTES]
-
-        # anonymous function to sort dicts based of datetime key, and return a list of dicts for using in websockets
-        build_ws_data = lambda dict_shaped_data: sorted(
-            [dict_shaped_data[element] for element in dict_shaped_data],
-            key=lambda item: dt_util.parse_datetime(item["datetime"]),
-        )
-
-        # add supplies-related attributes
-        attrs.update(
-            {
-                "cups": self.cups
-                if self.cups in [x["cups"] for x in self._datadis.data[DATA_SUPPLIES]]
-                else None
-            }
-        )
-
-        # add contract-related attributes
-        attrs.update(
-            {
-                "contract_p1_kW": self._datadis.data[DATA_CONTRACTS][-1].get(
-                    "power_p1", None
-                )
-                if len(self._datadis.data[DATA_CONTRACTS]) > 0
-                else None,
-                "contract_p2_kW": self._datadis.data[DATA_CONTRACTS][-1].get(
-                    "power_p2", None
-                )
-                if len(self._datadis.data[DATA_CONTRACTS]) > 0
-                else None,
-            }
-        )
-
-        # read last statistics
-        last_stats = {
-            x: await get_instance(self.hass).async_add_executor_job(
-                get_last_statistics, self.hass, 1, self.sid[x], True
-            )
-            for x in self.sid
-        }
-
-        # store last record datetime
         try:
-            last_record_dt = {
-                x: dt_util.as_local(
-                    dt_util.parse_datetime(last_stats[x][self.sid[x]][0]["end"])
-                )
-                for x in self.sid
-            }
-        except KeyError as _:
+            if preprocess:
+                self._datadis.process_data()
+
+            # reference to attributes shared storage
+            attrs = self._data[DATA_ATTRIBUTES]
+            attrs.update(self._datadis.attributes)
+
+            # load into websockets
+            self._data[WS_CONSUMPTIONS_DAY] = self._datadis.data[
+                "consumptions_daily_sum"
+            ]
+            self._data[WS_CONSUMPTIONS_MONTH] = self._datadis.data[
+                "consumptions_monthly_sum"
+            ]
+            self._data["ws_maximeter"] = self._datadis.data["maximeter"]
+
+            # update state
+            self._data["state"] = self._datadis.attributes[
+                "last_registered_kWh_date"
+            ].strftime("%d/%m/%Y")
+
+        except Exception:
+            _LOGGER.warning("Some data is missing, will try to fetch later")
             return False
 
-        # Load consumptions
+        return True
+
+    async def _test_statistics_integrity(self):
         consumptions = {}
         for aggr in ("month", "day"):
             # for each aggregation method (month/day)
@@ -333,119 +263,9 @@ class EdataCoordinator(DataUpdateCoordinator):
                         if _inc < 0:
                             # if negative increment, data has to be wiped
                             return False
-
-            # load into websockets
-            self._data[
-                WS_CONSUMPTIONS_DAY if aggr == "day" else WS_CONSUMPTIONS_MONTH
-            ] = build_ws_data(consumptions[aggr])
-
-        # yesterday attributes
-        _date_str = dt_util.as_local(
-            day_start_end(datetime.now() - timedelta(days=1))[0]
-        ).isoformat()
-        if _date_str in consumptions["day"]:
-            for key in ("", "_p1", "_p2", "_p3"):
-                attrs[f"yesterday{key}_kWh"] = consumptions["day"][_date_str][
-                    f"value{key}_kWh"
-                ]
-            attrs["yesterday_hours"] = round(
-                last_record_dt["kWh"].hour
-                if last_record_dt["kWh"]
-                < day_start_end(dt_util.as_local(datetime.today()))[0]
-                else 24,
-                2,
-            )
-        # current month attributes
-        this_month_start = month_start_end(datetime.now().replace(day=1))[0]
-        _date_str = dt_util.as_local(this_month_start).isoformat()
-        if _date_str in consumptions["month"]:
-            for key in ("", "_p1", "_p2", "_p3"):
-                attrs[f"month{key}_kWh"] = consumptions["month"][_date_str][
-                    f"value{key}_kWh"
-                ]
-            attrs["month_days"] = round(
-                (last_record_dt["kWh"] - month_start_end(last_record_dt["kWh"])[0]).days
-            )
-            attrs["month_daily_kWh"] = round(
-                attrs["month_kWh"] / attrs["month_days"], 1
-            )
-
-        # last month attributes
-        last_month_start = month_start_end(this_month_start - relativedelta(months=1))[
-            0
-        ]
-        _date_str = dt_util.as_local(last_month_start).isoformat()
-        if _date_str in consumptions["month"]:
-            for key in ("", "_p1", "_p2", "_p3"):
-                attrs[f"last_month{key}_kWh"] = consumptions["month"][_date_str][
-                    f"value{key}_kWh"
-                ]
-            attrs["last_month_days"] = round(
-                (
-                    month_start_end(last_record_dt["kWh"])[0]
-                    - (
-                        month_start_end(last_record_dt["kWh"])[0]
-                        - relativedelta(months=1)
-                    )
-                ).days,
-                2,
-            )
-            attrs["last_month_daily_kWh"] = round(
-                attrs["last_month_kWh"] / attrs["last_month_days"], 1
-            )
-
-        # Load maximeter
-        _stats = await get_instance(self.hass).async_add_executor_job(
-            statistics_during_period,
-            self.hass,
-            dt_util.as_local(datetime(1970, 1, 1)),
-            None,
-            [self.sid[x] for x in self.maximeter_stats],
-            "hour",
-        )
-
-        maximeter = {}
-        for key in _stats:
-            for stat in _stats[key]:
-                dt_iso = dt_util.as_local(
-                    dt_util.parse_datetime(stat["start"])
-                ).isoformat()
-                if dt_iso not in maximeter:
-                    maximeter[dt_iso] = init_maxpower(dt_iso)
-                for _scope in self.maximeter_stats:
-                    if self.sid[_scope] == stat["statistic_id"]:
-                        _key = f"value_{_scope}"
-                        maximeter[dt_iso][_key] = round(stat["mean"], 1)
-                        break
-
-        # load into websockets
-        self._data["ws_maximeter"] = build_ws_data(maximeter)
-
-        # load maximeter attributes
-        values = np.array([x["value_kW"] for x in self._data["ws_maximeter"]])
-        max_idx = np.argmax(values)
-
-        attrs["max_power_kW"] = self._data["ws_maximeter"][max_idx]["value_kW"]
-        attrs["max_power_date"] = self._data["ws_maximeter"][max_idx]["datetime"]
-        attrs["max_power_mean_kW"] = round(np.mean(values), 1)
-        attrs["max_power_90perc_kW"] = round(np.percentile(values, 90), 1)
-
-        # update state
-        self._data["state"] = last_record_dt["kWh"].strftime("%d/%m/%Y")
-
-        for update_callback in self._listeners:
-            update_callback()
-
-        await Store(
-            self.hass,
-            STORAGE_VERSION,
-            f"{STORAGE_KEY_PREAMBLE}_{self.id.upper()}",
-            encoder=DateTimeEncoder,
-        ).async_save({x: self._datadis.data[x] for x in STORAGE_ELEMENTS})
-
         return True
 
-    async def _clear_all_statistics(self):
+    async def clear_all_statistics(self):
         # get all ids starting with edata:xxxx
         all_ids = await get_instance(self.hass).async_add_executor_job(
             list_statistic_ids, self.hass
@@ -466,6 +286,42 @@ class EdataCoordinator(DataUpdateCoordinator):
                 self.hass.data[DATA_INSTANCE],
                 to_clear,
             )
+
+    async def update_statistics(self):
+        """Update Long Term Statistics with newly found data"""
+        # fetch last stats
+        last_stats = {
+            x: await get_instance(self.hass).async_add_executor_job(
+                get_last_statistics, self.hass, 1, self.sid[x], True
+            )
+            for x in self.sid
+        }
+
+        # get last record local datetime and eval if any stat is missing
+        last_record_dt = {}
+        try:
+            last_record_dt = {
+                x: dt_util.parse_datetime(last_stats[x][self.sid[x]][0]["end"])
+                for x in self.sid
+            }
+        except KeyError as _:
+            if not self.reset:
+                _LOGGER.warning(WARN_MISSING_STATS, self.id)
+
+        new_stats = {x: [] for x in self.sid}
+
+        new_stats.update(
+            self._build_consumption_and_cost_stats(
+                dt_from=last_record_dt.get("kWh", None),
+                last_stats=last_stats,
+            )
+        )
+
+        new_stats.update(
+            self._build_maximeter_stats(dt_from=last_record_dt.get("kW", None))
+        )
+
+        await self._add_statistics(new_stats)
 
     async def _add_statistics(self, new_stats):
         for scope in new_stats:
@@ -518,6 +374,9 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         new_stats = {x: [] for x in _significant_stats}
 
+        if len(self._datadis.data[DATA_CONTRACTS]) == 0:
+            return {}
+
         _pwr = [
             self._datadis.data[DATA_CONTRACTS][-1]["power_p1"],
             self._datadis.data[DATA_CONTRACTS][-1]["power_p2"],
@@ -545,6 +404,7 @@ class EdataCoordinator(DataUpdateCoordinator):
                     )
                 )
                 if self._billing is not None:
+                    # TODO migrate billing processing to python-edata package
                     cost = calculate_cost(
                         self._billing,
                         _pwr,

@@ -85,4 +85,3 @@ def calculate_cost(
         cost["power_term"] + cost["energy_term"] + rules["meter_month_eur"] / 30 / 24
     )
     return cost
-
