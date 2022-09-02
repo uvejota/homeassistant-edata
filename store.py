@@ -1,20 +1,25 @@
+"""File that provide some I/O storage methods"""
+
 import json
 from datetime import date, datetime
 from json import JSONEncoder
 
-# subclass JSONEncoder
-
 
 class DateTimeEncoder(JSONEncoder):
-    # Override the default method
+    """Replace datetime objects with ISO strings before dumping into Store"""
+
     def default(self, obj):
         if isinstance(obj, (date, datetime)):
             return obj.isoformat()
 
 
 class DataTools:
+    """A class defining some datetime/storage methods"""
+
     @staticmethod
     def check_integrity(data):
+        """Checks data integrity"""
+
         for key in data:
             if key == "supplies":
                 if not isinstance(data[key], list):
@@ -81,6 +86,7 @@ class DataTools:
 
     @staticmethod
     def datetime_parser(json_dict):
+        """Parse JSON while converting ISO strings into datetime objects"""
         for (key, value) in json_dict.items():
             if key in ["date_start", "date_end", "datetime"]:
                 try:
@@ -91,6 +97,7 @@ class DataTools:
 
 
 async def async_load_storage(store):
+    """An asynchronous method to load Store contents"""
     serialized_data = await store.async_load()
     old_data = json.loads(
         json.dumps(serialized_data), object_hook=DataTools.datetime_parser

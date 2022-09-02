@@ -1,23 +1,22 @@
 {
     "title": "edata integration",
     "config": {
-        "step": {
-            "user": {
-                "title": "Set up integration",
-                "data": {
-                    "username": "Username",
-                    "password": "Password",
-                    "cups": "CUPS",
-                    "experimental": "Experimental"
-                }
-            }
+        "abort": {
+            "already_configured": "CUPS is already configured",
+            "unknown": "Unknown error occurred"
         },
         "error": {
             "already_configured": "This CUPS is already configured"
         },
-        "abort": {
-            "unknown": "Unknown error occurred",
-            "already_configured": "CUPS is already configured"
+        "step": {
+            "user": {
+                "data": {
+                    "cups": "CUPS",
+                    "password": "Password",
+                    "username": "Username"
+                },
+                "title": "Set up integration"
+            }
         }
     },
     "options": {
@@ -33,8 +32,7 @@
                     "meter_month_eur": "Meter cost per month",
                     "market_kw_year_eur": "Market cost per year",
                     "electricity_tax": "Electricity tax (e.g., 1.05 = 5%)",
-                    "iva": "IVA tax (e.g., 1.21 = 21%)",
-                    "wipe_data": "Wipe all data and rebuild statistics"
+                    "iva": "IVA tax (e.g., 1.21 = 21%)"
                 }
             }
         }

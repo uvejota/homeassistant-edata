@@ -12,7 +12,6 @@
             "user": {
                 "data": {
                     "cups": "CUPS",
-                    "experimental": "Experimental",
                     "password": "Password",
                     "username": "Username"
                 },
