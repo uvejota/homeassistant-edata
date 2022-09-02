@@ -29,6 +29,16 @@ PRICE_MARKET_KW_YEAR = "market_kw_year_eur"
 PRICE_ELECTRICITY_TAX = "electricity_tax"
 PRICE_IVA = "iva"
 
+DEFAULT_PRICE_P1_KW_YEAR = 30.67266
+DEFAULT_PRICE_P2_KW_YEAR = 1.4243591
+DEFAULT_PRICE_P1_KWH = 0.2
+DEFAULT_PRICE_P2_KWH = 0.15
+DEFAULT_PRICE_P3_KWH = 0.1
+DEFAULT_PRICE_METER_MONTH = 0.81
+DEFAULT_PRICE_MARKET_KW_YEAR = 3.113
+DEFAULT_PRICE_ELECTRICITY_TAX = 1.05
+DEFAULT_PRICE_IVA = 1.05
+
 DATA_STATE = "state"
 DATA_ATTRIBUTES = "attributes"
 DATA_SUPPLIES = "supplies"
@@ -55,15 +65,12 @@ ATTRIBUTES = {
     "month_p1_kWh": "kWh",
     "month_p2_kWh": "kWh",
     "month_p3_kWh": "kWh",
-    # "month_pvpc_€": '€',
     "last_month_kWh": "kWh",
     "last_month_daily_kWh": "kWh",
     "last_month_days": "d",
     "last_month_p1_kWh": "kWh",
     "last_month_p2_kWh": "kWh",
     "last_month_p3_kWh": "kWh",
-    # "last_month_pvpc_€": '€',
-    # "last_month_idle_W": 'W',
     "max_power_kW": "kW",
     "max_power_date": None,
     "max_power_mean_kW": "kW",

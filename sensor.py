@@ -1,3 +1,5 @@
+"""Sensor platform for edata component"""
+
 import logging
 
 import voluptuous as vol
@@ -5,7 +7,7 @@ from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, EVENT_HOMEASSISTANT_START
 from homeassistant.core import CoreState, callback
-from homeassistant.helpers import config_validation as cv, entity_platform, service
+from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 

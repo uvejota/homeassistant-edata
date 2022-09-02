@@ -23,46 +23,9 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
-from .const import (
-    ATTRIBUTES,
-    COORDINATOR_ID,
-    DATA_ATTRIBUTES,
-    DATA_CONTRACTS,
-    DATA_STATE,
-    DOMAIN,
-    PRICE_ELECTRICITY_TAX,
-    PRICE_IVA,
-    PRICE_MARKET_KW_YEAR,
-    PRICE_METER_MONTH,
-    PRICE_P1_KW_YEAR,
-    PRICE_P1_KWH,
-    PRICE_P2_KW_YEAR,
-    PRICE_P2_KWH,
-    PRICE_P3_KWH,
-    STAT_ID_ENERGY_EUR,
-    STAT_ID_EUR,
-    STAT_ID_KW,
-    STAT_ID_KWH,
-    STAT_ID_P1_KW,
-    STAT_ID_P1_KWH,
-    STAT_ID_P2_KW,
-    STAT_ID_P2_KWH,
-    STAT_ID_P3_KWH,
-    STAT_ID_POWER_EUR,
-    STAT_TITLE_EUR,
-    STAT_TITLE_KW,
-    STAT_TITLE_KWH,
-    STATE_LOADING,
-    STORAGE_ELEMENTS,
-    STORAGE_KEY_PREAMBLE,
-    STORAGE_VERSION,
-    WARN_INCONSISTENT_STORAGE,
-    WARN_MISSING_STATS,
-    WARN_STATISTICS_CLEAR,
-    WS_CONSUMPTIONS_DAY,
-    WS_CONSUMPTIONS_MONTH,
-)
-from .data import PricingRules, calculate_cost, init_consumption, init_maxpower
+from . import const
+
+from .data import PricingRules, calculate_cost
 from .store import DateTimeEncoder
 
 _LOGGER = logging.getLogger(__name__)
@@ -89,15 +52,15 @@ class EdataCoordinator(DataUpdateCoordinator):
         self._billing = None
         if billing is not None:
             self._billing = PricingRules(
-                p1_kw_year_eur=billing[PRICE_P1_KW_YEAR],
-                p2_kw_year_eur=billing[PRICE_P2_KW_YEAR],
-                p1_kwh_eur=billing[PRICE_P1_KWH],
-                p2_kwh_eur=billing[PRICE_P2_KWH],
-                p3_kwh_eur=billing[PRICE_P3_KWH],
-                meter_month_eur=billing[PRICE_METER_MONTH],
-                market_kw_year_eur=billing[PRICE_MARKET_KW_YEAR],
-                electricity_tax=billing[PRICE_ELECTRICITY_TAX],
-                iva_tax=billing[PRICE_IVA],
+                p1_kw_year_eur=billing[const.PRICE_P1_KW_YEAR],
+                p2_kw_year_eur=billing[const.PRICE_P2_KW_YEAR],
+                p1_kwh_eur=billing[const.PRICE_P1_KWH],
+                p2_kwh_eur=billing[const.PRICE_P2_KWH],
+                p3_kwh_eur=billing[const.PRICE_P3_KWH],
+                meter_month_eur=billing[const.PRICE_METER_MONTH],
+                market_kw_year_eur=billing[const.PRICE_MARKET_KW_YEAR],
+                electricity_tax=billing[const.PRICE_ELECTRICITY_TAX],
+                iva_tax=billing[const.PRICE_IVA],
             )
 
         self.cups = cups.upper()
@@ -105,7 +68,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         self.id = self.cups[-4:].lower()
 
         # init data shared store
-        hass.data[DOMAIN][self.id.upper()] = {}
+        hass.data[const.DOMAIN][self.id.upper()] = {}
 
         # the api object
         self._datadis = EdataHelper(
@@ -113,10 +76,13 @@ class EdataCoordinator(DataUpdateCoordinator):
         )
 
         # shared storage
-        # making self._data to reference hass.data[DOMAIN][self.id.upper()] so we can use it like an alias
-        self._data = hass.data[DOMAIN][self.id.upper()]
+        # making self._data to reference hass.data[const.DOMAIN][self.id.upper()] so we can use it like an alias
+        self._data = hass.data[const.DOMAIN][self.id.upper()]
         self._data.update(
-            {DATA_STATE: STATE_LOADING, DATA_ATTRIBUTES: {x: None for x in ATTRIBUTES}}
+            {
+                const.DATA_STATE: const.STATE_LOADING,
+                const.DATA_ATTRIBUTES: {x: None for x in const.ATTRIBUTES},
+            }
         )
 
         if prev_data is not None:
@@ -124,20 +90,20 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         # stat id aliases
         self.sid = {
-            "kWh": STAT_ID_KWH(self.id),
-            "p1_kWh": STAT_ID_P1_KWH(self.id),
-            "p2_kWh": STAT_ID_P2_KWH(self.id),
-            "p3_kWh": STAT_ID_P3_KWH(self.id),
-            "kW": STAT_ID_KW(self.id),
-            "p1_kW": STAT_ID_P1_KW(self.id),
-            "p2_kW": STAT_ID_P2_KW(self.id),
+            "kWh": const.STAT_ID_KWH(self.id),
+            "p1_kWh": const.STAT_ID_P1_KWH(self.id),
+            "p2_kWh": const.STAT_ID_P2_KWH(self.id),
+            "p3_kWh": const.STAT_ID_P3_KWH(self.id),
+            "kW": const.STAT_ID_KW(self.id),
+            "p1_kW": const.STAT_ID_P1_KW(self.id),
+            "p2_kW": const.STAT_ID_P2_KW(self.id),
         }
         if self._billing is not None:
             self.sid.update(
                 {
-                    "eur": STAT_ID_EUR(self.id),
-                    "power_eur": STAT_ID_POWER_EUR(self.id),
-                    "energy_eur": STAT_ID_ENERGY_EUR(self.id),
+                    "eur": const.STAT_ID_EUR(self.id),
+                    "power_eur": const.STAT_ID_POWER_EUR(self.id),
+                    "energy_eur": const.STAT_ID_ENERGY_EUR(self.id),
                 }
             )
 
@@ -149,7 +115,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         super().__init__(
             hass,
             _LOGGER,
-            name=COORDINATOR_ID(self.id),
+            name=const.COORDINATOR_ID(self.id),
             update_interval=timedelta(minutes=60),
         )
 
@@ -159,12 +125,13 @@ class EdataCoordinator(DataUpdateCoordinator):
         # preload attributes if first boot
         if (
             not self.reset
-            and self._data.get(DATA_STATE, STATE_LOADING) == STATE_LOADING
+            and self._data.get(const.DATA_STATE, const.STATE_LOADING)
+            == const.STATE_LOADING
         ):
             if False is await self._test_statistics_integrity():
                 self.reset = True
                 _LOGGER.warning(
-                    WARN_INCONSISTENT_STORAGE,
+                    const.WARN_INCONSISTENT_STORAGE,
                     self.id.upper(),
                 )
 
@@ -185,8 +152,8 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         await Store(
             self.hass,
-            STORAGE_VERSION,
-            f"{STORAGE_KEY_PREAMBLE}_{self.id.upper()}",
+            const.STORAGE_VERSION,
+            f"{const.STORAGE_KEY_PREAMBLE}_{self.id.upper()}",
             encoder=DateTimeEncoder,
         ).async_save(self._datadis.data)
 
@@ -204,14 +171,14 @@ class EdataCoordinator(DataUpdateCoordinator):
                 self._datadis.process_data()
 
             # reference to attributes shared storage
-            attrs = self._data[DATA_ATTRIBUTES]
+            attrs = self._data[const.DATA_ATTRIBUTES]
             attrs.update(self._datadis.attributes)
 
             # load into websockets
-            self._data[WS_CONSUMPTIONS_DAY] = self._datadis.data[
+            self._data[const.WS_CONSUMPTIONS_DAY] = self._datadis.data[
                 "consumptions_daily_sum"
             ]
-            self._data[WS_CONSUMPTIONS_MONTH] = self._datadis.data[
+            self._data[const.WS_CONSUMPTIONS_MONTH] = self._datadis.data[
                 "consumptions_monthly_sum"
             ]
             self._data["ws_maximeter"] = self._datadis.data["maximeter"]
@@ -228,7 +195,8 @@ class EdataCoordinator(DataUpdateCoordinator):
         return True
 
     async def _test_statistics_integrity(self):
-        consumptions = {}
+        """Test statistics integrity"""
+
         for aggr in ("month", "day"):
             # for each aggregation method (month/day)
             _stats = await get_instance(self.hass).async_add_executor_job(
@@ -239,26 +207,16 @@ class EdataCoordinator(DataUpdateCoordinator):
                 [self.sid[x] for x in self.consumption_stats],
                 aggr,
             )
-            consumptions[aggr] = {}
             for key in _stats:
                 # for each stat key (p1, p2, p3...)
                 _sum = 0
                 for stat in _stats[key]:
-                    # for each stat record
-                    dt_iso = dt_util.as_local(
-                        dt_util.parse_datetime(stat["start"])
-                    ).isoformat()
-                    if dt_iso not in consumptions[aggr]:
-                        # if first element, initialize a Consumption structure
-                        consumptions[aggr][dt_iso] = init_consumption(dt_iso)
                     for scope in [
                         matching_stat
                         for matching_stat in self.consumption_stats
                         if self.sid[matching_stat] == stat["statistic_id"]
                     ]:
-                        _key = f"value_{scope}"
                         _inc = round(stat["sum"] - _sum, 1)
-                        consumptions[aggr][dt_iso][_key] = _inc
                         _sum = stat["sum"]
                         if _inc < 0:
                             # if negative increment, data has to be wiped
@@ -266,6 +224,8 @@ class EdataCoordinator(DataUpdateCoordinator):
         return True
 
     async def clear_all_statistics(self):
+        """Clear edata long term statistics"""
+
         # get all ids starting with edata:xxxx
         all_ids = await get_instance(self.hass).async_add_executor_job(
             list_statistic_ids, self.hass
@@ -273,12 +233,12 @@ class EdataCoordinator(DataUpdateCoordinator):
         to_clear = [
             x["statistic_id"]
             for x in all_ids
-            if x["statistic_id"].startswith(f"{DOMAIN}:{self.id}")
+            if x["statistic_id"].startswith(f"{const.DOMAIN}:{self.id}")
         ]
         if len(to_clear) > 0:
             # wipe them
             _LOGGER.warning(
-                WARN_STATISTICS_CLEAR,
+                const.WARN_STATISTICS_CLEAR,
                 to_clear,
             )
             await get_instance(self.hass).async_add_executor_job(
@@ -306,7 +266,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             }
         except KeyError as _:
             if not self.reset:
-                _LOGGER.warning(WARN_MISSING_STATS, self.id)
+                _LOGGER.warning(const.WARN_MISSING_STATS, self.id)
 
         new_stats = {x: [] for x in self.sid}
 
@@ -324,13 +284,15 @@ class EdataCoordinator(DataUpdateCoordinator):
         await self._add_statistics(new_stats)
 
     async def _add_statistics(self, new_stats):
+        """Add new statistics"""
+
         for scope in new_stats:
             if scope in self.consumption_stats:
                 metadata = StatisticMetaData(
                     has_mean=False,
                     has_sum=True,
-                    name=STAT_TITLE_KWH(self.id, scope),
-                    source=DOMAIN,
+                    name=const.STAT_TITLE_KWH(self.id, scope),
+                    source=const.DOMAIN,
                     statistic_id=self.sid[scope],
                     unit_of_measurement=ENERGY_KILO_WATT_HOUR,
                 )
@@ -338,8 +300,8 @@ class EdataCoordinator(DataUpdateCoordinator):
                 metadata = StatisticMetaData(
                     has_mean=False,
                     has_sum=True,
-                    name=STAT_TITLE_EUR(self.id, scope),
-                    source=DOMAIN,
+                    name=const.STAT_TITLE_EUR(self.id, scope),
+                    source=const.DOMAIN,
                     statistic_id=self.sid[scope],
                     unit_of_measurement=CURRENCY_EURO,
                 )
@@ -347,8 +309,8 @@ class EdataCoordinator(DataUpdateCoordinator):
                 metadata = StatisticMetaData(
                     has_mean=True,
                     has_sum=False,
-                    name=STAT_TITLE_KW(self.id, scope),
-                    source=DOMAIN,
+                    name=const.STAT_TITLE_KW(self.id, scope),
+                    source=const.DOMAIN,
                     statistic_id=self.sid[scope],
                     unit_of_measurement=POWER_KILO_WATT,
                 )
@@ -359,6 +321,7 @@ class EdataCoordinator(DataUpdateCoordinator):
     def _build_consumption_and_cost_stats(
         self, dt_from: datetime | None, last_stats: list[dict[str, Any]]
     ):
+        """Build long-term statistics for consumptions and cost"""
         if dt_from is None:
             dt_from = dt_util.as_local(datetime(1970, 1, 1))
 
@@ -374,12 +337,12 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         new_stats = {x: [] for x in _significant_stats}
 
-        if len(self._datadis.data[DATA_CONTRACTS]) == 0:
+        if len(self._datadis.data[const.DATA_CONTRACTS]) == 0:
             return {}
 
         _pwr = [
-            self._datadis.data[DATA_CONTRACTS][-1]["power_p1"],
-            self._datadis.data[DATA_CONTRACTS][-1]["power_p2"],
+            self._datadis.data[const.DATA_CONTRACTS][-1]["power_p1"],
+            self._datadis.data[const.DATA_CONTRACTS][-1]["power_p2"],
         ]
 
         _label = "value_kWh"
@@ -456,6 +419,8 @@ class EdataCoordinator(DataUpdateCoordinator):
         return new_stats
 
     def _build_maximeter_stats(self, dt_from: datetime | None):
+        """Build long-term statistics for maximeter"""
+
         _label = "value_kW"
         new_stats = {x: [] for x in self.maximeter_stats}
         if dt_from is None:

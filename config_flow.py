@@ -118,48 +118,58 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     vol.Required(
                         const.PRICE_P1_KW_YEAR,
                         default=self.config_entry.options.get(
-                            const.PRICE_P1_KW_YEAR, 30.67266
+                            const.PRICE_P1_KW_YEAR, const.DEFAULT_PRICE_P1_KW_YEAR
                         ),
                     ): float,
                     vol.Required(
                         const.PRICE_P2_KW_YEAR,
                         default=self.config_entry.options.get(
-                            const.PRICE_P2_KW_YEAR, 1.4243591
+                            const.PRICE_P2_KW_YEAR, const.DEFAULT_PRICE_P2_KW_YEAR
                         ),
                     ): float,
                     vol.Required(
                         const.PRICE_P1_KWH,
-                        default=self.config_entry.options.get(const.PRICE_P1_KWH, 0.20),
+                        default=self.config_entry.options.get(
+                            const.PRICE_P1_KWH, const.DEFAULT_PRICE_P1_KWH
+                        ),
                     ): float,
                     vol.Required(
                         const.PRICE_P2_KWH,
-                        default=self.config_entry.options.get(const.PRICE_P2_KWH, 0.15),
+                        default=self.config_entry.options.get(
+                            const.PRICE_P2_KWH, const.DEFAULT_PRICE_P2_KWH
+                        ),
                     ): float,
                     vol.Required(
                         const.PRICE_P3_KWH,
-                        default=self.config_entry.options.get(const.PRICE_P3_KWH, 0.1),
+                        default=self.config_entry.options.get(
+                            const.PRICE_P3_KWH, const.DEFAULT_PRICE_P3_KWH
+                        ),
                     ): float,
                     vol.Required(
                         const.PRICE_METER_MONTH,
                         default=self.config_entry.options.get(
-                            const.PRICE_METER_MONTH, 0.81
+                            const.PRICE_METER_MONTH, const.DEFAULT_PRICE_METER_MONTH
                         ),
                     ): float,
                     vol.Required(
                         const.PRICE_MARKET_KW_YEAR,
                         default=self.config_entry.options.get(
-                            const.PRICE_MARKET_KW_YEAR, 3.113
+                            const.PRICE_MARKET_KW_YEAR,
+                            const.DEFAULT_PRICE_MARKET_KW_YEAR,
                         ),
                     ): float,
                     vol.Required(
                         const.PRICE_ELECTRICITY_TAX,
                         default=self.config_entry.options.get(
-                            const.PRICE_ELECTRICITY_TAX, 1.05
+                            const.PRICE_ELECTRICITY_TAX,
+                            const.DEFAULT_PRICE_ELECTRICITY_TAX,
                         ),
                     ): float,
                     vol.Required(
                         const.PRICE_IVA,
-                        default=self.config_entry.options.get(const.PRICE_IVA, 1.1),
+                        default=self.config_entry.options.get(
+                            const.PRICE_IVA, const.DEFAULT_PRICE_IVA
+                        ),
                     ): float,
                 }
             ),
