@@ -13,7 +13,8 @@
                 "data": {
                     "cups": "CUPS",
                     "password": "Password",
-                    "username": "Username"
+                    "username": "Username",
+                    "authorized_nif": "Authorized NIF"
                 },
                 "title": "Set up integration"
             }

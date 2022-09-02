@@ -14,7 +14,8 @@
                     "cups": "CUPS",
                     "experimental": "Experimental",
                     "password": "Contrasenya",
-                    "username": "Nom d'usuari"
+                    "username": "Nom d'usuari",
+                    "authorized_nif": "NIF autoritzat"
                 },
                 "title": "Configuració de la integració"
             }
