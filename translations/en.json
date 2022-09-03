@@ -25,6 +25,7 @@
             "init": {
                 "title": "Configuration",
                 "data": {
+                    "billing": "Activate billing",
                     "p1_kw_year_eur": "EUR cost of KW in P1 per year",
                     "p2_kw_year_eur": "EUR cost of KW in P2 per year",
                     "p1_kwh_eur": "EUR cost of KWH in P1",

@@ -8,31 +8,37 @@ Esta integración para Home Assistant te permite seguir de un vistazo tus consum
 
 ![Captura Dashboard](https://i.imgur.com/P4TcGLH.png)
 
+Algunas aclaraciones:
+* Los datos mostrados jamás serán en tiempo real, ya que se saca de la información que registra/factura tu distribuidora y expone a través de la plataforma Datadis. *Normalmente* cada día registran el día anterior.
+* La tarificación de la integración está en pruebas y sólo funciona a día de hoy con tarifas 2.0TD en mercado libre, y sólo si tu tarifa es precio fijo. Sí se permite la distinción entre tramos. **A día de hoy, NO se da soporte a PVPC ni se incluye tope de gas.**
+
 ## Instalación
 
 Para instalar esta integración en Home Assistant necesitarás:
+
 * una cuenta funcional (y validada) en la web www.datadis.es (no hay que marcar la casilla de la API al registrar, usaremos la privada que está habilitada por defecto),
-* una instalación *reciente* y funcional de HA,
+* una instalación *reciente* y funcional de Home Assistant (a partir de ahora HA),
 * tener o instalar HACS en tu entorno de HA, y
-* (opcional/recomendado) tener o instalar el componente apexchart-cards (también disponible en HACS).
+* (opcional/recomendado) tener o instalar el componente apexchart-card (también disponible en HACS).
 
 Una vez satisfecho lo anterior, los pasos a seguir para la instalación son:
 
-1. Instalar HACS en tu entorno de Home Assistant (ver https://hacs.xyz/),
-2. Añadir este repositorio (https://github.com/uvejota/homeassistant-edata) a los repositorios personalizados de HACS,
+1. Instalar HACS en tu entorno de Home Assistant (ver <https://hacs.xyz/>),
+2. Añadir este repositorio (<https://github.com/uvejota/homeassistant-edata>) a los repositorios personalizados de HACS,
 3. Instalar la integración mediante HACS, y
 4. Configurarla mediante:
    * (versión >= `2022.01.0`) la UI de Home Assistant (buscar "edata" en `Configuración > Dispositivos y servicios > Añadir integración`).
-   * (versión <= `2021.12.2`) `configuration.yaml`:
+   * (versión <= `2021.12.2`) el fichero de configuración `configuration.yaml`:
+
 ``` yaml
 sensor:
   - platform: edata
     username: !secret my_datadis_username
     password: !secret my_datadis_password
     cups: !secret my_cups
-    #experimental: false # opcional, puede ser true/false y permite probar funciones experimentales
     #debug: false # opcional, puede ser true/false y permite "desbloquear" mensajes de log de tipo info y superior
 ```
+
 5. Esperar unos minutos, le aparecerá un nuevo sensor llamado `sensor.edata_xxxx` donde `xxxx` dependerá de los últimos cuatro caracteres de su CUPS.
 
 **NOTA IMPORTANTE:** copie y pegue el CUPS directamente desde la web de Datadis, en mayúscula. Algunas distribuidoras adhieren algunos caracteres adicionales.
@@ -41,7 +47,7 @@ sensor:
 
 Los estadísticos recopilados por esta integración se almacenan, de momento, como atributos. En esta página encontrará información sobre el significado de cada atributo, y cómo visualizarlos en texto.
 
-### Tabla de parámetros
+### Tabla de atributos
 
 | Parámetro | Tipo | Unidad | Significado |
 | ------------- | ------------- | ------------- | ------------- |
@@ -69,9 +75,9 @@ Los estadísticos recopilados por esta integración se almacenan, de momento, co
 | `max_power_mean_kW` | `float` | `kW` | Media de las potencias máximas registradas en los últimos 12 meses |
 | `max_power_90perc_kW` | `float` | `kW` | Percentil 90 de las potencias máximas registradas en los últimos 12 meses |
 
-## Estadísticas de HA (Long Term Statistics)
+## Integración con panel Energía (Long Term Statistics)
 
-La versión más reciente de edata (>= `2022.01.0`) es compatible con las estadísticas de HA, lo cual habilita su uso en el panel de energía, y en algunas tarjetas nativas para Lovelace. Por defecto, las estadísticas generadas serán:
+La versión más reciente de edata (>= `2022.01.0`) es compatible con las estadísticas de HA, lo cual habilita su uso en el panel de energía. Por defecto, las estadísticas generadas serán:
 
 | statistic_id | Tipo | Unidad | Significado |
 | ------------- | ------------- | ------------- | ------------- |
@@ -86,9 +92,7 @@ La versión más reciente de edata (>= `2022.01.0`) es compatible con las estad�
 | `edata:xxxx_power_cost`*  | `float` | `€` | Coste (término de potencia) (>= `2022.09.0`)|
 | `edata:xxxx_energy_cost`*  | `float` | `€` | Coste (término de energía) (>= `2022.09.0`)|
 
-\* Los campos marcados con asterisco no están habilitados por defecto, y se habilitan en Ajustes > Dispositivos y Servicios > XXXX (edata) - Configurar. Tendrá que configurar los costes asociados a cada término (según su contrato).
-
-**NOTA:** no se da soporte, de momento, a PVPC ni al coste asociado a la excepción ibérica (tope del gas) por la dificultad en la obtención de datos masivos y al mantenimiento de la integración.
+\* Los campos marcados con asterisco no están habilitados por defecto, y se habilitan en Ajustes > Dispositivos y Servicios > XXXX (edata) - Configurar. Tendrá que configurar los costes asociados a cada término (según su contrato). No se da soporte, de momento, a PVPC ni al coste asociado a la excepción ibérica (tope del gas) por la dificultad en la obtención de datos masivos y al mantenimiento de la integración.
 
 ## Representación gráfica de los datos (requiere apexcharts-card)
 
@@ -112,6 +116,7 @@ title: Informe
 </details>
 
 ### Definición de nuevos sensores a partir de los atributos
+
 También puedes extraer uno de los atributos como un sensor aparte siguiendo el siguiente ejemplo (por [@thekimera](https://github.com/thekimera)):
 
 <details>
@@ -127,9 +132,10 @@ sensor:
            {{ state_attr('sensor.edata_xxxx', 'last_month_kWh') | float }}
         unit_of_measurement: kWh
 ```
+
 </details>
 
-A continuación se ofrecen una serie de tarjetas (en yaml) que permiten **visualizar los datos obtenidos mediante gráficas interactivas generadas con un componente llamado apexcharts-card**, que también debe instalarse manualmente o mediante HACS. Siga las instrucciones de https://github.com/RomRider/apexcharts-card y recuerde tener el repositorio a mano para personalizar las gráficas a continuación.
+A continuación se ofrecen una serie de tarjetas (en yaml) que permiten **visualizar los datos obtenidos mediante gráficas interactivas generadas con un componente llamado apexcharts-card**, que también debe instalarse manualmente o mediante HACS. Siga las instrucciones de <https://github.com/RomRider/apexcharts-card> y recuerde tener el repositorio a mano para personalizar las gráficas a continuación.
 
 **NOTA: en las siguientes tarjetas deberá reemplazar TODAS `xxxx` por sus últimos cuatro caracteres de su CUPS**.
 
@@ -139,7 +145,6 @@ A continuación se ofrecen una serie de tarjetas (en yaml) que permiten **visual
 
 <details>
 <summary>He leído las instrucciones en negrita y no voy a ignorarlas vilmente</summary>
-
 
 ``` yaml
 type: custom:apexcharts-card
@@ -245,7 +250,7 @@ all_series_config:
   type: column
   unit: kWh
   yaxis_id: eje
-  extend_to: end
+  extend_to: false
   show:
     legend_value: false
 series:
@@ -326,7 +331,7 @@ series:
   - entity: sensor.edata_xxxx
     name: Potencia máxima
     type: column
-    extend_to: end
+    extend_to: false
     unit: kW
     show:
       extremas: true
@@ -394,7 +399,7 @@ series:
 
 ![Captura mes en curso](https://i.imgur.com/1MOF0jk.png)
 
-NOTA: El precio PVPC ya no está disponible.
+NOTA: El indicador del coste PVPC ya no está disponible.
 
 <details>
 <summary>He leído las instrucciones en negrita y no voy a ignorarlas vilmente</summary>
@@ -433,13 +438,14 @@ series:
     attribute: month_p3_kWh
     name: Valle
 ```
+
 </details>
 
 ### Detalle: mes anterior
 
 ![Captura mes pasado](https://i.imgur.com/UcXkbXB.png)
 
-NOTA: El precio PVPC ya no está disponible.
+NOTA: El indicador del coste PVPC ya no está disponible.
 
 <details>
 <summary>He leído las instrucciones en negrita y no voy a ignorarlas vilmente</summary>
@@ -483,25 +489,32 @@ series:
 
 ## FAQ
 
-**¿Por qué no cargan los datos?**
+**¿Por qué no me funciona?**
 
-Hermosa pregunta:
+>Hermosa pregunta:
+>
+>0. Si no ve los datos en datadis.es, no los verá aquí, trate de solucionar primero lo anterior. Si no ha leído o seguido las instrucciones, hágalo.
+>1. Si no se ha creado el sensor `sensor.edata_xxxx`, algo ha fallado y posiblemente sea una mala configuración del sensor, revise el log y siga las instrucciones.
+>2. Si el sensor se ha creado, pero sólo el atributo CUPS está relleno, es posible que Datadis no esté operativo en ese instante, deje la integración funcionando y se recuperará sola.
+>3. Si el sensor se ha creado, y el atributo CUPS no está relleno, ha debido introducir erróneamente (a) sus credenciales, (b) su CUPS. Copie y pegue todos los datos anteriores desde la web de Datadis.es. Insisto, copie y pegue, algunas distribuidoras ofrecen un número de CUPS con dos dígitos adicionales que no coinciden con el de Datadis.
+>4. Si no tiene idea de qué ocurre, puede habilitar logs de mayor detalle añadiendo lo siguiente al fichero `configuration.yaml`:
+>``` yaml
+>sensor:
+>  - platform: edata
+>    debug: true
+>```
+>
+>Si nada de lo anterior funciona, cree una *issue* en <https://github.com/uvejota/homeassistant-edata/issues>, indicando versión, sintomatología y aportando los logs del paciente, y trataré de ayudarle lo antes posible.
 
-0. Si no ve los datos en datadis.es, no los verá aquí, trate de solucionar primero lo anterior. Si no ha leído o seguido las instrucciones, hágalo.
-1. Si no se ha creado el sensor `sensor.edata_xxxx`, algo ha fallado y posiblemente sea una mala configuración del YAML, revise el log y siga las instrucciones.
-2. Si el sensor se ha creado, pero sólo el atributo CUPS está relleno, es posible que Datadis no esté operativo en ese instante, deje la integración funcionando y se recuperará sola.
-3. Si el sensor se ha creado, y el atributo CUPS no está relleno, ha debido introducir erróneamente (a) sus credenciales, (b) su CUPS. Copie y pegue todos los datos anteriores desde la web de Datadis.es. Insisto, copie y pegue, algunas distribuidoras ofrecen un número de CUPS con dos dígitos adicionales que no coinciden con el de Datadis.
+**¿Por qué hay huecos en mis datos?**
 
-Si nada de lo anterior funciona, cree una _issue_ en https://github.com/uvejota/homeassistant-edata/issues, indicando versión, sintomatología y aportando los logs del paciente, y trataré de ayudarle lo antes posible.
+>Respuesta corta: porque la API de datadis no te ha dado esos datos.
+>
+>Respuesta larga: porque la API de datadis es impredecible y a veces responde datos vacíos `[]`, o códigos `50X`.
+>
+>Lo mejor que puedes hacer es esperar, sé que quieres ver tus datos ya, pero confía en mí, recargar la integración o reiniciar HA sólo va a conseguir que saturemos la API de Datadis. La integración está preparada para consultar cada hora (lo cual me parece más que razonable) los datos que le faltan completando los huecos. Cuanto más datos te faltan (e.g., primera ejecución), más tarda.
 
-## ¿Por qué hay huecos en mis datos?
 
-Respuesta corta: porque la API de datadis no te ha dado esos datos.
+**El panel de energía me muestra huecos o consumos duplicados, pero las tarjetas de apexcharts no**
 
-Respuesta larga: porque la API de datadis es impredecible y a veces responde datos vacíos `[]`, o códigos `50X`.
-
-**¿Qué puedes hacer?**
-> Esperar, sé que parece una mierda, pero confía en mí. La integración está preparada para consultar cada hora los datos que le faltan, es por este motivo que cuanto más datos te faltan, más tarda. Ella solita tratará de averigüar los huecos y solventarlos.
-
-¡Pero es que los huecos me han destrozado el panel de estadísticas!
-> De momento (versión >= `2022.09.0`), puedes regenerar las estadísticas manualmente mediante un servicio (Herramientas para desarrolladores > Servicios > edata.recreate_statistics).
+>De momento (versión >= `2022.09.0`), puedes regenerar las estadísticas manualmente mediante un servicio (Herramientas para desarrolladores > Servicios > edata.recreate_statistics).

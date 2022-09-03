@@ -23,8 +23,9 @@
     "options": {
         "step": {
             "init": {
-                "title": "Configuration",
+                "title": "Configuración",
                 "data": {
+                    "billing": "Activar facturación",
                     "p1_kw_year_eur": "Coste por kW contratado en P1 (€)",
                     "p2_kw_year_eur": "Coste por kW contratado en P2 (€)",
                     "p1_kwh_eur": "Coste por kWh en P1 (€)",
