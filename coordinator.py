@@ -8,6 +8,7 @@ from typing import Any
 from edata.helpers import EdataHelper
 from edata.processors import DataUtils as du
 from homeassistant.components.recorder.const import DATA_INSTANCE
+import homeassistant.components.recorder.util as recorder_util
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
 from homeassistant.components.recorder.statistics import (
     async_add_external_statistics,
@@ -29,6 +30,12 @@ from .store import DateTimeEncoder
 
 _LOGGER = logging.getLogger(__name__)
 
+def get_db_instance (hass):
+    """Workaround for older HA versions"""
+    try:
+        return recorder_util.get_instance(hass)
+    except AttributeError as e:
+        return hass
 
 class EdataCoordinator(DataUpdateCoordinator):
     """Handle Datadis data and statistics."""
@@ -138,7 +145,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             await self.clear_all_statistics()
 
         # fetch last month or last 365 days
-        await self.hass.data[DATA_INSTANCE].async_add_executor_job(
+        await self.hass.async_add_executor_job(
             self._datadis.update,
             datetime.today() - timedelta(days=365),  # since: 1 year ago
             datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -198,7 +205,7 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         for aggr in ("month", "day"):
             # for each aggregation method (month/day)
-            _stats = await self.hass.data[DATA_INSTANCE].async_add_executor_job(
+            _stats = await get_db_instance(self.hass).async_add_executor_job(
                 statistics_during_period,
                 self.hass,
                 dt_util.as_local(datetime(1970, 1, 1)),
@@ -226,7 +233,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         """Clear edata long term statistics"""
 
         # get all ids starting with edata:xxxx
-        all_ids = await self.hass.data[DATA_INSTANCE].async_add_executor_job(
+        all_ids = await get_db_instance(self.hass).async_add_executor_job(
             list_statistic_ids, self.hass
         )
         to_clear = [
@@ -240,7 +247,7 @@ class EdataCoordinator(DataUpdateCoordinator):
                 const.WARN_STATISTICS_CLEAR,
                 to_clear,
             )
-            await self.hass.data[DATA_INSTANCE].async_add_executor_job(
+            await get_db_instance(self.hass).async_add_executor_job(
                 clear_statistics,
                 self.hass.data[DATA_INSTANCE],
                 to_clear,
@@ -250,7 +257,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         """Update Long Term Statistics with newly found data"""
         # fetch last stats
         last_stats = {
-            x: await self.hass.data[DATA_INSTANCE].async_add_executor_job(
+            x: await get_db_instance(self.hass).async_add_executor_job(
                 get_last_statistics, self.hass, 1, self.sid[x], True
             )
             for x in self.sid

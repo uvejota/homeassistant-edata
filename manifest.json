@@ -6,7 +6,7 @@
     "dependencies": ["recorder"],
     "codeowners": ["@uvejota"],
     "requirements": ["e-data==0.4.0", "python-dateutil>=2.8.2"],
-    "version": "2022.09.0",
+    "version": "2022.09.3",
     "iot_class": "cloud_polling",
     "config_flow": true
 }
