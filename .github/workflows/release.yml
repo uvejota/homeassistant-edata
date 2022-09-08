@@ -1,0 +1,26 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download repo
+        uses: actions/checkout@v2
+
+      - name: Create token_extractor.zip
+        run: |
+          zip homeassistant-edata.zip -r ./
+
+      - name: Upload zip to release
+        uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: homeassistant-edata.zip
+          asset_name: homeassistant-edata.zip
+          tag: ${{ github.ref }}
+          overwrite: true
