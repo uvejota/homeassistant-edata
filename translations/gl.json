@@ -5,7 +5,7 @@
             "user": {
                 "title": "Configurar integración",
                 "data": {
-                    "username": "Nombre do usuario",
+                    "username": "Nome do usuario",
                     "password": "Contrasinal",
                     "cups": "CUPS",
                     "authorized_nif": "NIF autorizado"
