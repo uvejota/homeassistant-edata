@@ -82,16 +82,11 @@ class EdataStatistics:
                 # for each stat key (p1, p2, p3...)
                 _sum = 0
                 for stat in _stats[key]:
-                    for scope in [
-                        matching_stat
-                        for matching_stat in self.consumption_stats
-                        if self.sid[matching_stat] == stat["statistic_id"]
-                    ]:
-                        _inc = round(stat["sum"] - _sum, 1)
-                        _sum = stat["sum"]
-                        if _inc < 0:
-                            # if negative increment, data has to be wiped
-                            return False
+                    _inc = round(stat["sum"] - _sum, 1)
+                    _sum = stat["sum"]
+                    if _inc < 0:
+                        # if negative increment, data has to be wiped
+                        return False
         return True
 
     async def clear_all_statistics(self):

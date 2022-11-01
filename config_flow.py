@@ -95,15 +95,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry):
         """Initialize options flow."""
         self.config_entry = config_entry
+        self.inputs = {}
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
 
         if user_input is not None:
-            return self.async_create_entry(
-                title="",
-                data=user_input,
-            )
+            if not user_input[const.CONF_BILLING]:
+                return self.async_create_entry(
+                    title="",
+                    data=user_input,
+                )
+            self.inputs = user_input
+            return await self.async_step_costs()
 
         return self.async_show_form(
             step_id="init",
@@ -119,62 +123,78 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         const.CONF_PVPC,
                         default=self.config_entry.options.get(const.CONF_PVPC, False),
                     ): bool,
-                    vol.Required(
-                        const.PRICE_P1_KW_YEAR,
-                        default=self.config_entry.options.get(
-                            const.PRICE_P1_KW_YEAR, const.DEFAULT_PRICE_P1_KW_YEAR
-                        ),
-                    ): float,
-                    vol.Required(
-                        const.PRICE_P2_KW_YEAR,
-                        default=self.config_entry.options.get(
-                            const.PRICE_P2_KW_YEAR, const.DEFAULT_PRICE_P2_KW_YEAR
-                        ),
-                    ): float,
-                    vol.Required(
-                        const.PRICE_P1_KWH,
-                        default=self.config_entry.options.get(
-                            const.PRICE_P1_KWH, const.DEFAULT_PRICE_P1_KWH
-                        ),
-                    ): float,
-                    vol.Required(
-                        const.PRICE_P2_KWH,
-                        default=self.config_entry.options.get(
-                            const.PRICE_P2_KWH, const.DEFAULT_PRICE_P2_KWH
-                        ),
-                    ): float,
-                    vol.Required(
-                        const.PRICE_P3_KWH,
-                        default=self.config_entry.options.get(
-                            const.PRICE_P3_KWH, const.DEFAULT_PRICE_P3_KWH
-                        ),
-                    ): float,
-                    vol.Required(
-                        const.PRICE_METER_MONTH,
-                        default=self.config_entry.options.get(
-                            const.PRICE_METER_MONTH, const.DEFAULT_PRICE_METER_MONTH
-                        ),
-                    ): float,
-                    vol.Required(
-                        const.PRICE_MARKET_KW_YEAR,
-                        default=self.config_entry.options.get(
-                            const.PRICE_MARKET_KW_YEAR,
-                            const.DEFAULT_PRICE_MARKET_KW_YEAR,
-                        ),
-                    ): float,
-                    vol.Required(
-                        const.PRICE_ELECTRICITY_TAX,
-                        default=self.config_entry.options.get(
-                            const.PRICE_ELECTRICITY_TAX,
-                            const.DEFAULT_PRICE_ELECTRICITY_TAX,
-                        ),
-                    ): float,
-                    vol.Required(
-                        const.PRICE_IVA,
-                        default=self.config_entry.options.get(
-                            const.PRICE_IVA, const.DEFAULT_PRICE_IVA
-                        ),
-                    ): float,
                 }
             ),
+        )
+
+    async def async_step_costs(self, user_input=None):
+        """Manage the options."""
+
+        if user_input is not None:
+            return self.async_create_entry(
+                title="",
+                data=user_input.update(self.inputs),
+            )
+
+        base_schema = {
+            vol.Required(
+                const.PRICE_P1_KW_YEAR,
+                default=self.config_entry.options.get(
+                    const.PRICE_P1_KW_YEAR, const.DEFAULT_PRICE_P1_KW_YEAR
+                ),
+            ): float,
+            vol.Required(
+                const.PRICE_P2_KW_YEAR,
+                default=self.config_entry.options.get(
+                    const.PRICE_P2_KW_YEAR, const.DEFAULT_PRICE_P2_KW_YEAR
+                ),
+            ): float,
+            vol.Required(
+                const.PRICE_METER_MONTH,
+                default=self.config_entry.options.get(
+                    const.PRICE_METER_MONTH, const.DEFAULT_PRICE_METER_MONTH
+                ),
+            ): float,
+            vol.Required(
+                const.PRICE_MARKET_KW_YEAR,
+                default=self.config_entry.options.get(
+                    const.PRICE_MARKET_KW_YEAR,
+                    const.DEFAULT_PRICE_MARKET_KW_YEAR,
+                ),
+            ): float,
+            vol.Required(
+                const.PRICE_ELECTRICITY_TAX,
+                default=self.config_entry.options.get(
+                    const.PRICE_ELECTRICITY_TAX,
+                    const.DEFAULT_PRICE_ELECTRICITY_TAX,
+                ),
+            ): float,
+            vol.Required(
+                const.PRICE_IVA,
+                default=self.config_entry.options.get(
+                    const.PRICE_IVA, const.DEFAULT_PRICE_IVA
+                ),
+            ): float,
+        }
+
+        custom_schema = {
+            vol.Required(
+                const.PRICE_P1_KWH,
+                default=self.config_entry.options.get(const.PRICE_P1_KWH),
+            ): float,
+            vol.Required(
+                const.PRICE_P2_KWH,
+                default=self.config_entry.options.get(const.PRICE_P2_KWH),
+            ): float,
+            vol.Required(
+                const.PRICE_P3_KWH,
+                default=self.config_entry.options.get(const.PRICE_P3_KWH),
+            ): float,
+        }
+
+        return self.async_show_form(
+            step_id="costs",
+            data_schema=vol.Schema(base_schema)
+            if self.inputs[const.CONF_PVPC]
+            else vol.Schema(base_schema).extend(custom_schema),
         )
