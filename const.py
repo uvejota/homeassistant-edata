@@ -15,6 +15,7 @@ CONF_PROVIDER = "provider"
 CONF_EXPERIMENTAL = "experimental"
 CONF_DEBUG = "debug"
 CONF_BILLING = "billing"
+CONF_PVPC = "pvpc"
 CONF_WIPE = "wipe_data"
 CONF_AUTHORIZEDNIF = "authorized_nif"
 
@@ -65,16 +66,19 @@ ATTRIBUTES = {
     "month_p1_kWh": "kWh",
     "month_p2_kWh": "kWh",
     "month_p3_kWh": "kWh",
+    "month_€": "€",
     "last_month_kWh": "kWh",
     "last_month_daily_kWh": "kWh",
     "last_month_days": "d",
     "last_month_p1_kWh": "kWh",
     "last_month_p2_kWh": "kWh",
     "last_month_p3_kWh": "kWh",
+    "last_month_€": "€",
     "max_power_kW": "kW",
     "max_power_date": None,
     "max_power_mean_kW": "kW",
     "max_power_90perc_kW": "kW",
+    "last_registered_kWh_date": None,
 }
 
 EXPERIMENTAL_ATTRS = []

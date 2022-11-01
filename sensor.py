@@ -7,13 +7,14 @@ from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, EVENT_HOMEASSISTANT_START
 from homeassistant.core import CoreState, callback
-from homeassistant.helpers import config_validation as cv, entity_platform
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_platform
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import const
 from .coordinator import EdataCoordinator
-from .store import DateTimeEncoder, async_load_storage
+from .edata.processors import utils
 from .websockets import async_register_websockets
 
 # HA variables
@@ -118,14 +119,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     )
 
     # load old data if any
-    storage = await async_load_storage(
-        Store(
-            hass,
-            const.STORAGE_VERSION,
-            f"{const.STORAGE_KEY_PREAMBLE}_{scups}",
-            encoder=DateTimeEncoder,
-        )
-    )
+    serialized_data = await Store(
+        hass,
+        const.STORAGE_VERSION,
+        f"{const.STORAGE_KEY_PREAMBLE}_{scups}",
+    ).async_load()
+    storage = utils.deserialize_dict(serialized_data)
 
     platform = entity_platform.async_get_current_platform()
 
@@ -191,5 +190,5 @@ class EdataSensor(CoordinatorEntity, SensorEntity):
 
     async def service_recreate_statistics(self):
         """Recreates statistics"""
-        await self._coordinator.clear_all_statistics()
-        await self._coordinator.update_statistics()
+        await self._coordinator.statistics.clear_all_statistics()
+        await self._coordinator.statistics.update_statistics()

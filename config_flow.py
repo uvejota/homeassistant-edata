@@ -116,6 +116,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         ),
                     ): bool,
                     vol.Required(
+                        const.CONF_PVPC,
+                        default=self.config_entry.options.get(const.CONF_PVPC, False),
+                    ): bool,
+                    vol.Required(
                         const.PRICE_P1_KW_YEAR,
                         default=self.config_entry.options.get(
                             const.PRICE_P1_KW_YEAR, const.DEFAULT_PRICE_P1_KW_YEAR

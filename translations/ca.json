@@ -27,6 +27,7 @@
                 "title": "Configuració",
                 "data": {
                     "billing": "Activa la facturació",
+                    "pvpc": "PVPC",
                     "p1_kw_year_eur": "Potència: Preu kW franja Punta - P1 (€)",
                     "p2_kw_year_eur": "Potència: Preu kW franja Vall - P2 (€)",
                     "p1_kwh_eur": "Energia: Preu per kWh a la franja Punta - P1 (€)",
