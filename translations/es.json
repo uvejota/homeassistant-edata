@@ -1,6 +1,16 @@
 {
     "title": "Integración edata",
     "config": {
+        "abort": {
+            "unknown": "Error desconocido",
+            "already_configured": "Este CUPS ya está configurado",
+            "invalid_credentials": "Credenciales incorrectas"
+        },
+        "error": {
+            "unknown": "Error desconocido",
+            "already_configured": "Este CUPS ya está configurado",
+            "invalid_credentials": "Credenciales incorrectas"
+        },
         "step": {
             "user": {
                 "title": "Configurar integración",
@@ -11,13 +21,6 @@
                     "authorized_nif": "NIF autorizado"
                 }
             }
-        },
-        "error": {
-            "already_configured": "Este CUPS ya está configurado"
-        },
-        "abort": {
-            "unknown": "Error desconocido",
-            "already_configured": "Este CUPS ya está configurado"
         }
     },
     "options": {

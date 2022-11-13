@@ -41,6 +41,7 @@ class EdataStatistics:
         self._billing = enable_billing
         self._reset = do_reset
         self._edata = edata_helper
+
         # stat id aliases
         self.sid = {
             "kWh": const.STAT_ID_KWH(self.id),
@@ -196,8 +197,11 @@ class EdataStatistics:
         self, dt_from: datetime | None, last_stats: list[dict[str, Any]]
     ):
         """Build long-term statistics for consumptions"""
-        if dt_from is None:
-            dt_from = dt_util.as_local(datetime(1970, 1, 1))
+        dt_from = (
+            dt_util.as_local(datetime(1970, 1, 1))
+            if dt_from is None
+            else dt_util.as_local(dt_from)
+        )
 
         # retrieve sum for summable stats (consumptions)
         _significant_stats = []
@@ -240,8 +244,11 @@ class EdataStatistics:
         self, dt_from: datetime | None, last_stats: list[dict[str, Any]]
     ):
         """Build long-term statistics for cost"""
-        if dt_from is None:
-            dt_from = dt_util.as_local(datetime(1970, 1, 1))
+        dt_from = (
+            dt_util.as_local(datetime(1970, 1, 1))
+            if dt_from is None
+            else dt_util.as_local(dt_from)
+        )
 
         # retrieve sum for summable stats (costs)
         _significant_stats = []
@@ -296,8 +303,11 @@ class EdataStatistics:
 
         _label = "value_kW"
         new_stats = {x: [] for x in self.maximeter_stats}
-        if dt_from is None:
-            dt_from = dt_util.as_local(datetime(1970, 1, 1))
+        dt_from = (
+            dt_util.as_local(datetime(1970, 1, 1))
+            if dt_from is None
+            else dt_util.as_local(dt_from)
+        )
         for data in self._edata.data.get("maximeter", {}):
             dt_found = dt_util.as_local(data["datetime"])
             if dt_found >= dt_from:
@@ -306,14 +316,14 @@ class EdataStatistics:
                     StatisticData(
                         start=dt_found.replace(minute=0),
                         state=data[_label],
-                        mean=data[_label],
+                        max=data[_label],
                     )
                 )
                 new_stats[_p + "_kW"].append(
                     StatisticData(
                         start=dt_found.replace(minute=0),
                         state=data[_label],
-                        mean=data[_label],
+                        max=data[_label],
                     )
                 )
 

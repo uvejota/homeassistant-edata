@@ -98,13 +98,21 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     authorized_nif = config_entry.data.get(const.CONF_AUTHORIZEDNIF, None)
     scups = cups[-4:]
 
+    is_pvpc = config_entry.options.get(const.CONF_PVPC, False)
+
     billing = (
         {
             const.PRICE_P1_KW_YEAR: config_entry.options.get(const.PRICE_P1_KW_YEAR),
             const.PRICE_P2_KW_YEAR: config_entry.options.get(const.PRICE_P2_KW_YEAR),
-            const.PRICE_P1_KWH: config_entry.options.get(const.PRICE_P1_KWH),
-            const.PRICE_P2_KWH: config_entry.options.get(const.PRICE_P2_KWH),
-            const.PRICE_P3_KWH: config_entry.options.get(const.PRICE_P3_KWH),
+            const.PRICE_P1_KWH: config_entry.options.get(const.PRICE_P1_KWH)
+            if not is_pvpc
+            else None,
+            const.PRICE_P2_KWH: config_entry.options.get(const.PRICE_P2_KWH)
+            if not is_pvpc
+            else None,
+            const.PRICE_P3_KWH: config_entry.options.get(const.PRICE_P3_KWH)
+            if not is_pvpc
+            else None,
             const.PRICE_METER_MONTH: config_entry.options.get(const.PRICE_METER_MONTH),
             const.PRICE_MARKET_KW_YEAR: config_entry.options.get(
                 const.PRICE_MARKET_KW_YEAR
@@ -128,7 +136,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     platform = entity_platform.async_get_current_platform()
 
-    # This will call Entity.set_sleep_timer(sleep_time=VALUE)
     platform.async_register_entity_service(
         "recreate_statistics",
         {},

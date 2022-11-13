@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
+from .edata.connectors.datadis import DatadisConnector
 from . import const
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,15 +26,27 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 )
 
 
+class AlreadyConfigured(HomeAssistantError):
+    """Error to indicate CUPS is already configured"""
+
+
+class InvalidCredentials(HomeAssistantError):
+    """Error to indicate credentials are invalid"""
+
+
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect.
 
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
-    # TODO validate the data can be used to set up a connection.
     scups = data[const.CONF_CUPS][-4:]
     if hass.data.get(const.DOMAIN, {}).get(scups) is not None:
         raise AlreadyConfigured
+
+    api = DatadisConnector(data[CONF_USERNAME], data[CONF_PASSWORD])
+    result = await hass.async_add_executor_job(api.login)
+    if not result:
+        raise InvalidCredentials
 
     # Return info that you want to store in the config entry.
     return {"title": scups}
@@ -59,6 +72,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
             info = await validate_input(self.hass, user_input)
         except AlreadyConfigured:
             errors["base"] = "already_configured"
+        except InvalidCredentials:
+            errors["base"] = "invalid_credentials"
         else:
             await self.async_set_unique_id(user_input[const.CONF_CUPS])
             self._abort_if_unique_id_configured()
@@ -83,10 +98,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
     @callback
     def async_get_options_flow(config_entry):
         return OptionsFlowHandler(config_entry)
-
-
-class AlreadyConfigured(HomeAssistantError):
-    """Error to indicate CUPS is already configured"""
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
@@ -131,10 +142,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         """Manage the options."""
 
         if user_input is not None:
-            return self.async_create_entry(
-                title="",
-                data=user_input.update(self.inputs),
-            )
+            for key in user_input.keys():
+                self.inputs[key] = user_input[key]
+            return self.async_create_entry(title="", data=self.inputs)
 
         base_schema = {
             vol.Required(

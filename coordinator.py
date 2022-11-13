@@ -9,7 +9,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from . import const
-from .edata.definitions import ATTRIBUTES, PricingRules
+from .edata.definitions import ATTRIBUTES, PricingRules, DEFAULT_PVPC_RULES
 from .edata.helpers import EdataHelper
 from .edata.processors import utils
 from .statistics import EdataStatistics
@@ -38,17 +38,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         self._billing = None
         if billing is not None:
             if billing.get(const.CONF_PVPC, False):
-                self._billing = PricingRules(
-                    p1_kw_year_eur=30.67266,
-                    p2_kw_year_eur=1.4243591,
-                    meter_month_eur=0.81,
-                    market_kw_year_eur=3.113,
-                    electricity_tax=1.0511300560,
-                    iva_tax=1.05,
-                    p1_kwh_eur=None,
-                    p2_kwh_eur=None,
-                    p3_kwh_eur=None,
-                )
+                self._billing = DEFAULT_PVPC_RULES
             else:
                 self._billing = PricingRules(
                     p1_kw_year_eur=billing[const.PRICE_P1_KW_YEAR],
@@ -121,7 +111,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         if self.reset:
             await self.statistics.clear_all_statistics()
 
-        # fetch last month or last 365 days
+        # fetch last 365 days
         await self.hass.async_add_executor_job(
             self._datadis.update,
             datetime.today() - timedelta(days=365),  # since: 1 year ago
