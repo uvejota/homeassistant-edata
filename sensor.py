@@ -3,6 +3,7 @@
 import logging
 
 import voluptuous as vol
+from edata.processors import utils
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, EVENT_HOMEASSISTANT_START
@@ -14,7 +15,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import const
 from .coordinator import EdataCoordinator
-from edata.processors import utils
 from .websockets import async_register_websockets
 
 # HA variables

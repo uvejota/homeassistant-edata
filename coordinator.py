@@ -4,14 +4,14 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta
 
+from edata.definitions import ATTRIBUTES, PricingRules
+from edata.helpers import EdataHelper
+from edata.processors import utils
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from . import const
-from edata.definitions import ATTRIBUTES, PricingRules, DEFAULT_PVPC_RULES
-from edata.helpers import EdataHelper
-from edata.processors import utils
 from .statistics import EdataStatistics
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,7 +38,17 @@ class EdataCoordinator(DataUpdateCoordinator):
         self._billing = None
         if billing is not None:
             if billing.get(const.CONF_PVPC, False):
-                self._billing = DEFAULT_PVPC_RULES
+                self._billing = PricingRules(
+                    p1_kw_year_eur=billing[const.PRICE_P1_KW_YEAR],
+                    p2_kw_year_eur=billing[const.PRICE_P2_KW_YEAR],
+                    meter_month_eur=billing[const.PRICE_METER_MONTH],
+                    market_kw_year_eur=billing[const.PRICE_MARKET_KW_YEAR],
+                    electricity_tax=billing[const.PRICE_ELECTRICITY_TAX],
+                    iva_tax=billing[const.PRICE_IVA],
+                    p1_kwh_eur=None,
+                    p2_kwh_eur=None,
+                    p3_kwh_eur=None,
+                )
             else:
                 self._billing = PricingRules(
                     p1_kw_year_eur=billing[const.PRICE_P1_KW_YEAR],

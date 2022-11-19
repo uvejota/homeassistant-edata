@@ -5,13 +5,13 @@ import logging
 from typing import Any
 
 import voluptuous as vol
+from edata.connectors.datadis import DatadisConnector
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
-from edata.connectors.datadis import DatadisConnector
 from . import const
 
 _LOGGER = logging.getLogger(__name__)

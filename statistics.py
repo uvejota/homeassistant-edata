@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any
 
 import homeassistant.components.recorder.util as recorder_util
+from edata.processors import utils
 from homeassistant.components.recorder.const import DATA_INSTANCE
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
 from homeassistant.components.recorder.statistics import (
@@ -19,7 +20,6 @@ from homeassistant.const import CURRENCY_EURO, ENERGY_KILO_WATT_HOUR, POWER_KILO
 from homeassistant.util import dt as dt_util
 
 from . import const
-from edata.processors import utils
 
 _LOGGER = logging.getLogger(__name__)
 
