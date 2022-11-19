@@ -9,9 +9,9 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from . import const
-from .edata.definitions import ATTRIBUTES, PricingRules, DEFAULT_PVPC_RULES
-from .edata.helpers import EdataHelper
-from .edata.processors import utils
+from edata.definitions import ATTRIBUTES, PricingRules, DEFAULT_PVPC_RULES
+from edata.helpers import EdataHelper
+from edata.processors import utils
 from .statistics import EdataStatistics
 
 _LOGGER = logging.getLogger(__name__)

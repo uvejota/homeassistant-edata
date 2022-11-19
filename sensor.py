@@ -14,7 +14,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import const
 from .coordinator import EdataCoordinator
-from .edata.processors import utils
+from edata.processors import utils
 from .websockets import async_register_websockets
 
 # HA variables

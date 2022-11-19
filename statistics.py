@@ -19,7 +19,7 @@ from homeassistant.const import CURRENCY_EURO, ENERGY_KILO_WATT_HOUR, POWER_KILO
 from homeassistant.util import dt as dt_util
 
 from . import const
-from .edata.processors import utils
+from edata.processors import utils
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,12 +34,14 @@ ALIAS_EUR = "eur"
 ALIAS_POWER_EUR = "power_eur"
 ALIAS_ENERGY_EUR = "energy_eur"
 
+
 def get_db_instance(hass):
     """Workaround for older HA versions"""
     try:
         return recorder_util.get_instance(hass)
     except AttributeError:
         return hass
+
 
 class EdataStatistics:
     """A helper for long term statistics in edata"""
@@ -274,12 +276,18 @@ class EdataStatistics:
             dt_found = dt_util.as_local(data["datetime"])
             if dt_found >= dt_from:
                 _sum[ALIAS_POWER_EUR] += (
-                    data["power_term"] if ALIAS_POWER_EUR in _sum else data["power_term"]
+                    data["power_term"]
+                    if ALIAS_POWER_EUR in _sum
+                    else data["power_term"]
                 )
                 _sum[ALIAS_ENERGY_EUR] += (
-                    data["energy_term"] if ALIAS_ENERGY_EUR in _sum else data["energy_term"]
+                    data["energy_term"]
+                    if ALIAS_ENERGY_EUR in _sum
+                    else data["energy_term"]
                 )
-                _sum[ALIAS_EUR] += data["value_eur"] if ALIAS_EUR in _sum else data["value_eur"]
+                _sum[ALIAS_EUR] += (
+                    data["value_eur"] if ALIAS_EUR in _sum else data["value_eur"]
+                )
 
                 new_stats[ALIAS_POWER_EUR].append(
                     StatisticData(

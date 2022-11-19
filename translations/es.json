@@ -33,15 +33,18 @@
                 }
             },
             "costs": {
-                "p1_kw_year_eur": "Coste por kW contratado en P1 (€)",
-                "p2_kw_year_eur": "Coste por kW contratado en P2 (€)",
-                "p1_kwh_eur": "Coste por kWh en P1 (€)",
-                "p2_kwh_eur": "Coste por kWh en P2 (€)",
-                "p3_kwh_eur": "Coste por kWh en P3 (€)",
-                "meter_month_eur": "Coste mensual por alquiler de contador (€)",
-                "market_kw_year_eur": "Coste anual por mercado de kW (€)",
-                "electricity_tax": "Impuesto de electricidad (e.g., 1.05 para 5%)",
-                "iva": "IVA (e.g., 1.21 para 21%)"
+                "title": "Facturación",
+                "data": {
+                    "p1_kw_year_eur": "Coste por kW contratado en P1 (€)",
+                    "p2_kw_year_eur": "Coste por kW contratado en P2 (€)",
+                    "meter_month_eur": "Coste mensual por alquiler de contador (€)",
+                    "market_kw_year_eur": "Coste anual por mercado de kW (€)",
+                    "electricity_tax": "Impuesto de electricidad (e.g., 1.05 para 5%)",
+                    "iva": "IVA (e.g., 1.21 para 21%)",
+                    "p1_kwh_eur": "Coste por kWh en P1 (€)",
+                    "p2_kwh_eur": "Coste por kWh en P2 (€)",
+                    "p3_kwh_eur": "Coste por kWh en P3 (€)"
+                }
             }
         }
     }

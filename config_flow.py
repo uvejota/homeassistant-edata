@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
-from .edata.connectors.datadis import DatadisConnector
+from edata.connectors.datadis import DatadisConnector
 from . import const
 
 _LOGGER = logging.getLogger(__name__)
