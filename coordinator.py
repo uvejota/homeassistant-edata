@@ -157,7 +157,7 @@ class EdataCoordinator(DataUpdateCoordinator):
 
             # update state
             self._data["state"] = self._datadis.attributes[
-                "last_registered_kWh_date"
+                "last_registered_date"
             ].strftime("%d/%m/%Y")
 
         except Exception:

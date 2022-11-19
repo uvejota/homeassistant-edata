@@ -23,6 +23,16 @@ from .edata.processors import utils
 
 _LOGGER = logging.getLogger(__name__)
 
+ALIAS_KWH = "kWh"
+ALIAS_P1_KWH = "p1_kWh"
+ALIAS_P2_KWH = "p2_kWh"
+ALIAS_P3_KWH = "p3_kWh"
+ALIAS_KW = "kW"
+ALIAS_P1_KW = "p1_kW"
+ALIAS_P2_KW = "p2_kW"
+ALIAS_EUR = "eur"
+ALIAS_POWER_EUR = "power_eur"
+ALIAS_ENERGY_EUR = "energy_eur"
 
 def get_db_instance(hass):
     """Workaround for older HA versions"""
@@ -30,7 +40,6 @@ def get_db_instance(hass):
         return recorder_util.get_instance(hass)
     except AttributeError:
         return hass
-
 
 class EdataStatistics:
     """A helper for long term statistics in edata"""
@@ -44,27 +53,27 @@ class EdataStatistics:
 
         # stat id aliases
         self.sid = {
-            "kWh": const.STAT_ID_KWH(self.id),
-            "p1_kWh": const.STAT_ID_P1_KWH(self.id),
-            "p2_kWh": const.STAT_ID_P2_KWH(self.id),
-            "p3_kWh": const.STAT_ID_P3_KWH(self.id),
-            "kW": const.STAT_ID_KW(self.id),
-            "p1_kW": const.STAT_ID_P1_KW(self.id),
-            "p2_kW": const.STAT_ID_P2_KW(self.id),
+            ALIAS_KWH: const.STAT_ID_KWH(self.id),
+            ALIAS_P1_KWH: const.STAT_ID_P1_KWH(self.id),
+            ALIAS_P2_KWH: const.STAT_ID_P2_KWH(self.id),
+            ALIAS_P3_KWH: const.STAT_ID_P3_KWH(self.id),
+            ALIAS_KW: const.STAT_ID_KW(self.id),
+            ALIAS_P1_KW: const.STAT_ID_P1_KW(self.id),
+            ALIAS_P2_KW: const.STAT_ID_P2_KW(self.id),
         }
         if self._billing:
             self.sid.update(
                 {
-                    "eur": const.STAT_ID_EUR(self.id),
-                    "power_eur": const.STAT_ID_POWER_EUR(self.id),
-                    "energy_eur": const.STAT_ID_ENERGY_EUR(self.id),
+                    ALIAS_EUR: const.STAT_ID_EUR(self.id),
+                    ALIAS_POWER_EUR: const.STAT_ID_POWER_EUR(self.id),
+                    ALIAS_ENERGY_EUR: const.STAT_ID_ENERGY_EUR(self.id),
                 }
             )
 
         # stats id grouping
-        self.consumption_stats = ["p1_kWh", "p2_kWh", "p3_kWh", "kWh"]
-        self.maximeter_stats = ["p1_kW", "p2_kW", "kW"]
-        self.cost_stats = ["power_eur", "energy_eur", "eur"]
+        self.consumption_stats = [ALIAS_P1_KWH, ALIAS_P2_KWH, ALIAS_P3_KWH, ALIAS_KWH]
+        self.maximeter_stats = [ALIAS_P1_KW, ALIAS_P2_KW, ALIAS_KW]
+        self.cost_stats = [ALIAS_POWER_EUR, ALIAS_ENERGY_EUR, ALIAS_EUR]
 
     async def test_statistics_integrity(self):
         """Test statistics integrity"""
@@ -139,7 +148,7 @@ class EdataStatistics:
 
         new_stats.update(
             self._build_consumption_stats(
-                dt_from=last_record_dt.get("kWh", None),
+                dt_from=last_record_dt.get(ALIAS_KWH, None),
                 last_stats=last_stats,
             )
         )
@@ -147,13 +156,13 @@ class EdataStatistics:
         if self._billing:
             new_stats.update(
                 self._build_cost_stats(
-                    dt_from=last_record_dt.get("eur", None),
+                    dt_from=last_record_dt.get(ALIAS_EUR, None),
                     last_stats=last_stats,
                 )
             )
 
         new_stats.update(
-            self._build_maximeter_stats(dt_from=last_record_dt.get("kW", None))
+            self._build_maximeter_stats(dt_from=last_record_dt.get(ALIAS_KW, None))
         )
 
         await self._add_statistics(new_stats)
@@ -222,12 +231,12 @@ class EdataStatistics:
             dt_found = dt_util.as_local(data["datetime"])
             if dt_found >= dt_from:
                 _p = utils.get_pvpc_tariff(data["datetime"])
-                _sum["kWh"] += data[_label]
-                new_stats["kWh"].append(
+                _sum[ALIAS_KWH] += data[_label]
+                new_stats[ALIAS_KWH].append(
                     StatisticData(
                         start=dt_found,
                         state=data[_label],
-                        sum=_sum["kWh"],
+                        sum=_sum[ALIAS_KWH],
                     )
                 )
                 _sum[_p + "_kWh"] += data[_label]
@@ -264,35 +273,35 @@ class EdataStatistics:
         for data in self._edata.data.get("cost_hourly_sum", {}):
             dt_found = dt_util.as_local(data["datetime"])
             if dt_found >= dt_from:
-                _sum["power_eur"] += (
-                    data["power_term"] if "power_eur" in _sum else data["power_term"]
+                _sum[ALIAS_POWER_EUR] += (
+                    data["power_term"] if ALIAS_POWER_EUR in _sum else data["power_term"]
                 )
-                _sum["energy_eur"] += (
-                    data["energy_term"] if "energy_eur" in _sum else data["energy_term"]
+                _sum[ALIAS_ENERGY_EUR] += (
+                    data["energy_term"] if ALIAS_ENERGY_EUR in _sum else data["energy_term"]
                 )
-                _sum["eur"] += data["value_eur"] if "eur" in _sum else data["value_eur"]
+                _sum[ALIAS_EUR] += data["value_eur"] if ALIAS_EUR in _sum else data["value_eur"]
 
-                new_stats["power_eur"].append(
+                new_stats[ALIAS_POWER_EUR].append(
                     StatisticData(
                         start=dt_found,
                         state=data["power_term"],
-                        sum=_sum["power_eur"],
+                        sum=_sum[ALIAS_POWER_EUR],
                     )
                 )
 
-                new_stats["energy_eur"].append(
+                new_stats[ALIAS_ENERGY_EUR].append(
                     StatisticData(
                         start=dt_found,
                         state=data["energy_term"],
-                        sum=_sum["energy_eur"],
+                        sum=_sum[ALIAS_ENERGY_EUR],
                     )
                 )
 
-                new_stats["eur"].append(
+                new_stats[ALIAS_EUR].append(
                     StatisticData(
                         start=dt_found,
                         state=data["value_eur"],
-                        sum=_sum["eur"],
+                        sum=_sum[ALIAS_EUR],
                     )
                 )
 
@@ -312,7 +321,7 @@ class EdataStatistics:
             dt_found = dt_util.as_local(data["datetime"])
             if dt_found >= dt_from:
                 _p = "p1" if utils.get_pvpc_tariff(data["datetime"]) == "p1" else "p2"
-                new_stats["kW"].append(
+                new_stats[ALIAS_KW].append(
                     StatisticData(
                         start=dt_found.replace(minute=0),
                         state=data[_label],
