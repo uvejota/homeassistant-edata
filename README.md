@@ -4,60 +4,57 @@
 
 # homeassistant-edata
 
-Esta integración para Home Assistant te permite seguir de un vistazo tus consumos y máximas potencias alcanzadas, obteniendo sus datos desde datadis, y ofreciendo técnicas para su representación gráfica en lovelace mediante el componente apexcharts-card, además de integrar los datos con la plataforma de energía (beta).
+Esta integración para Home Assistant te permite seguir de un vistazo tus consumos y máximas potencias alcanzadas, obteniendo sus datos desde plataformas como Datadis o REData (precios PVPC), y ofreciendo técnicas para su representación gráfica en lovelace mediante el componente apexcharts-card. Además, integra estos datos con el panel de energía de Home Assistant.
 
-![Captura Dashboard](https://i.imgur.com/P4TcGLH.png)
+![Dashboard](https://i.imgur.com/P4TcGLH.png)
 
 Algunas aclaraciones:
-* Los datos mostrados jamás serán en tiempo real, ya que se saca de la información que registra/factura tu distribuidora y expone a través de la plataforma Datadis. *Normalmente* cada día registran el día anterior.
-* La tarificación de la integración está en pruebas y sólo funciona a día de hoy con tarifas 2.0TD en mercado libre, y sólo si tu tarifa es precio fijo. Sí se permite la distinción entre tramos. **A día de hoy, NO se da soporte a PVPC ni se incluye tope de gas.**
+* Los datos mostrados **jamás serán en tiempo real**, ya que se saca de la información que registra/factura tu distribuidora y expone a través de la plataforma Datadis. *Normalmente* cada día registran el día anterior.
+* La tarificación de la integración está en pruebas y sólo funciona a día de hoy con tarifas 2.0TD si tu tarifa es precio fijo (se permite distinción entre tramos) o PVPC. **A día de hoy, NO se incluye tope de gas.**
 
 ## Instalación
 
 Para instalar esta integración en Home Assistant necesitarás:
 
-* una cuenta funcional (y validada) en la web www.datadis.es (no hay que marcar la casilla de la API al registrar, usaremos la privada que está habilitada por defecto),
+* una cuenta funcional (y validada) en la web de [Datadis](www.datadis.es)
+  * no hay que marcar la casilla de la API al registrar, usaremos la privada que está habilitada por defecto),
 * una instalación *reciente* y funcional de Home Assistant (a partir de ahora HA),
 * tener o instalar HACS en tu entorno de HA, y
-* (opcional/recomendado) tener o instalar el componente apexchart-card (también disponible en HACS).
+* (opcional/recomendado) tener o instalar el componente [apexchart-card](https://github.com/RomRider/apexcharts-card) usando HACS.
 
 Una vez satisfecho lo anterior, los pasos a seguir para la instalación son:
 
 1. Instalar HACS en tu entorno de Home Assistant (ver <https://hacs.xyz/>),
 2. Añadir este repositorio (<https://github.com/uvejota/homeassistant-edata>) a los repositorios personalizados de HACS,
 3. Instalar la integración mediante HACS, y
-4. Configurarla mediante:
-   * (versión >= `2022.01.0`) la UI de Home Assistant (buscar "edata" en `Configuración > Dispositivos y servicios > Añadir integración`).
-   * (versión <= `2021.12.2`) el fichero de configuración `configuration.yaml`:
+4. Buscar "edata" en `Configuración > Dispositivos y servicios > Añadir integración`)
 
-``` yaml
-sensor:
-  - platform: edata
-    username: !secret my_datadis_username
-    password: !secret my_datadis_password
-    cups: !secret my_cups
-    #debug: false # opcional, puede ser true/false y permite "desbloquear" mensajes de log de tipo info y superior
-```
+![Selección de edata](assets/install.png)
 
-5. Esperar unos minutos, le aparecerá un nuevo sensor llamado `sensor.edata_xxxx` donde `xxxx` dependerá de los últimos cuatro caracteres de su CUPS.
+5. Configurar sus credenciales de Datadis, indicando el NIF autorizado únicamente si no es el titular del suministro indicado). **Copie y pegue el CUPS** directamente desde la web de Datadis, en mayúscula. Algunas distribuidoras adhieren algunos caracteres adicionales.
 
-**NOTA IMPORTANTE:** copie y pegue el CUPS directamente desde la web de Datadis, en mayúscula. Algunas distribuidoras adhieren algunos caracteres adicionales.
+![Paso de configuración](assets/install-step1.png)
 
-## Parámetros
+6. Esperar unos minutos, le aparecerá un nuevo sensor llamado `sensor.edata_xxxx` donde `xxxx` dependerá de los últimos cuatro caracteres de su CUPS. En un futuro se podrá elegir el número de dígitos a mostrar, para evitar colisiones si se han configurado muchos suministros.
 
-Los estadísticos recopilados por esta integración se almacenan, de momento, como atributos. En esta página encontrará información sobre el significado de cada atributo, y cómo visualizarlos en texto.
+## Atributos de la integración
 
-### Tabla de atributos
+La integración soporta de momento los siguientes atributos:
 
 | Parámetro | Tipo | Unidad | Significado |
 | ------------- | ------------- | ------------- | ------------- |
-| cups | `string` | - | Identificador de su CUPS |
+| `cups` | `string` | - | Identificador de su CUPS |
 | `contract_p1_kW` | `float` | `kW` | Potencia contratada en P1 en el contrato vigente |
 | `contract_p2_kW` | `float` | `kW` | Potencia contratada en P2 en el contrato vigente |
 | `yesterday_kWh` | `float` | `kWh` | Consumo total registrado durante el día de ayer |
 | `yesterday_p1_kWh` | `float` | `kWh` | Consumo en P1 registrado durante el día de ayer |
 | `yesterday_p2_kWh` | `float` | `kWh` | Consumo en P2 registrado durante el día de ayer |
 | `yesterday_p3_kWh` | `float` | `kWh` | Consumo en P3 registrado durante el día de ayer |
+| `last_day_date` | `date` | `%Y-%m-%d %H:%S` | Último día registrado |
+| `last_day_kWh` | `float` | `kWh` | Consumo total registrado durante el último día registrado |
+| `last_day_p1_kWh` | `float` | `kWh` | Consumo en P1 registrado durante el último día registrado |
+| `last_day_p2_kWh` | `float` | `kWh` | Consumo en P2 registrado durante el último día registrado |
+| `last_day_p3_kWh` | `float` | `kWh` | Consumo en P3 registrado durante el último día registrado |
 | `month_kWh` | `float` | `kWh` | Consumo total registrado durante el mes en curso (natural) |
 | `month_days` | `float` | `d` | Días computados en el mes en curso |
 | `month_daily_kWh` | `float` | `kWh` | Consumo medio diario registrado durante el mes en curso |
@@ -77,7 +74,7 @@ Los estadísticos recopilados por esta integración se almacenan, de momento, co
 
 ## Integración con panel Energía (Long Term Statistics)
 
-La versión más reciente de edata (>= `2022.01.0`) es compatible con las estadísticas de HA, lo cual habilita su uso en el panel de energía. Por defecto, las estadísticas generadas serán:
+A partir de la versión `2022.01.0` de edata, ésta es compatible con las estadísticas de HA, lo cual habilita su uso en el panel de energía. Por defecto, las estadísticas generadas serán:
 
 | statistic_id | Tipo | Unidad | Significado |
 | ------------- | ------------- | ------------- | ------------- |
@@ -85,14 +82,24 @@ La versión más reciente de edata (>= `2022.01.0`) es compatible con las estad�
 | `edata:xxxx_p1_consumption` | `sum` | `kWh` | Consumo P1 |
 | `edata:xxxx_p2_consumption` | `sum` | `kWh` | Consumo P2 |
 | `edata:xxxx_p3_consumption` | `sum` | `kWh` | Consumo P3 |
-| `edata:xxxx_maximeter` | `mean` | `kW` | Maxímetro (>= `2022.09.0`)|
-| `edata:xxxx_p1_maximeter` | `mean` | `kW` | Maxímetro P1 (>= `2022.09.0`)|
-| `edata:xxxx_p2_maximeter` | `mean` | `kW` | Maxímetro P2 (>= `2022.09.0`)|
+| `edata:xxxx_maximeter` | `max` | `kW` | Maxímetro (>= `2022.09.0`)|
+| `edata:xxxx_p1_maximeter` | `max` | `kW` | Maxímetro P1 (>= `2022.09.0`)|
+| `edata:xxxx_p2_maximeter` | `max` | `kW` | Maxímetro P2 (>= `2022.09.0`)|
 | `edata:xxxx_cost`*  | `float` | `€` | Coste total (>= `2022.09.0`)|
 | `edata:xxxx_power_cost`*  | `float` | `€` | Coste (término de potencia) (>= `2022.09.0`)|
 | `edata:xxxx_energy_cost`*  | `float` | `€` | Coste (término de energía) (>= `2022.09.0`)|
 
-\* Los campos marcados con asterisco no están habilitados por defecto, y se habilitan en Ajustes > Dispositivos y Servicios > XXXX (edata) - Configurar. Tendrá que configurar los costes asociados a cada término (según su contrato). No se da soporte, de momento, a PVPC ni al coste asociado a la excepción ibérica (tope del gas) por la dificultad en la obtención de datos masivos y al mantenimiento de la integración.
+\* Los campos marcados con asterisco no están habilitados por defecto, y se habilitan en `Ajustes > Dispositivos y Servicios > XXXX (edata) - Configurar`. Primero deberá seleccionar si desea activar o no las funciones de facturación, y en caso de utilizar PVPC seleccionará también dicha casilla.
+
+![Opciones de edata](assets/configure-step1.png)
+
+A continuación, tendrá que configurar los costes asociados a cada término (según su contrato). No se da soporte al coste asociado a la excepción ibérica (tope del gas), aunque sí está incluido en PVPC.
+
+![Opciones de facturación](assets/configure-step2.png)
+
+Una vez configuradas y calculadas (tendrá que esperar un poco), las estadísticas pueden configurarse en el panel de energía en `Ajustes > Paneles de control > Energía > Añadir consumo (Red Eléctrica)`:
+
+![Opciones de edata](assets/configure-energy.png)
 
 ## Representación gráfica de los datos (requiere apexcharts-card)
 
@@ -101,7 +108,7 @@ La versión más reciente de edata (>= `2022.01.0`) es compatible con las estad�
 Puede visualizarlos a modo de informe mediante la siguiente tarjeta, **sustituyendo `xxxx`, en minúscula, cuando sea necesario (dos veces)**:
 
 <details>
-<summary>He leído las instrucciones en negrita y no voy a ignorarlas vilmente (hacer click para mostrar)</summary>
+<summary>He leído las instrucciones y quiero ver el contenido (hacer click para mostrar)</summary>
 
 ``` yaml
 type: markdown
@@ -120,7 +127,7 @@ title: Informe
 También puedes extraer uno de los atributos como un sensor aparte siguiendo el siguiente ejemplo (por [@thekimera](https://github.com/thekimera)):
 
 <details>
-<summary>He leído las instrucciones en negrita y no voy a ignorarlas vilmente</summary>
+<summary>He leído las instrucciones y quiero ver el contenido</summary>
 
 ``` yaml
 sensor:
@@ -137,14 +144,14 @@ sensor:
 
 A continuación se ofrecen una serie de tarjetas (en yaml) que permiten **visualizar los datos obtenidos mediante gráficas interactivas generadas con un componente llamado apexcharts-card**, que también debe instalarse manualmente o mediante HACS. Siga las instrucciones de <https://github.com/RomRider/apexcharts-card> y recuerde tener el repositorio a mano para personalizar las gráficas a continuación.
 
-**NOTA: en las siguientes tarjetas deberá reemplazar TODAS `xxxx` por sus últimos cuatro caracteres de su CUPS**.
+**NOTA: en las siguientes tarjetas deberá reemplazar TODAS las ocurrencias de `xxxx` por sus últimos cuatro caracteres de su CUPS**.
 
 ### Consumo diario
 
 ![GIF consumo diario](https://media.giphy.com/media/hnyH5DCpz9x4gzQWdi/giphy.gif)
 
 <details>
-<summary>He leído las instrucciones en negrita y no voy a ignorarlas vilmente</summary>
+<summary>He leído las instrucciones y quiero ver el contenido</summary>
 
 ``` yaml
 type: custom:apexcharts-card
@@ -228,7 +235,7 @@ series:
 ![GIF consumo mensual](https://i.imgur.com/sgPQbfd.png)
 
 <details>
-<summary>He leído las instrucciones en negrita y no voy a ignorarlas vilmente</summary>
+<summary>He leído las instrucciones y quiero ver el contenido</summary>
 
 ``` yaml
 type: custom:apexcharts-card
@@ -314,7 +321,7 @@ series:
 ![Captura maximetro](https://media.giphy.com/media/uCt6kqj7XN5K3PN4mE/giphy.gif)
 
 <details>
-<summary>He leído las instrucciones en negrita y no voy a ignorarlas vilmente</summary>
+<summary>He leído las instrucciones y quiero ver el contenido</summary>
 
 ``` yaml
 type: custom:apexcharts-card
@@ -356,7 +363,7 @@ series:
 ![Captura ayer](https://i.imgur.com/tfYnVn3.png)
 
 <details>
-<summary>He leído las instrucciones en negrita y no voy a ignorarlas vilmente</summary>
+<summary>He leído las instrucciones y quiero ver el contenido</summary>
 
 ``` yaml
 type: custom:apexcharts-card
@@ -399,10 +406,8 @@ series:
 
 ![Captura mes en curso](https://i.imgur.com/1MOF0jk.png)
 
-NOTA: El indicador del coste PVPC ya no está disponible.
-
 <details>
-<summary>He leído las instrucciones en negrita y no voy a ignorarlas vilmente</summary>
+<summary>He leído las instrucciones y quiero ver el contenido</summary>
 
 ``` yaml
 type: custom:apexcharts-card
@@ -437,6 +442,13 @@ series:
   - entity: sensor.edata_xxxx
     attribute: month_p3_kWh
     name: Valle
+  - entity: sensor.edata_xxxx
+    attribute: month_€
+    unit: €
+    show:
+      in_chart: false
+      in_header: true
+    name: Factura
 ```
 
 </details>
@@ -445,10 +457,8 @@ series:
 
 ![Captura mes pasado](https://i.imgur.com/UcXkbXB.png)
 
-NOTA: El indicador del coste PVPC ya no está disponible.
-
 <details>
-<summary>He leído las instrucciones en negrita y no voy a ignorarlas vilmente</summary>
+<summary>He leído las instrucciones y quiero ver el contenido</summary>
 
 ``` yaml
 type: custom:apexcharts-card
@@ -483,6 +493,13 @@ series:
   - entity: sensor.edata_xxxx
     attribute: last_month_p3_kWh
     name: Valle
+  - entity: sensor.edata_xxxx
+    attribute: last_month_€
+    unit: €
+    show:
+      in_chart: false
+      in_header: true
+    name: Factura
 ```
 
 </details>
@@ -517,4 +534,4 @@ series:
 
 **El panel de energía me muestra huecos o consumos duplicados, pero las tarjetas de apexcharts no**
 
->De momento (versión >= `2022.09.0`), puedes regenerar las estadísticas manualmente mediante un servicio (Herramientas para desarrolladores > Servicios > edata.recreate_statistics).
+>Desde la versión `2022.09.0`, puedes regenerar las estadísticas manualmente mediante un servicio (`Herramientas para desarrolladores > Servicios > edata.recreate_statistics`).

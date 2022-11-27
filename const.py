@@ -15,6 +15,7 @@ CONF_PROVIDER = "provider"
 CONF_EXPERIMENTAL = "experimental"
 CONF_DEBUG = "debug"
 CONF_BILLING = "billing"
+CONF_PVPC = "pvpc"
 CONF_WIPE = "wipe_data"
 CONF_AUTHORIZEDNIF = "authorized_nif"
 
@@ -29,11 +30,11 @@ PRICE_MARKET_KW_YEAR = "market_kw_year_eur"
 PRICE_ELECTRICITY_TAX = "electricity_tax"
 PRICE_IVA = "iva"
 
-DEFAULT_PRICE_P1_KW_YEAR = 0
-DEFAULT_PRICE_P2_KW_YEAR = 0
-DEFAULT_PRICE_P1_KWH = 0
-DEFAULT_PRICE_P2_KWH = 0
-DEFAULT_PRICE_P3_KWH = 0
+DEFAULT_PRICE_P1_KW_YEAR = 30.67266
+DEFAULT_PRICE_P2_KW_YEAR = 1.4243591
+DEFAULT_PRICE_P1_KWH = None
+DEFAULT_PRICE_P2_KWH = None
+DEFAULT_PRICE_P3_KWH = None
 DEFAULT_PRICE_METER_MONTH = 0.81
 DEFAULT_PRICE_MARKET_KW_YEAR = 3.113
 DEFAULT_PRICE_ELECTRICITY_TAX = 1.05
@@ -48,36 +49,6 @@ WS_CONSUMPTIONS_HOUR = "ws_consumptions_hour"
 WS_CONSUMPTIONS_DAY = "ws_consumptions_day"
 WS_CONSUMPTIONS_MONTH = "ws_consumptions_month"
 WS_MAXIMETER = "ws_maximeter"
-
-# sensor attributes
-ATTRIBUTES = {
-    "cups": None,
-    "contract_p1_kW": "kW",
-    "contract_p2_kW": "kW",
-    "yesterday_kWh": "kWh",
-    "yesterday_hours": "h",
-    "yesterday_p1_kWh": "kWh",
-    "yesterday_p2_kWh": "kWh",
-    "yesterday_p3_kWh": "kWh",
-    "month_kWh": "kWh",
-    "month_daily_kWh": "kWh",
-    "month_days": "d",
-    "month_p1_kWh": "kWh",
-    "month_p2_kWh": "kWh",
-    "month_p3_kWh": "kWh",
-    "last_month_kWh": "kWh",
-    "last_month_daily_kWh": "kWh",
-    "last_month_days": "d",
-    "last_month_p1_kWh": "kWh",
-    "last_month_p2_kWh": "kWh",
-    "last_month_p3_kWh": "kWh",
-    "max_power_kW": "kW",
-    "max_power_date": None,
-    "max_power_mean_kW": "kW",
-    "max_power_90perc_kW": "kW",
-}
-
-EXPERIMENTAL_ATTRS = []
 
 COORDINATOR_ID = lambda scups: f"{DOMAIN}_{scups}"
 

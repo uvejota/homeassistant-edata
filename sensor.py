@@ -3,17 +3,18 @@
 import logging
 
 import voluptuous as vol
+from edata.processors import utils
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, EVENT_HOMEASSISTANT_START
 from homeassistant.core import CoreState, callback
-from homeassistant.helpers import config_validation as cv, entity_platform
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_platform
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import const
 from .coordinator import EdataCoordinator
-from .store import DateTimeEncoder, async_load_storage
 from .websockets import async_register_websockets
 
 # HA variables
@@ -97,13 +98,21 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     authorized_nif = config_entry.data.get(const.CONF_AUTHORIZEDNIF, None)
     scups = cups[-4:]
 
+    is_pvpc = config_entry.options.get(const.CONF_PVPC, False)
+
     billing = (
         {
             const.PRICE_P1_KW_YEAR: config_entry.options.get(const.PRICE_P1_KW_YEAR),
             const.PRICE_P2_KW_YEAR: config_entry.options.get(const.PRICE_P2_KW_YEAR),
-            const.PRICE_P1_KWH: config_entry.options.get(const.PRICE_P1_KWH),
-            const.PRICE_P2_KWH: config_entry.options.get(const.PRICE_P2_KWH),
-            const.PRICE_P3_KWH: config_entry.options.get(const.PRICE_P3_KWH),
+            const.PRICE_P1_KWH: config_entry.options.get(const.PRICE_P1_KWH)
+            if not is_pvpc
+            else None,
+            const.PRICE_P2_KWH: config_entry.options.get(const.PRICE_P2_KWH)
+            if not is_pvpc
+            else None,
+            const.PRICE_P3_KWH: config_entry.options.get(const.PRICE_P3_KWH)
+            if not is_pvpc
+            else None,
             const.PRICE_METER_MONTH: config_entry.options.get(const.PRICE_METER_MONTH),
             const.PRICE_MARKET_KW_YEAR: config_entry.options.get(
                 const.PRICE_MARKET_KW_YEAR
@@ -118,18 +127,15 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     )
 
     # load old data if any
-    storage = await async_load_storage(
-        Store(
-            hass,
-            const.STORAGE_VERSION,
-            f"{const.STORAGE_KEY_PREAMBLE}_{scups}",
-            encoder=DateTimeEncoder,
-        )
-    )
+    serialized_data = await Store(
+        hass,
+        const.STORAGE_VERSION,
+        f"{const.STORAGE_KEY_PREAMBLE}_{scups}",
+    ).async_load()
+    storage = utils.deserialize_dict(serialized_data)
 
     platform = entity_platform.async_get_current_platform()
 
-    # This will call Entity.set_sleep_timer(sleep_time=VALUE)
     platform.async_register_entity_service(
         "recreate_statistics",
         {},
@@ -191,5 +197,5 @@ class EdataSensor(CoordinatorEntity, SensorEntity):
 
     async def service_recreate_statistics(self):
         """Recreates statistics"""
-        await self._coordinator.clear_all_statistics()
-        await self._coordinator.update_statistics()
+        await self._coordinator.statistics.clear_all_statistics()
+        await self._coordinator.statistics.update_statistics()
