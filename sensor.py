@@ -1,5 +1,6 @@
 """Sensor platform for edata component"""
 
+import json
 import logging
 
 import voluptuous as vol
@@ -12,6 +13,8 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from edata.connectors.datadis import RECENT_QUERIES_FILE
 
 from . import const
 from .coordinator import EdataCoordinator
@@ -133,6 +136,16 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         f"{const.STORAGE_KEY_PREAMBLE}_{scups}",
     ).async_load()
     storage = utils.deserialize_dict(serialized_data)
+
+    datadis_recent_queries = await Store(
+        hass,
+        const.STORAGE_VERSION,
+        f"{const.STORAGE_KEY_PREAMBLE}_recent_queries",
+    ).async_load()
+
+    if datadis_recent_queries:
+        with open(RECENT_QUERIES_FILE, "w", encoding="utf8") as queries_file:
+            json.dump(datadis_recent_queries, queries_file)
 
     platform = entity_platform.async_get_current_platform()
 
