@@ -3,10 +3,14 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
+import os
+import json
+
 
 from edata.definitions import ATTRIBUTES, PricingRules
 from edata.helpers import EdataHelper
 from edata.processors import utils
+from edata.connectors.datadis import RECENT_QUERIES_FILE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -138,6 +142,17 @@ class EdataCoordinator(DataUpdateCoordinator):
             const.STORAGE_VERSION,
             f"{const.STORAGE_KEY_PREAMBLE}_{self.id.upper()}",
         ).async_save(utils.serialize_dict(self._datadis.data))
+
+        if os.path.isfile(RECENT_QUERIES_FILE):
+            with open(
+                RECENT_QUERIES_FILE, "r", encoding="utf8"
+            ) as recent_queries_content:
+                recent_queries = json.load(recent_queries_content)
+                await Store(
+                    self.hass,
+                    const.STORAGE_VERSION,
+                    f"{const.STORAGE_KEY_PREAMBLE}_recent_queries",
+                ).async_save(recent_queries)
 
         # put reset flag down
         if self.reset:
