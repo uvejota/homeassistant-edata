@@ -62,6 +62,8 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
     if config.get(const.CONF_DEBUG, False):
         logging.getLogger("edata").setLevel(logging.INFO)
+    else:
+        logging.getLogger("edata").setLevel(logging.WARNING)
 
     if any(
         key in config
