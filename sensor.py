@@ -4,7 +4,8 @@ import json
 import logging
 
 import voluptuous as vol
-from edata.processors import utils
+from edata.connectors.datadis import RECENT_QUERIES_FILE
+from edata.processors import utils as edata_utils
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, EVENT_HOMEASSISTANT_START
@@ -14,9 +15,8 @@ from homeassistant.helpers import entity_platform
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from edata.connectors.datadis import RECENT_QUERIES_FILE
-
 from . import const
+from . import utils
 from .coordinator import EdataCoordinator
 from .websockets import async_register_websockets
 
@@ -100,8 +100,14 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     usr = config_entry.data[CONF_USERNAME]
     pwd = config_entry.data[CONF_PASSWORD]
     cups = config_entry.data[const.CONF_CUPS]
+
+    if not utils.check_cups_integrity(cups):
+        _LOGGER.error(
+            "Specified CUPS (%s) is invalid, please copy it from Datadis website", cups
+        )
+
     authorized_nif = config_entry.data.get(const.CONF_AUTHORIZEDNIF, None)
-    scups = cups[-4:]
+    scups = config_entry.data.get(const.CONF_SCUPS, cups[-4:].upper())
 
     is_pvpc = config_entry.options.get(const.CONF_PVPC, False)
 
@@ -137,7 +143,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         const.STORAGE_VERSION,
         f"{const.STORAGE_KEY_PREAMBLE}_{scups}",
     ).async_load()
-    storage = utils.deserialize_dict(serialized_data)
+    storage = edata_utils.deserialize_dict(serialized_data)
 
     datadis_recent_queries = await Store(
         hass,
@@ -162,6 +168,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         usr,
         pwd,
         cups,
+        scups,
         authorized_nif,
         billing,
         prev_data=None if not storage else storage,

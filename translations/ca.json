@@ -3,10 +3,15 @@
     "config": {
         "abort": {
             "already_configured": "CUPS ja configurat",
-            "unknown": "S'ha produït un error desconegut"
+            "unknown": "S'ha produït un error desconegut",
+            "invalid_credentials": "Credencials incorrectes",
+            "invalid_cups": "CUPS incorrecte"
         },
         "error": {
-            "already_configured": "Aquest CUPS ja ha estat configurat"
+            "already_configured": "Aquest CUPS ja ha estat configurat",
+            "unknown": "S'ha produït un error desconegut",
+            "invalid_credentials": "Credencials incorrectes",
+            "invalid_cups": "CUPS incorrecte"
         },
         "step": {
             "user": {

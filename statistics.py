@@ -16,7 +16,13 @@ from homeassistant.components.recorder.statistics import (
     list_statistic_ids,
     statistics_during_period,
 )
-from homeassistant.const import CURRENCY_EURO, ENERGY_KILO_WATT_HOUR, POWER_KILO_WATT
+from homeassistant.const import (
+    CURRENCY_EURO,
+    ENERGY_KILO_WATT_HOUR,
+    MAJOR_VERSION,
+    MINOR_VERSION,
+    POWER_KILO_WATT,
+)
 from homeassistant.util import dt as dt_util
 
 from . import const
@@ -82,14 +88,26 @@ class EdataStatistics:
 
         for aggr in ("month", "day"):
             # for each aggregation method (month/day)
-            _stats = await get_db_instance(self.hass).async_add_executor_job(
-                statistics_during_period,
-                self.hass,
-                dt_util.as_local(datetime(1970, 1, 1)),
-                None,
-                [self.sid[x] for x in self.consumption_stats],
-                aggr,
-            )
+            if MAJOR_VERSION < 2022 or (MAJOR_VERSION == 2022 and MINOR_VERSION < 12):
+                _stats = await get_db_instance(self.hass).async_add_executor_job(
+                    statistics_during_period,
+                    self.hass,
+                    dt_util.as_local(datetime(1970, 1, 1)),
+                    None,
+                    [self.sid[x] for x in self.consumption_stats],
+                    aggr,
+                )
+            else:
+                _stats = await get_db_instance(self.hass).async_add_executor_job(
+                    statistics_during_period,
+                    self.hass,
+                    dt_util.as_local(datetime(1970, 1, 1)),
+                    None,
+                    [self.sid[x] for x in self.consumption_stats],
+                    aggr,
+                    None,
+                    set(["sum"]),
+                )
             for key in _stats:
                 # for each stat key (p1, p2, p3...)
                 _sum = 0
@@ -128,21 +146,40 @@ class EdataStatistics:
     async def update_statistics(self):
         """Update Long Term Statistics with newly found data"""
         # fetch last stats
-        last_stats = {
-            x: await get_db_instance(self.hass).async_add_executor_job(
-                get_last_statistics, self.hass, 1, self.sid[x], True
-            )
-            for x in self.sid
-        }
+        if MAJOR_VERSION < 2022 or (MAJOR_VERSION == 2022 and MINOR_VERSION < 12):
+            last_stats = {
+                x: await get_db_instance(self.hass).async_add_executor_job(
+                    get_last_statistics, self.hass, 1, self.sid[x], True
+                )
+                for x in self.sid
+            }
+        else:
+            last_stats = {
+                x: await get_db_instance(self.hass).async_add_executor_job(
+                    get_last_statistics,
+                    self.hass,
+                    1,
+                    self.sid[x],
+                    True,
+                    set(["max", "sum"]),
+                )
+                for x in self.sid
+            }
 
         # get last record local datetime and eval if any stat is missing
         last_record_dt = {}
         try:
-            last_record_dt = {
-                x: dt_util.parse_datetime(last_stats[x][self.sid[x]][0]["end"])
-                for x in self.sid
-            }
-        except KeyError as _:
+            if MAJOR_VERSION < 2022 or (MAJOR_VERSION == 2022 and MINOR_VERSION < 12):
+                last_record_dt = {
+                    x: dt_util.parse_datetime(last_stats[x][self.sid[x]][0]["end"])
+                    for x in self.sid
+                }
+            else:
+                last_record_dt = {
+                    x: dt_util.as_local(last_stats[x][self.sid[x]][0]["end"])
+                    for x in self.sid
+                }
+        except KeyError:
             if not self._reset:
                 _LOGGER.warning(const.WARN_MISSING_STATS, self.id)
 

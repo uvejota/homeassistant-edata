@@ -11,6 +11,7 @@ STATE_READY = "ready"
 
 # Custom configuration entries
 CONF_CUPS = "cups"
+CONF_SCUPS = "scups"
 CONF_PROVIDER = "provider"
 CONF_EXPERIMENTAL = "experimental"
 CONF_DEBUG = "debug"
@@ -73,3 +74,6 @@ STAT_ID_POWER_EUR = lambda scups: f"{DOMAIN}:{scups}_power_cost"
 WARN_INCONSISTENT_STORAGE = "Inconsistent stored data for %s, attempting to autofix it by wiping and rebuilding stats"
 WARN_STATISTICS_CLEAR = "Clearing statistics for %s"
 WARN_MISSING_STATS = "Some stats are missing for %s"
+
+# cups integrity
+CUPS_CONTROL_DIGITS = "TRWAGMYFPDXBNJZSQVHLCKE"

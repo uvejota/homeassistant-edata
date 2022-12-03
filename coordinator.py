@@ -1,16 +1,16 @@
 """Data update coordinator definitions"""
 from __future__ import annotations
 
-import logging
-from datetime import datetime, timedelta
-import os
 import json
+import logging
+import os
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
-
+from edata.connectors.datadis import RECENT_QUERIES_FILE
 from edata.definitions import ATTRIBUTES, PricingRules
 from edata.helpers import EdataHelper
 from edata.processors import utils
-from edata.connectors.datadis import RECENT_QUERIES_FILE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -30,6 +30,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         username: str,
         password: str,
         cups: str,
+        scups: str,
         authorized_nif: str,
         billing: dict[str, float] = None,
         prev_data=None,
@@ -68,7 +69,7 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         self.cups = cups.upper()
         self.authorized_nif = authorized_nif
-        self.id = self.cups[-4:].lower()
+        self.id = scups.lower()
 
         # init data shared store
         hass.data[const.DOMAIN][self.id.upper()] = {}
@@ -128,7 +129,8 @@ class EdataCoordinator(DataUpdateCoordinator):
         # fetch last 365 days
         await self.hass.async_add_executor_job(
             self._datadis.update,
-            datetime.today() - timedelta(days=365),  # since: 1 year ago
+            datetime.today().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            - relativedelta(months=12),  # since: 1 year ago
             datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
             - timedelta(minutes=1),  # to: yesterday midnight
         )

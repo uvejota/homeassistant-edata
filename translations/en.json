@@ -4,11 +4,13 @@
         "abort": {
             "already_configured": "CUPS is already configured",
             "unknown": "Unknown error occurred",
-            "invalid_credentials": "Invalid credentials"
+            "invalid_credentials": "Invalid credentials",
+            "invalid_cups": "Invalid CUPS"
         },
         "error": {
             "already_configured": "This CUPS is already configured",
-            "invalid_credentials": "Invalid credentials"
+            "invalid_credentials": "Invalid credentials",
+            "invalid_cups": "Invalid CUPS"
         },
         "step": {
             "user": {

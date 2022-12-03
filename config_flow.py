@@ -13,6 +13,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
 from . import const
+from . import utils
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,14 +35,23 @@ class InvalidCredentials(HomeAssistantError):
     """Error to indicate credentials are invalid"""
 
 
+class InvalidCups(HomeAssistantError):
+    """Error to indicate cups is invalid"""
+
+
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect.
 
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
-    scups = data[const.CONF_CUPS][-4:]
-    if hass.data.get(const.DOMAIN, {}).get(scups) is not None:
-        raise AlreadyConfigured
+
+    if not utils.check_cups_integrity(data[const.CONF_CUPS]):
+        raise InvalidCups
+
+    for i in range(4, len(data[const.CONF_CUPS])):
+        scups = data[const.CONF_CUPS][-i:].upper()
+        if hass.data.get(const.DOMAIN, {}).get(scups) is None:
+            break
 
     api = DatadisConnector(data[CONF_USERNAME], data[CONF_PASSWORD])
     result = await hass.async_add_executor_job(api.login)
@@ -49,7 +59,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         raise InvalidCredentials
 
     # Return info that you want to store in the config entry.
-    return {"title": scups}
+    return {"title": scups, "scups": scups}
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
@@ -70,14 +80,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
 
         try:
             info = await validate_input(self.hass, user_input)
-        except AlreadyConfigured:
-            errors["base"] = "already_configured"
-        except InvalidCredentials:
-            errors["base"] = "invalid_credentials"
-        else:
             await self.async_set_unique_id(user_input[const.CONF_CUPS])
             self._abort_if_unique_id_configured()
-            extra_data = {"scups": user_input[const.CONF_CUPS][-4:]}
+        except InvalidCredentials:
+            errors["base"] = "invalid_credentials"
+        except InvalidCups:
+            errors["base"] = "invalid_cups"
+        else:
+            extra_data = {"scups": info["scups"]}
             return self.async_create_entry(
                 title=info["title"], data={**user_input, **extra_data}
             )

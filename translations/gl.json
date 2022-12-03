@@ -13,11 +13,16 @@
             }
         },
         "error": {
-            "already_configured": "Este CUPS xa está configurado"
+            "unknown": "Erro descoñecido",
+            "already_configured": "Este CUPS xa está configurado",
+            "invalid_credentials": "Credenciais incorrectas",
+            "invalid_cups": "CUPS incorrectos"
         },
         "abort": {
             "unknown": "Erro descoñecido",
-            "already_configured": "Este CUPS xa está configurado"
+            "already_configured": "Este CUPS xa está configurado",
+            "invalid_credentials": "Credenciais incorrectas",
+            "invalid_cups": "CUPS incorrectos"
         }
     },
     "options": {
