@@ -79,15 +79,21 @@ A partir de la versión `2022.01.0` de edata, ésta es compatible con las estad�
 | statistic_id | Tipo | Unidad | Significado |
 | ------------- | ------------- | ------------- | ------------- |
 | `edata:xxxx_consumption` | `sum` | `kWh` | Consumo total |
-| `edata:xxxx_p1_consumption` | `sum` | `kWh` | Consumo P1 |
-| `edata:xxxx_p2_consumption` | `sum` | `kWh` | Consumo P2 |
-| `edata:xxxx_p3_consumption` | `sum` | `kWh` | Consumo P3 |
+| `edata:xxxx_p1_consumption` | `sum` | `kWh` | Consumo en P1 |
+| `edata:xxxx_p2_consumption` | `sum` | `kWh` | Consumo en P2 |
+| `edata:xxxx_p3_consumption` | `sum` | `kWh` | Consumo en P3 |
 | `edata:xxxx_maximeter` | `max` | `kW` | Maxímetro (>= `2022.09.0`)|
-| `edata:xxxx_p1_maximeter` | `max` | `kW` | Maxímetro P1 (>= `2022.09.0`)|
-| `edata:xxxx_p2_maximeter` | `max` | `kW` | Maxímetro P2 (>= `2022.09.0`)|
+| `edata:xxxx_p1_maximeter` | `max` | `kW` | Maxímetro en P1 (>= `2022.09.0`)|
+| `edata:xxxx_p2_maximeter` | `max` | `kW` | Maxímetro en P2 (>= `2022.09.0`)|
 | `edata:xxxx_cost`*  | `float` | `€` | Coste total (>= `2022.09.0`)|
-| `edata:xxxx_power_cost`*  | `float` | `€` | Coste (término de potencia) (>= `2022.09.0`)|
-| `edata:xxxx_energy_cost`*  | `float` | `€` | Coste (término de energía) (>= `2022.09.0`)|
+| `edata:xxxx_p1_cost`*  | `float` | `€` | Coste total en P1 (>= `2022.12.4`)|
+| `edata:xxxx_p2_cost`*  | `float` | `€` | Coste total en P2 (>= `2022.12.4`)|
+| `edata:xxxx_p3_cost`*  | `float` | `€` | Coste total en P3 (>= `2022.12.4`)|
+| `edata:xxxx_power_cost`*  | `float` | `€` | Coste (potencia) (>= `2022.09.0`)|
+| `edata:xxxx_energy_cost`*  | `float` | `€` | Coste (energía) (>= `2022.09.0`)|
+| `edata:xxxx_p1_energy_cost`*  | `float` | `€` | Coste (energía) en P1 (>= `2022.12.4`)|
+| `edata:xxxx_p2_energy_cost`*  | `float` | `€` | Coste (energía) en P2 (>= `2022.12.4`)|
+| `edata:xxxx_p3_energy_cost`*  | `float` | `€` | Coste (energía) en P3 (>= `2022.12.4`)|
 
 \* Los campos marcados con asterisco no están habilitados por defecto, y se habilitan en `Ajustes > Dispositivos y Servicios > XXXX (edata) - Configurar`. Primero deberá seleccionar si desea activar o no las funciones de facturación, y en caso de utilizar PVPC seleccionará también dicha casilla.
 
