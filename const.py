@@ -67,7 +67,13 @@ STAT_ID_P1_KW = lambda scups: f"{DOMAIN}:{scups}_p1_maximeter"
 STAT_ID_P2_KW = lambda scups: f"{DOMAIN}:{scups}_p2_maximeter"
 
 STAT_ID_EUR = lambda scups: f"{DOMAIN}:{scups}_cost"
+STAT_ID_P1_EUR = lambda scups: f"{DOMAIN}:{scups}_p1_cost"
+STAT_ID_P2_EUR = lambda scups: f"{DOMAIN}:{scups}_p2_cost"
+STAT_ID_P3_EUR = lambda scups: f"{DOMAIN}:{scups}_p3_cost"
 STAT_ID_ENERGY_EUR = lambda scups: f"{DOMAIN}:{scups}_energy_cost"
+STAT_ID_P1_ENERGY_EUR = lambda scups: f"{DOMAIN}:{scups}_p1_energy_cost"
+STAT_ID_P2_ENERGY_EUR = lambda scups: f"{DOMAIN}:{scups}_p2_energy_cost"
+STAT_ID_P3_ENERGY_EUR = lambda scups: f"{DOMAIN}:{scups}_p3_energy_cost"
 STAT_ID_POWER_EUR = lambda scups: f"{DOMAIN}:{scups}_power_cost"
 
 

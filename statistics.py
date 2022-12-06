@@ -37,8 +37,14 @@ ALIAS_KW = "kW"
 ALIAS_P1_KW = "p1_kW"
 ALIAS_P2_KW = "p2_kW"
 ALIAS_EUR = "eur"
+ALIAS_P1_EUR = "p1_eur"
+ALIAS_P2_EUR = "p2_eur"
+ALIAS_P3_EUR = "p3_eur"
 ALIAS_POWER_EUR = "power_eur"
 ALIAS_ENERGY_EUR = "energy_eur"
+ALIAS_ENERGY_P1_EUR = "p1_energy_eur"
+ALIAS_ENERGY_P2_EUR = "p2_energy_eur"
+ALIAS_ENERGY_P3_EUR = "p3_energy_eur"
 
 
 def get_db_instance(hass):
@@ -73,15 +79,31 @@ class EdataStatistics:
             self.sid.update(
                 {
                     ALIAS_EUR: const.STAT_ID_EUR(self.id),
+                    ALIAS_P1_EUR: const.STAT_ID_P1_EUR(self.id),
+                    ALIAS_P2_EUR: const.STAT_ID_P2_EUR(self.id),
+                    ALIAS_P3_EUR: const.STAT_ID_P3_EUR(self.id),
                     ALIAS_POWER_EUR: const.STAT_ID_POWER_EUR(self.id),
                     ALIAS_ENERGY_EUR: const.STAT_ID_ENERGY_EUR(self.id),
+                    ALIAS_ENERGY_P1_EUR: const.STAT_ID_P1_ENERGY_EUR(self.id),
+                    ALIAS_ENERGY_P2_EUR: const.STAT_ID_P2_ENERGY_EUR(self.id),
+                    ALIAS_ENERGY_P3_EUR: const.STAT_ID_P3_ENERGY_EUR(self.id),
                 }
             )
 
         # stats id grouping
         self.consumption_stats = [ALIAS_P1_KWH, ALIAS_P2_KWH, ALIAS_P3_KWH, ALIAS_KWH]
         self.maximeter_stats = [ALIAS_P1_KW, ALIAS_P2_KW, ALIAS_KW]
-        self.cost_stats = [ALIAS_POWER_EUR, ALIAS_ENERGY_EUR, ALIAS_EUR]
+        self.cost_stats = [
+            ALIAS_POWER_EUR,
+            ALIAS_ENERGY_EUR,
+            ALIAS_ENERGY_P1_EUR,
+            ALIAS_ENERGY_P2_EUR,
+            ALIAS_ENERGY_P3_EUR,
+            ALIAS_EUR,
+            ALIAS_P1_EUR,
+            ALIAS_P2_EUR,
+            ALIAS_P3_EUR,
+        ]
 
     async def test_statistics_integrity(self):
         """Test statistics integrity"""
@@ -238,7 +260,7 @@ class EdataStatistics:
                     unit_of_measurement=POWER_KILO_WATT,
                 )
             else:
-                break
+                continue
             async_add_external_statistics(self.hass, metadata, new_stats[scope])
 
     def _build_consumption_stats(
@@ -312,19 +334,11 @@ class EdataStatistics:
         for data in self._edata.data.get("cost_hourly_sum", {}):
             dt_found = dt_util.as_local(data["datetime"])
             if dt_found >= dt_from:
-                _sum[ALIAS_POWER_EUR] += (
-                    data["power_term"]
-                    if ALIAS_POWER_EUR in _sum
-                    else data["power_term"]
-                )
-                _sum[ALIAS_ENERGY_EUR] += (
-                    data["energy_term"]
-                    if ALIAS_ENERGY_EUR in _sum
-                    else data["energy_term"]
-                )
-                _sum[ALIAS_EUR] += (
-                    data["value_eur"] if ALIAS_EUR in _sum else data["value_eur"]
-                )
+                _p = utils.get_pvpc_tariff(data["datetime"])
+
+                _sum[ALIAS_POWER_EUR] += data["power_term"]
+                _sum[ALIAS_ENERGY_EUR] += data["energy_term"]
+                _sum[ALIAS_EUR] += data["value_eur"]
 
                 new_stats[ALIAS_POWER_EUR].append(
                     StatisticData(
@@ -341,12 +355,29 @@ class EdataStatistics:
                         sum=_sum[ALIAS_ENERGY_EUR],
                     )
                 )
+                _sum[_p + "_" + ALIAS_ENERGY_EUR] += data["energy_term"]
+                new_stats[_p + "_" + ALIAS_ENERGY_EUR].append(
+                    StatisticData(
+                        start=dt_found,
+                        state=data["energy_term"],
+                        sum=_sum[_p + "_" + ALIAS_ENERGY_EUR],
+                    )
+                )
 
                 new_stats[ALIAS_EUR].append(
                     StatisticData(
                         start=dt_found,
                         state=data["value_eur"],
                         sum=_sum[ALIAS_EUR],
+                    )
+                )
+
+                _sum[_p + "_" + ALIAS_EUR] += data["value_eur"]
+                new_stats[_p + "_" + ALIAS_EUR].append(
+                    StatisticData(
+                        start=dt_found,
+                        state=data["value_eur"],
+                        sum=_sum[_p + "_" + ALIAS_EUR],
                     )
                 )
 
