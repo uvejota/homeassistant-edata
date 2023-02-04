@@ -3,6 +3,7 @@
 [![Stable](https://img.shields.io/github/release/uvejota/homeassistant-edata.svg)](https://github.com/uvejota/homeassistant-edata/releases/latest)
 
 # homeassistant-edata
+![imagen](https://user-images.githubusercontent.com/3638478/206875660-79c9d914-cd09-47c4-b82b-463d2e82982d.png)
 
 Esta integración para Home Assistant te permite seguir de un vistazo tus consumos y máximas potencias alcanzadas, obteniendo sus datos desde plataformas como Datadis o REData (precios PVPC), y ofreciendo técnicas para su representación gráfica en lovelace mediante el componente apexcharts-card. Además, integra estos datos con el panel de energía de Home Assistant.
 
