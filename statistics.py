@@ -196,9 +196,16 @@ class EdataStatistics:
                     x: dt_util.parse_datetime(last_stats[x][self.sid[x]][0]["end"])
                     for x in self.sid
                 }
-            else:
+            elif MAJOR_VERSION == 2023 and MINOR_VERSION < 3:
                 last_record_dt = {
                     x: dt_util.as_local(last_stats[x][self.sid[x]][0]["end"])
+                    for x in self.sid
+                }
+            else:
+                last_record_dt = {
+                    x: dt_util.as_local(
+                        dt_util.utc_from_timestamp(last_stats[x][self.sid[x]][0]["end"])
+                    )
                     for x in self.sid
                 }
         except KeyError:
