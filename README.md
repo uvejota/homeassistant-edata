@@ -17,7 +17,7 @@ Algunas aclaraciones:
 
 Para instalar esta integración en Home Assistant necesitarás:
 
-* una cuenta funcional (y validada) en la web de [Datadis](www.datadis.es)
+* una cuenta funcional (y validada) en la web de [Datadis](https://www.datadis.es)
   * no hay que marcar la casilla de la API al registrar, usaremos la privada que está habilitada por defecto),
 * una instalación *reciente* y funcional de Home Assistant (a partir de ahora HA),
 * tener o instalar HACS en tu entorno de HA, y
