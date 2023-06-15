@@ -16,7 +16,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from . import const
-from .statistics import EdataStatistics
+from .stats import EdataStatistics
 
 _LOGGER = logging.getLogger(__name__)
 

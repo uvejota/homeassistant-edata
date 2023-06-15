@@ -12,9 +12,9 @@ jobs:
       - name: Download repo
         uses: actions/checkout@v2
 
-      - name: Create token_extractor.zip
+      - name: Create zip
         run: |
-          zip homeassistant-edata.zip -r ./
+          zip homeassistant-edata.zip -r ./custom_components/edata
 
       - name: Upload zip to release
         uses: svenstaro/upload-release-action@v1-release
