@@ -1,0 +1,53 @@
+{
+    "title": "Integración edata",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Configurar integración",
+                "data": {
+                    "username": "Nome do usuario",
+                    "password": "Contrasinal",
+                    "cups": "CUPS",
+                    "authorized_nif": "NIF autorizado"
+                }
+            }
+        },
+        "error": {
+            "unknown": "Erro descoñecido",
+            "already_configured": "Este CUPS xa está configurado",
+            "invalid_credentials": "Credenciais incorrectas",
+            "invalid_cups": "CUPS incorrectos"
+        },
+        "abort": {
+            "unknown": "Erro descoñecido",
+            "already_configured": "Este CUPS xa está configurado",
+            "invalid_credentials": "Credenciais incorrectas",
+            "invalid_cups": "CUPS incorrectos"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Configuración",
+                "data": {
+                    "billing": "Activar facturación",
+                    "pvpc": "PVPC"
+                }
+            },
+            "costs": {
+                "title": "Facturación",
+                "data": {
+                    "p1_kw_year_eur": "Custo por kW contratado en P1 (€)",
+                    "p2_kw_year_eur": "Custo por kW contratado en P2 (€)",
+                    "meter_month_eur": "Custo mensual por alquiler de contador (€)",
+                    "market_kw_year_eur": "Custo anual por mercado de kW (€)",
+                    "electricity_tax": "Imposto de electricidade (e.g., 1.05 para 5%)",
+                    "iva": "IVE (e.g., 1.21 para 21%)",
+                    "p1_kwh_eur": "Custo por kWh en P1 (€)",
+                    "p2_kwh_eur": "Custo por kWh en P2 (€)",
+                    "p3_kwh_eur": "Custo por kWh en P3 (€)"
+                }
+            }
+        }
+    }
+}
