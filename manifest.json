@@ -10,7 +10,7 @@
         "@uvejota"
     ],
     "requirements": [
-        "e-data==1.1.4",
+        "e-data==1.1.5",
         "python-dateutil>=2.8.2"
     ],
     "version": "2023.06.3",
