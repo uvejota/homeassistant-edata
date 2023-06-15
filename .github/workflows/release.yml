@@ -14,7 +14,7 @@ jobs:
 
       - name: Create token_extractor.zip
         run: |
-          zip homeassistant-edata.zip -r ./
+          zip homeassistant-edata.zip -r ./custom_components/edata
 
       - name: Upload zip to release
         uses: svenstaro/upload-release-action@v1-release

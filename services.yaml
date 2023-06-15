@@ -1,4 +1,0 @@
-recreate_statistics:
-  name: Recreate statistics
-  description: Recreates statistics (useful if you find gaps on the energy panel but not on apexcharts.js cards)
-  target:
