@@ -5,7 +5,6 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from homeassistant.components.recorder.util import get_instance as get_recorder_instance
 from edata.processors import utils
 from homeassistant.components.recorder.const import DATA_INSTANCE
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
@@ -50,7 +49,9 @@ ALIAS_ENERGY_P3_EUR = "p3_energy_eur"
 def get_db_instance(hass):
     """Workaround for older HA versions"""
     try:
-        return get_recorder_instance(hass)
+        from homeassistant.components.recorder import util as recorder_util
+
+        return recorder_util.get_instance(hass)
     except AttributeError:
         return hass
 
