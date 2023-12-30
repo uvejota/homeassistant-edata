@@ -162,54 +162,54 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 default=self.config_entry.options.get(
                     const.PRICE_P1_KW_YEAR, const.DEFAULT_PRICE_P1_KW_YEAR
                 ),
-            ): float,
+            ): vol.Coerce(float),
             vol.Required(
                 const.PRICE_P2_KW_YEAR,
                 default=self.config_entry.options.get(
                     const.PRICE_P2_KW_YEAR, const.DEFAULT_PRICE_P2_KW_YEAR
                 ),
-            ): float,
+            ): vol.Coerce(float),
             vol.Required(
                 const.PRICE_METER_MONTH,
                 default=self.config_entry.options.get(
                     const.PRICE_METER_MONTH, const.DEFAULT_PRICE_METER_MONTH
                 ),
-            ): float,
+            ): vol.Coerce(float),
             vol.Required(
                 const.PRICE_MARKET_KW_YEAR,
                 default=self.config_entry.options.get(
                     const.PRICE_MARKET_KW_YEAR,
                     const.DEFAULT_PRICE_MARKET_KW_YEAR,
                 ),
-            ): float,
+            ): vol.Coerce(float),
             vol.Required(
                 const.PRICE_ELECTRICITY_TAX,
                 default=self.config_entry.options.get(
                     const.PRICE_ELECTRICITY_TAX,
                     const.DEFAULT_PRICE_ELECTRICITY_TAX,
                 ),
-            ): float,
+            ): vol.Coerce(float),
             vol.Required(
                 const.PRICE_IVA,
                 default=self.config_entry.options.get(
                     const.PRICE_IVA, const.DEFAULT_PRICE_IVA
                 ),
-            ): float,
+            ): vol.Coerce(float),
         }
 
         custom_schema = {
             vol.Required(
                 const.PRICE_P1_KWH,
                 default=self.config_entry.options.get(const.PRICE_P1_KWH),
-            ): float,
+            ): vol.Coerce(float),
             vol.Required(
                 const.PRICE_P2_KWH,
                 default=self.config_entry.options.get(const.PRICE_P2_KWH),
-            ): float,
+            ): vol.Coerce(float),
             vol.Required(
                 const.PRICE_P3_KWH,
                 default=self.config_entry.options.get(const.PRICE_P3_KWH),
-            ): float,
+            ): vol.Coerce(float),
         }
 
         return self.async_show_form(
