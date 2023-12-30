@@ -159,11 +159,8 @@ class EdataStatistics:
                 const.WARN_STATISTICS_CLEAR,
                 to_clear,
             )
-            await get_db_instance(self.hass).async_add_executor_job(
-                clear_statistics,
-                self.hass.data[DATA_INSTANCE],
-                to_clear,
-            )
+
+            get_db_instance(self.hass).async_clear_statistics(to_clear)
 
     async def update_statistics(self):
         """Update Long Term Statistics with newly found data"""
