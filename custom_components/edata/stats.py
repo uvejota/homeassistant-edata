@@ -1,8 +1,10 @@
-"""HA Long Term Statistics for e-data"""
+"""HA Long Term Statistics for e-data."""
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
+import typing
+from dateutil import relativedelta
 from typing import Any
 
 import homeassistant.components.recorder.util as recorder_util
@@ -17,11 +19,12 @@ from homeassistant.components.recorder.statistics import (
 )
 from homeassistant.const import (
     CURRENCY_EURO,
-    ENERGY_KILO_WATT_HOUR,
     MAJOR_VERSION,
     MINOR_VERSION,
-    POWER_KILO_WATT,
+    UnitOfPower,
+    UnitOfEnergy,
 )
+from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from . import const
@@ -47,7 +50,7 @@ ALIAS_ENERGY_P3_EUR = "p3_energy_eur"
 
 
 def get_db_instance(hass):
-    """Workaround for older HA versions"""
+    """Workaround for older HA versions."""
     try:
         return recorder_util.get_instance(hass)
     except AttributeError:
@@ -55,7 +58,7 @@ def get_db_instance(hass):
 
 
 class EdataStatistics:
-    """A helper for long term statistics in edata"""
+    """A helper for long term statistics in edata."""
 
     def __init__(self, hass, sensor_id, enable_billing, do_reset, edata_helper):
         self.id = sensor_id
@@ -105,7 +108,7 @@ class EdataStatistics:
         ]
 
     async def test_statistics_integrity(self):
-        """Test statistics integrity"""
+        """Test statistics integrity."""
 
         for aggr in ("month", "day"):
             # for each aggregation method (month/day)
@@ -141,7 +144,7 @@ class EdataStatistics:
         return True
 
     async def clear_all_statistics(self):
-        """Clear edata long term statistics"""
+        """Clear edata long term statistics."""
 
         # get all ids starting with edata:xxxx
         all_ids = await get_db_instance(self.hass).async_add_executor_job(
@@ -162,7 +165,7 @@ class EdataStatistics:
             get_db_instance(self.hass).async_clear_statistics(to_clear)
 
     async def update_statistics(self):
-        """Update Long Term Statistics with newly found data"""
+        """Update Long Term Statistics with newly found data."""
         # fetch last stats
         if MAJOR_VERSION < 2022 or (MAJOR_VERSION == 2022 and MINOR_VERSION < 12):
             last_stats = {
@@ -179,7 +182,7 @@ class EdataStatistics:
                     1,
                     self.sid[x],
                     True,
-                    set(["max", "sum"]),
+                    {"max", "sum"},
                 )
                 for x in self.sid
             }
@@ -232,7 +235,7 @@ class EdataStatistics:
         await self._add_statistics(new_stats)
 
     async def _add_statistics(self, new_stats):
-        """Add new statistics"""
+        """Add new statistics."""
 
         for scope in new_stats:
             if scope in self.consumption_stats:
@@ -242,7 +245,7 @@ class EdataStatistics:
                     name=const.STAT_TITLE_KWH(self.id, scope),
                     source=const.DOMAIN,
                     statistic_id=self.sid[scope],
-                    unit_of_measurement=ENERGY_KILO_WATT_HOUR,
+                    unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
                 )
             elif scope in self.cost_stats:
                 metadata = StatisticMetaData(
@@ -260,7 +263,7 @@ class EdataStatistics:
                     name=const.STAT_TITLE_KW(self.id, scope),
                     source=const.DOMAIN,
                     statistic_id=self.sid[scope],
-                    unit_of_measurement=POWER_KILO_WATT,
+                    unit_of_measurement=UnitOfPower.KILO_WATT,
                 )
             else:
                 continue
@@ -269,7 +272,7 @@ class EdataStatistics:
     def _build_consumption_stats(
         self, dt_from: datetime | None, last_stats: list[dict[str, Any]]
     ):
-        """Build long-term statistics for consumptions"""
+        """Build long-term statistics for consumptions."""
         dt_from = (
             dt_util.as_local(datetime(1970, 1, 1))
             if dt_from is None
@@ -316,7 +319,7 @@ class EdataStatistics:
     def _build_cost_stats(
         self, dt_from: datetime | None, last_stats: list[dict[str, Any]]
     ):
-        """Build long-term statistics for cost"""
+        """Build long-term statistics for cost."""
         dt_from = (
             dt_util.as_local(datetime(1970, 1, 1))
             if dt_from is None
@@ -387,7 +390,7 @@ class EdataStatistics:
         return new_stats
 
     def _build_maximeter_stats(self, dt_from: datetime | None):
-        """Build long-term statistics for maximeter"""
+        """Build long-term statistics for maximeter."""
 
         _label = "value_kW"
         new_stats = {x: [] for x in self.maximeter_stats}
@@ -416,3 +419,112 @@ class EdataStatistics:
                 )
 
         return new_stats
+
+
+async def get_consumptions_history(
+    hass: HomeAssistant,
+    scups: str,
+    tariff: None | typing.Union("p1", "p2", "p3"),
+    aggr: typing.Union("5minute", "day", "hour", "week", "month"),
+    records: int = 30,
+):
+    "Fetch last N statistics records."
+    if tariff is None:
+        _stat_id = const.STAT_ID_KWH(scups)
+    elif tariff == "p1":
+        _stat_id = const.STAT_ID_P1_KWH(scups)
+    elif tariff == "p2":
+        _stat_id = const.STAT_ID_P2_KWH(scups)
+    elif tariff == "p3":
+        _stat_id = const.STAT_ID_P3_KWH(scups)
+
+    if aggr == "5minute":
+        _dt_unit = timedelta(minutes=5)
+    elif aggr == "hour":
+        _dt_unit = timedelta(hours=1)
+    elif aggr == "day":
+        _dt_unit = timedelta(days=1)
+    elif aggr == "week":
+        _dt_unit = relativedelta.relativedelta(weeks=1)
+    elif aggr == "month":
+        _dt_unit = relativedelta.relativedelta(months=1)
+
+    data = await get_db_instance(hass).async_add_executor_job(
+        statistics_during_period,
+        hass,
+        datetime.now().replace(hour=0, minute=0, second=0) - records * _dt_unit,
+        None,
+        {_stat_id},
+        aggr,
+        None,
+        {"change"},
+    )
+    data = data[_stat_id]
+    return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+
+
+async def get_maximeter_history(
+    hass: HomeAssistant, scups: str, tariff: None | typing.Union("p1", "p2")
+):
+    "Fetch last N statistics records."
+    if tariff is None:
+        _stat_id = const.STAT_ID_KW(scups)
+    elif tariff == "p1":
+        _stat_id = const.STAT_ID_P1_KW(scups)
+    elif tariff == "p2":
+        _stat_id = const.STAT_ID_P2_KW(scups)
+
+    data = await get_db_instance(hass).async_add_executor_job(
+        statistics_during_period,
+        hass,
+        datetime(1970, 1, 1),
+        None,
+        {_stat_id},
+        "day",
+        None,
+        {"max"},
+    )
+    data = data[_stat_id]
+    return [(dt_util.utc_from_timestamp(x["start"]), x["max"]) for x in data]
+
+
+async def get_costs_history(
+    hass: HomeAssistant,
+    scups: str,
+    tariff: None | typing.Union("p1", "p2", "p3"),
+    aggr: typing.Union("5minute", "day", "hour", "week", "month"),
+    records: int = 30,
+):
+    "Fetch last N statistics records."
+    if tariff is None:
+        _stat_id = const.STAT_ID_EUR(scups)
+    elif tariff == "p1":
+        _stat_id = const.STAT_ID_P1_EUR(scups)
+    elif tariff == "p2":
+        _stat_id = const.STAT_ID_P2_EUR(scups)
+    elif tariff == "p3":
+        _stat_id = const.STAT_ID_P3_EUR(scups)
+
+    if aggr == "5minute":
+        _dt_unit = timedelta(minutes=5)
+    elif aggr == "hour":
+        _dt_unit = timedelta(hours=1)
+    elif aggr == "day":
+        _dt_unit = timedelta(days=1)
+    elif aggr == "week":
+        _dt_unit = relativedelta.relativedelta(weeks=1)
+    elif aggr == "month":
+        _dt_unit = relativedelta.relativedelta(months=1)
+
+    data = await get_db_instance(hass).async_add_executor_job(
+        statistics_during_period,
+        hass,
+        datetime.now().replace(hour=0, minute=0, second=0) - records * _dt_unit,
+        None,
+        {_stat_id},
+        aggr,
+        None,
+        {"change"},
+    )
+    data = data[_stat_id]
+    return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
