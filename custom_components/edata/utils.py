@@ -1,10 +1,10 @@
-"""Declarations of some package utilities"""
+"""Declarations of some package utilities."""
 
 from . import const
 
 
 def check_cups_integrity(cups: str):
-    """Returns false if cups is not valid, true otherwise"""
+    """Return false if cups is not valid, true otherwise."""
 
     _cups = cups.upper()
 

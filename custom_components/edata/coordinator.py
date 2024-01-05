@@ -1,10 +1,11 @@
-"""Data update coordinator definitions"""
+"""Data update coordinator definitions."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+
 from dateutil.relativedelta import relativedelta
 
 from edata.connectors.datadis import RECENT_QUERIES_FILE
@@ -22,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class EdataCoordinator(DataUpdateCoordinator):
-    """Handle Datadis data and statistics."""
+    """Handle Datadis data and statistics.."""
 
     def __init__(
         self,
@@ -35,7 +36,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         billing: dict[str, float] = None,
         prev_data=None,
     ) -> None:
-        """Initialize the data handler."""
+        """Initialize the data handler.."""
         self.hass = hass
         self.reset = prev_data is None
 
@@ -108,7 +109,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         )
 
     async def _async_update_data(self):
-        """Update data via API."""
+        """Update data via API.."""
 
         # preload attributes if first boot
         if (
@@ -117,14 +118,14 @@ class EdataCoordinator(DataUpdateCoordinator):
             == const.STATE_LOADING
         ):
             if False is await self.statistics.test_statistics_integrity():
-                self.reset = True
+                # self.reset = True
                 _LOGGER.warning(
                     const.WARN_INCONSISTENT_STORAGE,
                     self.id.upper(),
                 )
 
         if self.reset:
-            await self.statistics.clear_all_statistics()
+            await self.statistics.rebuild_recent_statistics()
 
         # fetch last 365 days
         await self.hass.async_add_executor_job(
@@ -146,9 +147,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         ).async_save(utils.serialize_dict(self._datadis.data))
 
         if os.path.isfile(RECENT_QUERIES_FILE):
-            with open(
-                RECENT_QUERIES_FILE, "r", encoding="utf8"
-            ) as recent_queries_content:
+            with open(RECENT_QUERIES_FILE, encoding="utf8") as recent_queries_content:
                 recent_queries = json.load(recent_queries_content)
                 await Store(
                     self.hass,
@@ -163,7 +162,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         return self._data
 
     def _load_data(self, preprocess=False):
-        """Load data found in built-in statistics into state, attributes and websockets"""
+        """Load data found in built-in statistics into state, attributes and websockets."""
 
         try:
             if preprocess:
