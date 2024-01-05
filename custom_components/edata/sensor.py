@@ -4,19 +4,18 @@ import json
 import logging
 
 import voluptuous as vol
+
 from edata.connectors.datadis import RECENT_QUERIES_FILE
 from edata.processors import utils as edata_utils
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, EVENT_HOMEASSISTANT_START
-from homeassistant.core import CoreState, callback
-from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers import entity_platform
+from homeassistant.core import CoreState, HomeAssistant, callback
+from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import const
-from . import utils
+from . import const, utils
 from .coordinator import EdataCoordinator
 from .websockets import async_register_websockets
 
@@ -56,7 +55,9 @@ VALID_ENTITY_CONFIG = vol.Schema(
 )
 
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+async def async_setup_platform(
+    hass: HomeAssistant, config, async_add_entities, discovery_info=None
+):
     """Import edata configuration from YAML."""
     hass.data.setdefault(const.DOMAIN, {})
 
@@ -171,7 +172,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         scups,
         authorized_nif,
         billing,
-        prev_data=None if not storage else storage,
+        prev_data=storage if storage else None,
     )
 
     # postpone first refresh to speed up startup
@@ -200,7 +201,7 @@ class EdataSensor(CoordinatorEntity, SensorEntity):
     _attr_icon = "hass:flash"
     _attr_native_unit_of_measurement = None
 
-    def __init__(self, coordinator):
+    def __init__(self, coordinator) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_name = coordinator.name
@@ -218,6 +219,5 @@ class EdataSensor(CoordinatorEntity, SensorEntity):
         return self._data.get("attributes", {})
 
     async def service_recreate_statistics(self):
-        """Recreates statistics"""
-        await self._coordinator.statistics.clear_all_statistics()
-        await self._coordinator.statistics.update_statistics()
+        """Recreates statistics."""
+        await self._coordinator.statistics.rebuild_recent_statistics()

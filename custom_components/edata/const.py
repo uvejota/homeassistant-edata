@@ -1,4 +1,4 @@
-"""Constants definition"""
+"""Constants definition."""
 
 DOMAIN = "edata"
 STORAGE_KEY_PREAMBLE = f"{DOMAIN}.storage"
@@ -53,14 +53,20 @@ WS_MAXIMETER = "ws_maximeter"
 
 COORDINATOR_ID = lambda scups: f"{DOMAIN}_{scups}"
 
-STAT_TITLE_KWH = lambda id, scope: f"{id.upper()} {scope} consumption"
-STAT_TITLE_KW = lambda id, scope: f"{id.upper()} {scope} maximeter"
-STAT_TITLE_EUR = lambda id, scope: f"{id.upper()} {scope} cost"
+STAT_TITLE_KWH = lambda id, scope: scope
+STAT_TITLE_SURP_KWH = lambda id, scope: scope
+STAT_TITLE_KW = lambda id, scope: scope
+STAT_TITLE_EUR = lambda id, scope: scope
 
 STAT_ID_KWH = lambda scups: f"{DOMAIN}:{scups}_consumption"
 STAT_ID_P1_KWH = lambda scups: f"{DOMAIN}:{scups}_p1_consumption"
 STAT_ID_P2_KWH = lambda scups: f"{DOMAIN}:{scups}_p2_consumption"
 STAT_ID_P3_KWH = lambda scups: f"{DOMAIN}:{scups}_p3_consumption"
+
+STAT_ID_SURP_KWH = lambda scups: f"{DOMAIN}:{scups}_surplus"
+STAT_ID_P1_SURP_KWH = lambda scups: f"{DOMAIN}:{scups}_p1_surplus"
+STAT_ID_P2_SURP_KWH = lambda scups: f"{DOMAIN}:{scups}_p2_surplus"
+STAT_ID_P3_SURP_KWH = lambda scups: f"{DOMAIN}:{scups}_p3_surplus"
 
 STAT_ID_KW = lambda scups: f"{DOMAIN}:{scups}_maximeter"
 STAT_ID_P1_KW = lambda scups: f"{DOMAIN}:{scups}_p1_maximeter"
@@ -79,7 +85,7 @@ STAT_ID_POWER_EUR = lambda scups: f"{DOMAIN}:{scups}_power_cost"
 
 WARN_INCONSISTENT_STORAGE = "Inconsistent stored data for %s, attempting to autofix it by wiping and rebuilding stats"
 WARN_STATISTICS_CLEAR = "Clearing statistics for %s"
-WARN_MISSING_STATS = "Some stats are missing for %s"
+WARN_MISSING_STATS = "Statistic '%s' is missing"
 
 # cups integrity
 CUPS_CONTROL_DIGITS = "TRWAGMYFPDXBNJZSQVHLCKE"
