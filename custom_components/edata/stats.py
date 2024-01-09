@@ -253,7 +253,6 @@ class EdataStatistics:
                     if not self._reset:
                         _LOGGER.info(const.WARN_MISSING_STATS, x)
 
-        _LOGGER.warning(last_record_dt)
         new_stats = {x: [] for x in self.sid}
 
         new_stats.update(
