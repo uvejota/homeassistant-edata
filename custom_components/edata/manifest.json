@@ -1,19 +1,12 @@
 {
-    "domain": "edata",
-    "name": "e-data",
-    "codeowners": [
-        "@uvejota"
-    ],
-    "config_flow": true,
-    "dependencies": [
-        "recorder"
-    ],
-    "documentation": "https://github.com/uvejota/homeassistant-edata/",
-    "iot_class": "cloud_polling",
-    "issue_tracker": "https://github.com/uvejota/homeassistant-edata/issues",
-    "requirements": [
-        "e-data==1.2.0",
-        "python-dateutil>=2.8.2"
-    ],
-    "version": "2023.06.3"
+  "domain": "edata",
+  "name": "e-data",
+  "codeowners": ["@uvejota"],
+  "config_flow": true,
+  "dependencies": ["recorder"],
+  "documentation": "https://github.com/uvejota/homeassistant-edata/",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/uvejota/homeassistant-edata/issues",
+  "requirements": ["e-data==1.2.4", "python-dateutil>=2.8.2"],
+  "version": "2024.01.0"
 }

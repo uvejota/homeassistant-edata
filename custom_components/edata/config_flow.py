@@ -28,15 +28,15 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 
 class AlreadyConfigured(HomeAssistantError):
-    """Error to indicate CUPS is already configured"""
+    """Error to indicate CUPS is already configured."""
 
 
 class InvalidCredentials(HomeAssistantError):
-    """Error to indicate credentials are invalid"""
+    """Error to indicate credentials are invalid."""
 
 
 class InvalidCups(HomeAssistantError):
-    """Error to indicate cups is invalid"""
+    """Error to indicate cups is invalid."""
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
@@ -97,7 +97,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
         )
 
     async def async_step_import(self, import_data: dict[str, Any]) -> FlowResult:
-        """Import data from yaml config"""
+        """Import data from yaml config."""
         await self.async_set_unique_id(import_data[const.CONF_CUPS])
         self._abort_if_unique_id_configured()
         scups = import_data[const.CONF_CUPS][-4:]
@@ -113,7 +113,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
 class OptionsFlowHandler(config_entries.OptionsFlow):
     """Provide options for edata."""
 
-    def __init__(self, config_entry):
+    def __init__(self, config_entry) -> None:
         """Initialize options flow."""
         self.config_entry = config_entry
         self.inputs = {}
@@ -152,7 +152,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         """Manage the options."""
 
         if user_input is not None:
-            for key in user_input.keys():
+            for key in user_input:
                 self.inputs[key] = user_input[key]
             return self.async_create_entry(title="", data=self.inputs)
 
@@ -197,7 +197,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             ): vol.Coerce(float),
         }
 
-        custom_schema = {
+        nonpvpc_schema = {
             vol.Required(
                 const.PRICE_P1_KWH,
                 default=self.config_entry.options.get(const.PRICE_P1_KWH),
@@ -212,9 +212,36 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             ): vol.Coerce(float),
         }
 
+        formulas_schema = {
+            vol.Required(
+                const.BILLING_ENERGY_FORMULA,
+                default=self.config_entry.options.get(
+                    const.BILLING_ENERGY_FORMULA, const.DEFAULT_BILLING_ENERGY_FORMULA
+                ),
+            ): str,
+            vol.Required(
+                const.BILLING_POWER_FORMULA,
+                default=self.config_entry.options.get(
+                    const.BILLING_POWER_FORMULA, const.DEFAULT_BILLING_POWER_FORMULA
+                ),
+            ): str,
+            vol.Required(
+                const.BILLING_OTHERS_FORMULA,
+                default=self.config_entry.options.get(
+                    const.BILLING_OTHERS_FORMULA, const.DEFAULT_BILLING_OTHERS_FORMULA
+                ),
+            ): str,
+            # vol.Required(
+            #     const.BILLING_SURPLUS_FORMULA,
+            #     default=self.config_entry.options.get(
+            #         const.BILLING_SURPLUS_FORMULA, const.DEFAULT_BILLING_SURPLUS_FORMULA
+            #     ),
+            # ): str,
+        }
+
         return self.async_show_form(
             step_id="costs",
-            data_schema=vol.Schema(base_schema)
+            data_schema=vol.Schema(base_schema).extend(formulas_schema)
             if self.inputs[const.CONF_PVPC]
-            else vol.Schema(base_schema).extend(custom_schema),
+            else vol.Schema(base_schema).extend(nonpvpc_schema).extend(formulas_schema),
         )
