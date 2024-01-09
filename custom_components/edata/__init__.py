@@ -2,14 +2,26 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
+from . import utils
 
 PLATFORMS: list[str] = ["sensor"]
 _LOGGER = logging.getLogger(__name__)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType):
+    path = Path(__file__).parent / "www"
+    name = "edata-card.js"
+    utils.register_static_path(hass.http.app, "/edata/" + name, path / name)
+    version = getattr(hass.data["integrations"][DOMAIN], "version", 0)
+    await utils.init_resource(hass, "/edata/edata-card.js", str(version))
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

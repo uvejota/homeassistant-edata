@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import logging
+import time
 import typing
 from typing import Any
 
@@ -200,7 +201,6 @@ class EdataStatistics:
                     ],
                     Statistics,
                 )
-        await self.update_statistics()
 
     async def update_statistics(self):
         """Update Long Term Statistics with newly found data."""
@@ -235,14 +235,14 @@ class EdataStatistics:
                     )
                 except KeyError:
                     if not self._reset:
-                        _LOGGER.warning(const.WARN_MISSING_STATS, x)
+                        _LOGGER.info(const.WARN_MISSING_STATS, x)
         elif MAJOR_VERSION == 2023 and MINOR_VERSION < 3:
             for x in self.sid:
                 try:
                     last_record_dt[x] = dt_util.as_local(last_stats[x][x][0]["end"])
                 except KeyError:
                     if not self._reset:
-                        _LOGGER.warning(const.WARN_MISSING_STATS, x)
+                        _LOGGER.info(const.WARN_MISSING_STATS, x)
         else:
             for x in self.sid:
                 try:
@@ -251,8 +251,9 @@ class EdataStatistics:
                     )
                 except KeyError:
                     if not self._reset:
-                        _LOGGER.warning(const.WARN_MISSING_STATS, x)
+                        _LOGGER.info(const.WARN_MISSING_STATS, x)
 
+        _LOGGER.warning(last_record_dt)
         new_stats = {x: [] for x in self.sid}
 
         new_stats.update(

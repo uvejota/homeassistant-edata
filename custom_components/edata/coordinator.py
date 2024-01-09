@@ -13,7 +13,7 @@ from edata.definitions import ATTRIBUTES, PricingRules
 from edata.helpers import EdataHelper
 from edata.processors import utils
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.storage import Store
+from homeassistant.helpers.storage import Store, STORAGE_DIR
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from . import const
@@ -76,12 +76,16 @@ class EdataCoordinator(DataUpdateCoordinator):
         hass.data[const.DOMAIN][self.id.upper()] = {}
 
         # the api object
-        self._datadis = EdataHelper(
+        self._edata = EdataHelper(
             username,
             password,
             self.cups,
             self.authorized_nif,
             pricing_rules=self._billing,
+            billing_energy_formula=billing[const.BILLING_ENERGY_FORMULA],
+            billing_power_formula=billing[const.BILLING_POWER_FORMULA],
+            billing_others_formula=billing[const.BILLING_OTHERS_FORMULA],
+            billing_surplus_formula=billing[const.BILLING_SURPLUS_FORMULA],
             data=prev_data,
         )
 
@@ -99,7 +103,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             self._load_data(preprocess=True)
 
         self.statistics = EdataStatistics(
-            self.hass, self.id, self._billing is not None, self.reset, self._datadis
+            self.hass, self.id, self._billing is not None, self.reset, self._edata
         )
         super().__init__(
             hass,
@@ -129,7 +133,7 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         # fetch last 365 days
         await self.hass.async_add_executor_job(
-            self._datadis.update,
+            self._edata.update,
             datetime.today().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             - relativedelta(months=12),  # since: 1 year ago
             datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -144,7 +148,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             self.hass,
             const.STORAGE_VERSION,
             f"{const.STORAGE_KEY_PREAMBLE}_{self.id.upper()}",
-        ).async_save(utils.serialize_dict(self._datadis.data))
+        ).async_save(utils.serialize_dict(self._edata.data))
 
         if os.path.isfile(RECENT_QUERIES_FILE):
             with open(RECENT_QUERIES_FILE, encoding="utf8") as recent_queries_content:
@@ -166,23 +170,23 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         try:
             if preprocess:
-                self._datadis.process_data()
+                self._edata.process_data()
 
             # reference to attributes shared storage
             attrs = self._data[const.DATA_ATTRIBUTES]
-            attrs.update(self._datadis.attributes)
+            attrs.update(self._edata.attributes)
 
             # load into websockets
-            self._data[const.WS_CONSUMPTIONS_DAY] = self._datadis.data[
+            self._data[const.WS_CONSUMPTIONS_DAY] = self._edata.data[
                 "consumptions_daily_sum"
             ]
-            self._data[const.WS_CONSUMPTIONS_MONTH] = self._datadis.data[
+            self._data[const.WS_CONSUMPTIONS_MONTH] = self._edata.data[
                 "consumptions_monthly_sum"
             ]
-            self._data["ws_maximeter"] = self._datadis.data["maximeter"]
+            self._data["ws_maximeter"] = self._edata.data["maximeter"]
 
             # update state
-            self._data["state"] = self._datadis.attributes[
+            self._data["state"] = self._edata.attributes[
                 "last_registered_date"
             ].strftime("%d/%m/%Y")
 

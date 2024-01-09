@@ -95,7 +95,7 @@ async def ws_get_consumptions(hass: HomeAssistant, connection, msg):
         data = await get_consumptions_history(hass, _scups, _tariff, _aggr, _records)
     except KeyError:
         data = []
-        _LOGGER.warning("Stats not found for CUPS %s", _scups)
+        _LOGGER.info("Stats not found for CUPS %s", _scups)
     connection.send_result(msg["id"], data)
 
 
@@ -122,7 +122,7 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
         data = await get_surplus_history(hass, _scups, _tariff, _aggr, _records)
     except KeyError:
         data = []
-        _LOGGER.warning("Stats not found for CUPS %s", _scups)
+        _LOGGER.info("Stats not found for CUPS %s", _scups)
     connection.send_result(msg["id"], data)
 
 
@@ -149,7 +149,7 @@ async def ws_get_cost(hass: HomeAssistant, connection, msg):
         data = await get_costs_history(hass, _scups, _tariff, _aggr, _records)
     except KeyError:
         data = []
-        _LOGGER.warning("Stats not found for CUPS %s", _scups)
+        _LOGGER.info("Stats not found for CUPS %s", _scups)
     connection.send_result(msg["id"], data)
 
 
@@ -170,7 +170,7 @@ async def ws_get_maximeter(hass: HomeAssistant, connection, msg):
         data = await get_maximeter_history(hass, _scups, _tariff)
     except KeyError:
         data = []
-        _LOGGER.warning("Stats not found for CUPS %s", _scups)
+        _LOGGER.info("Stats not found for CUPS %s", _scups)
     connection.send_result(msg["id"], data)
 
 

@@ -1,4 +1,4 @@
-"""Sensor platform for edata component"""
+"""Sensor platform for edata component."""
 
 import json
 import logging
@@ -112,7 +112,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     is_pvpc = config_entry.options.get(const.CONF_PVPC, False)
 
-    billing = (
+    pricing_rules = (
         {
             const.PRICE_P1_KW_YEAR: config_entry.options.get(const.PRICE_P1_KW_YEAR),
             const.PRICE_P2_KW_YEAR: config_entry.options.get(const.PRICE_P2_KW_YEAR),
@@ -133,6 +133,16 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                 const.PRICE_ELECTRICITY_TAX
             ),
             const.PRICE_IVA: config_entry.options.get(const.PRICE_IVA),
+            const.BILLING_ENERGY_FORMULA: config_entry.options.get(
+                const.BILLING_ENERGY_FORMULA, const.DEFAULT_BILLING_ENERGY_FORMULA
+            ),
+            const.BILLING_POWER_FORMULA: config_entry.options.get(
+                const.BILLING_POWER_FORMULA, const.DEFAULT_BILLING_POWER_FORMULA
+            ),
+            const.BILLING_OTHERS_FORMULA: config_entry.options.get(
+                const.BILLING_OTHERS_FORMULA, const.DEFAULT_BILLING_OTHERS_FORMULA
+            ),
+            const.BILLING_SURPLUS_FORMULA: "0",  # TODO implement also surplus billing
         }
         if config_entry.options.get(const.CONF_BILLING, False)
         else None
@@ -171,7 +181,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         cups,
         scups,
         authorized_nif,
-        billing,
+        pricing_rules,
         prev_data=storage if storage else None,
     )
 
@@ -221,3 +231,6 @@ class EdataSensor(CoordinatorEntity, SensorEntity):
     async def service_recreate_statistics(self):
         """Recreates statistics."""
         await self._coordinator.statistics.rebuild_recent_statistics()
+        _LOGGER.warning(
+            "You must reload the entity manually to finish statistics recreation."
+        )
