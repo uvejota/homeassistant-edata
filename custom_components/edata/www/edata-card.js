@@ -46,6 +46,7 @@ Apex.chart = {
   animations: {
     enabled: false,
   },
+  background: "transparent",
 };
 
 Apex.yaxis = {
@@ -97,14 +98,19 @@ class EdataCard extends LitElement {
 
   set hass(hass) {
     this._hass = hass;
+
+    // Override defaults based on dark mode
+    if (hass.themes.darkMode) {
+      Apex.theme = {
+        mode: "dark",
+      };
+    }
   }
 
   render() {
     return html`
       <ha-card header="${this._title}">
-        <div id="header"></div>
         <div id="chart"></div>
-        <div id="footer"></div>
       </ha-card>
     `;
   }
