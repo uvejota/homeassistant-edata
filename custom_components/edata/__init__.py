@@ -42,13 +42,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        hass.data[DOMAIN][entry.data.get("scups").upper()] = {}
+        hass.data.get(DOMAIN, {}).pop(entry.data.get("scups"), None)
 
     return unload_ok
 
 
-async def async_remove_entry(hass, entry) -> None:
+async def async_remove_entry(hass: HomeAssistant, entry) -> None:
     """Handle removal of an entry."""
+    hass.data.get(DOMAIN, {}).pop(entry.data.get("scups"), None)
 
 
 async def options_update_listener(hass: HomeAssistant, config_entry: ConfigEntry):
