@@ -82,7 +82,9 @@ class EdataCoordinator(DataUpdateCoordinator):
             self.cups,
             self.authorized_nif,
             pricing_rules=self._billing,
-            billing_energy_formula=billing[const.BILLING_ENERGY_FORMULA],
+            billing_energy_formula=billing[
+                const.BILLING_ENERGY_FORMULA
+            ],  # TODO improve params passing
             billing_power_formula=billing[const.BILLING_POWER_FORMULA],
             billing_others_formula=billing[const.BILLING_OTHERS_FORMULA],
             billing_surplus_formula=billing[const.BILLING_SURPLUS_FORMULA],
@@ -91,8 +93,8 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         # shared storage
         # making self._data to reference hass.data[const.DOMAIN][self.id.upper()] so we can use it like an alias
-        self._data = hass.data[const.DOMAIN][self.id.upper()]
-        self._data.update(
+        self.data = hass.data[const.DOMAIN][self.id.upper()]
+        self.data.update(
             {
                 const.DATA_STATE: const.STATE_LOADING,
                 const.DATA_ATTRIBUTES: {x: None for x in ATTRIBUTES},
@@ -118,7 +120,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         # preload attributes if first boot
         if (
             not self.reset
-            and self._data.get(const.DATA_STATE, const.STATE_LOADING)
+            and self.data.get(const.DATA_STATE, const.STATE_LOADING)
             == const.STATE_LOADING
         ):
             if False is await self.statistics.test_statistics_integrity():
@@ -163,7 +165,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         if self.reset:
             self.reset = False
 
-        return self._data
+        return self.data
 
     def _load_data(self, preprocess=False):
         """Load data found in built-in statistics into state, attributes and websockets."""
@@ -173,20 +175,20 @@ class EdataCoordinator(DataUpdateCoordinator):
                 self._edata.process_data()
 
             # reference to attributes shared storage
-            attrs = self._data[const.DATA_ATTRIBUTES]
+            attrs = self.data[const.DATA_ATTRIBUTES]
             attrs.update(self._edata.attributes)
 
             # load into websockets
-            self._data[const.WS_CONSUMPTIONS_DAY] = self._edata.data[
+            self.data[const.WS_CONSUMPTIONS_DAY] = self._edata.data[
                 "consumptions_daily_sum"
             ]
-            self._data[const.WS_CONSUMPTIONS_MONTH] = self._edata.data[
+            self.data[const.WS_CONSUMPTIONS_MONTH] = self._edata.data[
                 "consumptions_monthly_sum"
             ]
-            self._data["ws_maximeter"] = self._edata.data["maximeter"]
+            self.data["ws_maximeter"] = self._edata.data["maximeter"]
 
             # update state
-            self._data["state"] = self._edata.attributes[
+            self.data["state"] = self._edata.attributes[
                 "last_registered_date"
             ].strftime("%d/%m/%Y")
 

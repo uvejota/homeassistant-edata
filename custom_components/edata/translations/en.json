@@ -1,5 +1,33 @@
 {
   "title": "edata integration",
+  "entity": {
+    "sensor": {
+      "month_kWh": {
+        "name": "Month consumption"
+      },
+      "last_month_kWh": {
+        "name": "Last month consumption"
+      },
+      "yesterday_kWh": {
+        "name": "Yesterday consumption"
+      },
+      "last_registered_day_kWh": {
+        "name": "Last registered consumption"
+      },
+      "max_power_kW": {
+        "name": "Max power registered"
+      },
+      "month_€": {
+        "name": "Month cost"
+      },
+      "last_month_€": {
+        "name": "Last month cost"
+      },
+      "cups": {
+        "name": "Supply Information"
+      }
+    }
+  },
   "config": {
     "abort": {
       "already_configured": "CUPS is already configured",

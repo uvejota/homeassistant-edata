@@ -47,10 +47,7 @@ def register_static_path(app: web.Application, url_path: str, path):
 
 
 async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
-    """Add extra JS module for lovelace mode YAML and new lovelace resource
-    for mode GUI. It's better to add extra JS for all modes, because it has
-    random url to avoid problems with the cache. But chromecast don't support
-    extra JS urls and can't load custom card."""
+    """Initialize JS resource."""
     resources: ResourceStorageCollection = hass.data["lovelace"]["resources"]
     # force load storage
     await resources.async_get_info()
