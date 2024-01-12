@@ -1,5 +1,33 @@
 {
   "title": "Integración edata",
+  "entity": {
+    "sensor": {
+      "month_kWh": {
+        "name": "Consumo en el mes"
+      },
+      "last_month_kWh": {
+        "name": "Consumo durante último mes"
+      },
+      "yesterday_kWh": {
+        "name": "Consumo ayer"
+      },
+      "last_registered_day_kWh": {
+        "name": "Último consumo registrado"
+      },
+      "max_power_kW": {
+        "name": "Potencia máxima registrada"
+      },
+      "month_€": {
+        "name": "Factura del mes"
+      },
+      "last_month_€": {
+        "name": "Factura del último mes"
+      },
+      "cups": {
+        "name": "Información del suministro"
+      }
+    }
+  },
   "config": {
     "abort": {
       "unknown": "Error desconocido",

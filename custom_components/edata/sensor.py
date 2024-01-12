@@ -7,94 +7,105 @@ import voluptuous as vol
 
 from edata.connectors.datadis import RECENT_QUERIES_FILE
 from edata.processors import utils as edata_utils
-from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
-from homeassistant.config_entries import SOURCE_IMPORT
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, EVENT_HOMEASSISTANT_START
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.const import (
+    CONF_PASSWORD,
+    CONF_USERNAME,
+    CURRENCY_EURO,
+    EVENT_HOMEASSISTANT_START,
+    UnitOfEnergy,
+    UnitOfPower,
+)
 from homeassistant.core import CoreState, HomeAssistant, callback
-from homeassistant.helpers import config_validation as cv, entity_platform
+from homeassistant.helpers import entity_platform
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import const, utils
 from .coordinator import EdataCoordinator
 from .websockets import async_register_websockets
+from .entity import EdataEntity
 
 # HA variables
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORM_SCHEMA = vol.All(
-    cv.deprecated(CONF_USERNAME),
-    cv.deprecated(CONF_PASSWORD),
-    cv.deprecated(const.CONF_CUPS),
-    cv.deprecated(const.CONF_EXPERIMENTAL),
-    cv.deprecated(const.CONF_PROVIDER),
-    PLATFORM_SCHEMA.extend(
-        (
-            {
-                vol.Optional(const.CONF_DEBUG): cv.boolean,
-                vol.Optional(const.CONF_PROVIDER): cv.string,
-                vol.Optional(CONF_USERNAME): cv.string,
-                vol.Optional(CONF_PASSWORD): cv.string,
-                vol.Optional(const.CONF_CUPS): cv.string,
-                vol.Optional(const.CONF_EXPERIMENTAL): cv.boolean,
-            }
-        ),
+INFO_SENSORS_DESC = [
+    # (name, state_key, [attributes_key])
+    (
+        "Information",
+        "cups",
+        ["contract_p1_kW", "contract_p2_kW"],
     ),
-)
+]
+
+ENERGY_SENSORS_DESC = [
+    (
+        "Yesterday Consumption",
+        "yesterday_kWh",
+        ["yesterday_hours", "yesterday_p1_kWh", "yesterday_p2_kWh", "yesterday_p3_kWh"],
+    ),
+    (
+        "Last Registered Consumption",
+        "last_registered_day_kWh",
+        [
+            "last_registered_date",
+            "last_registered_day_hours",
+            "last_registered_day_p1_kWh",
+            "last_registered_day_p2_kWh",
+            "last_registered_day_p3_kWh",
+        ],
+    ),
+    (
+        "Month Consumption",
+        "month_kWh",
+        [
+            "month_days",
+            "month_daily_kWh",
+            "month_p1_kWh",
+            "month_p2_kWh",
+            "month_p3_kWh",
+        ],
+    ),
+    (
+        "Last Month Consumption",
+        "last_month_kWh",
+        [
+            "last_month_days",
+            "last_month_daily_kWh",
+            "last_month_p1_kWh",
+            "last_month_p2_kWh",
+            "last_month_p3_kWh",
+        ],
+    ),
+]
+
+POWER_SENSORS_DESC = [
+    (
+        "Maximeter",
+        "max_power_kW",
+        [
+            "max_power_date",
+            "max_power_mean_kW",
+            "max_power_90perc_kW",
+        ],
+    ),
+]
+
+COST_SENSORS_DESC = [
+    (
+        "Month Bill",
+        "month_€",
+        [],
+    ),
+    (
+        "Last Month Bill",
+        "last_month_€",
+        [],
+    ),
+]
 
 
-VALID_ENTITY_CONFIG = vol.Schema(
-    {
-        vol.Required(CONF_USERNAME): cv.string,
-        vol.Required(CONF_PASSWORD): cv.string,
-        vol.Required(const.CONF_CUPS): cv.string,
-        vol.Optional(const.CONF_EXPERIMENTAL, default=False): cv.boolean,
-        # vol.Optional(const.CONF_PROVIDER): cv.string
-    },
-    extra=vol.REMOVE_EXTRA,
-)
-
-
-async def async_setup_platform(
-    hass: HomeAssistant, config, async_add_entities, discovery_info=None
-):
-    """Import edata configuration from YAML."""
-    hass.data.setdefault(const.DOMAIN, {})
-
-    if config.get(const.CONF_DEBUG, False):
-        logging.getLogger("edata").setLevel(logging.INFO)
-    else:
-        logging.getLogger("edata").setLevel(logging.WARNING)
-
-    if any(
-        key in config
-        for key in [
-            CONF_USERNAME,
-            CONF_PASSWORD,
-            const.CONF_CUPS,
-            const.CONF_EXPERIMENTAL,
-            const.CONF_PROVIDER,
-        ]
-    ):
-        try:
-            validated_config = VALID_ENTITY_CONFIG(config)
-            _LOGGER.warning(
-                "Loading edata sensor via platform setup is deprecated. It will be imported into Home Assistant integration. Please remove it from your configuration"
-            )
-            hass.async_create_task(
-                hass.config_entries.flow.async_init(
-                    const.DOMAIN,
-                    context={"source": SOURCE_IMPORT},
-                    data=validated_config,
-                )
-            )
-        except vol.Error as ex:
-            _LOGGER.warning("Invalid config '%s': %s", config, ex)
-
-    return True
-
-
-async def async_setup_entry(hass, config_entry, async_add_entities):
+async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entities):
     """Set up entry."""
     hass.data.setdefault(const.DOMAIN, {})
 
@@ -197,7 +208,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, async_first_refresh)
 
     # add sensor entities
-    async_add_entities([EdataSensor(coordinator)])
+    _entities = []
+    _entities.extend([EdataInfoSensor(coordinator, *x) for x in INFO_SENSORS_DESC])
+    _entities.extend([EdataEnergySensor(coordinator, *x) for x in ENERGY_SENSORS_DESC])
+    _entities.extend([EdataPowerSensor(coordinator, *x) for x in POWER_SENSORS_DESC])
+    _entities.extend([EdataCostSensor(coordinator, *x) for x in COST_SENSORS_DESC])
+    async_add_entities(_entities)
 
     # register websockets
     async_register_websockets(hass)
@@ -205,32 +221,36 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     return True
 
 
-class EdataSensor(CoordinatorEntity, SensorEntity):
-    """Representation of an e-data Sensor."""
+class EdataInfoSensor(EdataEntity, SensorEntity):
+    """Representation of the info related to an e-data sensor."""
 
-    _attr_icon = "hass:flash"
+    _attr_icon = "mdi:home-lightning-bolt-outline"
     _attr_native_unit_of_measurement = None
-
-    def __init__(self, coordinator) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator)
-        self._attr_name = coordinator.name
-        self._data = coordinator.hass.data[const.DOMAIN][coordinator.id.upper()]
-        self._coordinator = coordinator
-
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        return self._data.get("state", const.STATE_ERROR)
-
-    @property
-    def extra_state_attributes(self):
-        """Return the state attributes."""
-        return self._data.get("attributes", {})
 
     async def service_recreate_statistics(self):
         """Recreates statistics."""
-        await self._coordinator.statistics.rebuild_recent_statistics()
+        await self.coordinator.statistics.rebuild_recent_statistics()
         _LOGGER.warning(
-            "You must reload the entity manually to finish statistics recreation."
+            "You must reload the entity manually to finish statistics recreation"
         )
+
+
+class EdataEnergySensor(EdataEntity, SensorEntity):
+    """Representation of an energy-related e-data sensor."""
+
+    _attr_icon = "mdi:counter"
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+
+
+class EdataPowerSensor(EdataEntity, SensorEntity):
+    """Representation of a power-related e-data sensor."""
+
+    _attr_icon = "mdi:gauge"
+    _attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
+
+
+class EdataCostSensor(EdataEntity, SensorEntity):
+    """Representation of an cost-related e-data sensor."""
+
+    _attr_icon = "mdi:currency-eur"
+    _attr_native_unit_of_measurement = CURRENCY_EURO
