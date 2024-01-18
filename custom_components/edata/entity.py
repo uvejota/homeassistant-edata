@@ -26,7 +26,7 @@ class EdataEntity(CoordinatorEntity):
         self._attrs = attributes
 
         # data accessors
-        self._data = coordinator.hass.data[const.DOMAIN][coordinator.id.upper()]
+        self._data = coordinator.hass.data[const.DOMAIN][coordinator.id.lower()]
 
     @property
     def native_value(self):
@@ -46,6 +46,6 @@ class EdataEntity(CoordinatorEntity):
                 # Serial numbers are unique identifiers within a specific domain
                 (const.DOMAIN, self.coordinator.cups)
             },
-            name=self.coordinator.id.upper(),
+            name=self.coordinator.id.lower(),
             sw_version=f"edata v{getattr(self.coordinator.hass.data['integrations'][const.DOMAIN], 'version', 0)}",
         )

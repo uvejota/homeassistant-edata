@@ -13,7 +13,7 @@ from edata.definitions import ATTRIBUTES, PricingRules
 from edata.helpers import EdataHelper
 from edata.processors import utils
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.storage import Store, STORAGE_DIR
+from homeassistant.helpers.storage import STORAGE_DIR, Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from . import const
@@ -38,43 +38,25 @@ class EdataCoordinator(DataUpdateCoordinator):
     ) -> None:
         """Initialize the data handler.."""
         self.hass = hass
-        self.reset = prev_data is None
 
         self._experimental = False
         self._billing = None
         if billing is not None:
-            if billing.get(const.CONF_PVPC, False):
-                self._billing = PricingRules(
-                    p1_kw_year_eur=billing[const.PRICE_P1_KW_YEAR],
-                    p2_kw_year_eur=billing[const.PRICE_P2_KW_YEAR],
-                    meter_month_eur=billing[const.PRICE_METER_MONTH],
-                    market_kw_year_eur=billing[const.PRICE_MARKET_KW_YEAR],
-                    electricity_tax=billing[const.PRICE_ELECTRICITY_TAX],
-                    iva_tax=billing[const.PRICE_IVA],
-                    p1_kwh_eur=None,
-                    p2_kwh_eur=None,
-                    p3_kwh_eur=None,
-                    energy_formula=billing[const.BILLING_ENERGY_FORMULA],
-                    power_formula=billing[const.BILLING_POWER_FORMULA],
-                    others_formula=billing[const.BILLING_OTHERS_FORMULA],
-                    surplus_formula=billing[const.BILLING_SURPLUS_FORMULA],
-                )
-            else:
-                self._billing = PricingRules(
-                    p1_kw_year_eur=billing[const.PRICE_P1_KW_YEAR],
-                    p2_kw_year_eur=billing[const.PRICE_P2_KW_YEAR],
-                    p1_kwh_eur=billing[const.PRICE_P1_KWH],
-                    p2_kwh_eur=billing[const.PRICE_P2_KWH],
-                    p3_kwh_eur=billing[const.PRICE_P3_KWH],
-                    meter_month_eur=billing[const.PRICE_METER_MONTH],
-                    market_kw_year_eur=billing[const.PRICE_MARKET_KW_YEAR],
-                    electricity_tax=billing[const.PRICE_ELECTRICITY_TAX],
-                    iva_tax=billing[const.PRICE_IVA],
-                    energy_formula=billing[const.BILLING_ENERGY_FORMULA],
-                    power_formula=billing[const.BILLING_POWER_FORMULA],
-                    others_formula=billing[const.BILLING_OTHERS_FORMULA],
-                    surplus_formula=billing[const.BILLING_SURPLUS_FORMULA],
-                )
+            self._billing = PricingRules(
+                p1_kw_year_eur=billing[const.PRICE_P1_KW_YEAR],
+                p2_kw_year_eur=billing[const.PRICE_P2_KW_YEAR],
+                p1_kwh_eur=billing.get(const.PRICE_P1_KWH, None),
+                p2_kwh_eur=billing.get(const.PRICE_P2_KWH, None),
+                p3_kwh_eur=billing.get(const.PRICE_P3_KWH, None),
+                meter_month_eur=billing[const.PRICE_METER_MONTH],
+                market_kw_year_eur=billing[const.PRICE_MARKET_KW_YEAR],
+                electricity_tax=billing[const.PRICE_ELECTRICITY_TAX],
+                iva_tax=billing[const.PRICE_IVA],
+                energy_formula=billing[const.BILLING_ENERGY_FORMULA],
+                power_formula=billing[const.BILLING_POWER_FORMULA],
+                others_formula=billing[const.BILLING_OTHERS_FORMULA],
+                surplus_formula=billing.get(const.BILLING_SURPLUS_FORMULA, "0"),
+            )
 
         self.cups = cups.upper()
         self.authorized_nif = authorized_nif
@@ -87,7 +69,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         )
 
         # init data shared store
-        hass.data[const.DOMAIN][self.id.upper()] = {}
+        hass.data[const.DOMAIN][self.id] = {}
 
         # the api object
 
@@ -112,8 +94,8 @@ class EdataCoordinator(DataUpdateCoordinator):
             )
 
         # shared storage
-        # making self._data to reference hass.data[const.DOMAIN][self.id.upper()] so we can use it like an alias
-        self._data = hass.data[const.DOMAIN][self.id.upper()]
+        # making self._data to reference hass.data[const.DOMAIN][self.id] so we can use it like an alias
+        self._data = hass.data[const.DOMAIN][self.id]
         self._data.update(
             {
                 const.DATA_STATE: const.STATE_LOADING,
@@ -125,7 +107,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             self._load_data(preprocess=True)
 
         self.statistics = EdataStatistics(
-            self.hass, self.id, self._billing is not None, self.reset, self._edata
+            self.hass, self.id, self._billing is not None, self._edata
         )
         super().__init__(
             hass,
@@ -136,22 +118,6 @@ class EdataCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         """Update data via API.."""
-
-        # preload attributes if first boot
-        if (
-            not self.reset
-            and self._data.get(const.DATA_STATE, const.STATE_LOADING)
-            == const.STATE_LOADING
-        ):
-            if False is await self.statistics.test_statistics_integrity():
-                # self.reset = True
-                _LOGGER.warning(
-                    const.WARN_INCONSISTENT_STORAGE,
-                    self.id.upper(),
-                )
-
-        if self.reset:
-            await self.statistics.rebuild_recent_statistics()
 
         # fetch last 365 days
         await self.hass.async_add_executor_job(
@@ -170,7 +136,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             await Store(
                 self.hass,
                 const.STORAGE_VERSION,
-                f"{const.STORAGE_KEY_PREAMBLE}_{self.id.upper()}",
+                f"{const.STORAGE_KEY_PREAMBLE}_{self.id}",
             ).async_save(utils.serialize_dict(self._edata.data))
 
             if os.path.isfile(RECENT_QUERIES_FILE):
@@ -183,10 +149,6 @@ class EdataCoordinator(DataUpdateCoordinator):
                         const.STORAGE_VERSION,
                         f"{const.STORAGE_KEY_PREAMBLE}_recent_queries",
                     ).async_save(recent_queries)
-
-        # put reset flag down
-        if self.reset:
-            self.reset = False
 
         return self._data
 
