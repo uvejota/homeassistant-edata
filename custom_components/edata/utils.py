@@ -1,15 +1,29 @@
 """Declarations of some package utilities."""
 
+from datetime import datetime, timedelta
 import logging
-from aiohttp import web
 
-from homeassistant.components.lovelace.resources import ResourceStorageCollection
-from homeassistant.core import HomeAssistant
+from aiohttp import web
+from dateutil import relativedelta
+
 from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.lovelace.resources import ResourceStorageCollection
+from homeassistant.components.recorder.statistics import statistics_during_period
+import homeassistant.components.recorder.util as recorder_util
+from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
 from . import const
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def get_db_instance(hass: HomeAssistant):
+    """Workaround for older HA versions."""
+    try:
+        return recorder_util.get_instance(hass)
+    except AttributeError:
+        return hass
 
 
 def check_cups_integrity(cups: str):
@@ -47,8 +61,8 @@ def register_static_path(app: web.Application, url_path: str, path):
 
 
 async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
-    """
-    Initialize JS resource.
+    """Initialize JS resource.
+
     Original author: AlexxIT/go2rtc HA integration.
     """
     resources: ResourceStorageCollection = hass.data["lovelace"]["resources"]
@@ -81,3 +95,154 @@ async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
         add_extra_js_url(hass, url2)
 
     return True
+
+
+async def get_consumptions_history(
+    hass: HomeAssistant,
+    scups: str,
+    tariff: None | str,
+    aggr: str,
+    records: int = 30,
+) -> list[tuple[datetime, float]]:
+    "Fetch last N statistics records."
+    if tariff is None:
+        _stat_id = const.STAT_ID_KWH(scups)
+    elif tariff == "p1":
+        _stat_id = const.STAT_ID_P1_KWH(scups)
+    elif tariff == "p2":
+        _stat_id = const.STAT_ID_P2_KWH(scups)
+    elif tariff == "p3":
+        _stat_id = const.STAT_ID_P3_KWH(scups)
+
+    if aggr == "hour":
+        _dt_unit = timedelta(hours=1)
+    elif aggr == "day":
+        _dt_unit = timedelta(days=1)
+    elif aggr == "week":
+        _dt_unit = relativedelta.relativedelta(weeks=1)
+    elif aggr == "month":
+        _dt_unit = relativedelta.relativedelta(months=1)
+    else:
+        _LOGGER.warning("Not a valid aggr method '%s'", aggr)
+
+    data = await get_db_instance(hass).async_add_executor_job(
+        statistics_during_period,
+        hass,
+        datetime.now().replace(hour=0, minute=0, second=0) - records * _dt_unit,
+        None,
+        {_stat_id},
+        aggr,
+        None,
+        {"change"},
+    )
+    data = data[_stat_id]
+    return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+
+
+async def get_surplus_history(
+    hass: HomeAssistant,
+    scups: str,
+    tariff: None | str,
+    aggr: str,
+    records: int = 30,
+) -> list[tuple[datetime, float]]:
+    "Fetch last N statistics records."
+    if tariff is None:
+        _stat_id = const.STAT_ID_SURP_KWH(scups)
+    elif tariff == "p1":
+        _stat_id = const.STAT_ID_P1_SURP_KWH(scups)
+    elif tariff == "p2":
+        _stat_id = const.STAT_ID_P2_SURP_KWH(scups)
+    elif tariff == "p3":
+        _stat_id = const.STAT_ID_P3_SURP_KWH(scups)
+
+    if aggr == "hour":
+        _dt_unit = timedelta(hours=1)
+    elif aggr == "day":
+        _dt_unit = timedelta(days=1)
+    elif aggr == "week":
+        _dt_unit = relativedelta.relativedelta(weeks=1)
+    elif aggr == "month":
+        _dt_unit = relativedelta.relativedelta(months=1)
+    else:
+        _LOGGER.warning("Not a valid aggr method '%s'", aggr)
+
+    data = await get_db_instance(hass).async_add_executor_job(
+        statistics_during_period,
+        hass,
+        datetime.now().replace(hour=0, minute=0, second=0) - records * _dt_unit,
+        None,
+        {_stat_id},
+        aggr,
+        None,
+        {"change"},
+    )
+    data = data[_stat_id]
+    return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+
+
+async def get_maximeter_history(
+    hass: HomeAssistant, scups: str, tariff: None | str
+) -> list[tuple[datetime, float]]:
+    "Fetch last N statistics records."
+    if tariff is None:
+        _stat_id = const.STAT_ID_KW(scups)
+    elif tariff == "p1":
+        _stat_id = const.STAT_ID_P1_KW(scups)
+    elif tariff == "p2":
+        _stat_id = const.STAT_ID_P2_KW(scups)
+
+    data = await get_db_instance(hass).async_add_executor_job(
+        statistics_during_period,
+        hass,
+        datetime(1970, 1, 1),
+        None,
+        {_stat_id},
+        "day",
+        None,
+        {"max"},
+    )
+    data = data[_stat_id]
+    return [(dt_util.utc_from_timestamp(x["start"]), x["max"]) for x in data]
+
+
+async def get_costs_history(
+    hass: HomeAssistant,
+    scups: str,
+    tariff: None | str,
+    aggr: str,
+    records: int = 30,
+) -> list[tuple[datetime, float]]:
+    "Fetch last N statistics records."
+    if tariff is None:
+        _stat_id = const.STAT_ID_EUR(scups)
+    elif tariff == "p1":
+        _stat_id = const.STAT_ID_P1_EUR(scups)
+    elif tariff == "p2":
+        _stat_id = const.STAT_ID_P2_EUR(scups)
+    elif tariff == "p3":
+        _stat_id = const.STAT_ID_P3_EUR(scups)
+
+    if aggr == "hour":
+        _dt_unit = timedelta(hours=1)
+    elif aggr == "day":
+        _dt_unit = timedelta(days=1)
+    elif aggr == "week":
+        _dt_unit = relativedelta.relativedelta(weeks=1)
+    elif aggr == "month":
+        _dt_unit = relativedelta.relativedelta(months=1)
+    else:
+        _LOGGER.warning("Not a valid aggr method '%s'", aggr)
+
+    data = await get_db_instance(hass).async_add_executor_job(
+        statistics_during_period,
+        hass,
+        datetime.now().replace(hour=0, minute=0, second=0) - records * _dt_unit,
+        None,
+        {_stat_id},
+        aggr,
+        None,
+        {"change"},
+    )
+    data = data[_stat_id]
+    return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
