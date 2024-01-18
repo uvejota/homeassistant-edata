@@ -47,7 +47,10 @@ def register_static_path(app: web.Application, url_path: str, path):
 
 
 async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
-    """Initialize JS resource."""
+    """
+    Initialize JS resource.
+    Original author: AlexxIT/go2rtc HA integration.
+    """
     resources: ResourceStorageCollection = hass.data["lovelace"]["resources"]
     # force load storage
     await resources.async_get_info()
@@ -62,8 +65,6 @@ async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
         if item["url"].endswith(ver):
             return False
 
-        _LOGGER.debug(f"Update lovelace resource to: {url2}")
-
         if isinstance(resources, ResourceStorageCollection):
             await resources.async_update_item(
                 item["id"], {"res_type": "module", "url": url2}
@@ -75,10 +76,8 @@ async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
         return True
 
     if isinstance(resources, ResourceStorageCollection):
-        _LOGGER.debug(f"Add new lovelace resource: {url2}")
         await resources.async_create_item({"res_type": "module", "url": url2})
     else:
-        _LOGGER.debug(f"Add extra JS module: {url2}")
         add_extra_js_url(hass, url2)
 
     return True

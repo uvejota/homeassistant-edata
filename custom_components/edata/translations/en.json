@@ -2,28 +2,28 @@
   "title": "edata integration",
   "entity": {
     "sensor": {
-      "month_kWh": {
+      "month_kwh": {
         "name": "Month consumption"
       },
-      "last_month_kWh": {
+      "last_month_kwh": {
         "name": "Last month consumption"
       },
-      "yesterday_kWh": {
+      "yesterday_kwh": {
         "name": "Yesterday consumption"
       },
-      "last_registered_day_kWh": {
+      "last_registered_day_kwh": {
         "name": "Last registered consumption"
       },
-      "max_power_kW": {
+      "max_power_kw": {
         "name": "Max power registered"
       },
-      "month_€": {
+      "month_eur": {
         "name": "Month cost"
       },
-      "last_month_€": {
+      "last_month_eur": {
         "name": "Last month cost"
       },
-      "cups": {
+      "info": {
         "name": "Supply Information"
       }
     }

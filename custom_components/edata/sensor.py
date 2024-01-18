@@ -3,8 +3,6 @@
 import json
 import logging
 
-import voluptuous as vol
-
 from edata.connectors.datadis import RECENT_QUERIES_FILE
 from edata.processors import utils as edata_utils
 from homeassistant.components.sensor import SensorEntity
@@ -19,7 +17,6 @@ from homeassistant.const import (
 from homeassistant.core import CoreState, HomeAssistant, callback
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.storage import Store
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import const, utils
 from .coordinator import EdataCoordinator
@@ -32,7 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 INFO_SENSORS_DESC = [
     # (name, state_key, [attributes_key])
     (
-        "Information",
+        "info",
         "cups",
         ["contract_p1_kW", "contract_p2_kW"],
     ),
@@ -40,12 +37,12 @@ INFO_SENSORS_DESC = [
 
 ENERGY_SENSORS_DESC = [
     (
-        "Yesterday Consumption",
+        "yesterday_kwh",
         "yesterday_kWh",
         ["yesterday_hours", "yesterday_p1_kWh", "yesterday_p2_kWh", "yesterday_p3_kWh"],
     ),
     (
-        "Last Registered Consumption",
+        "last_registered_day_kwh",
         "last_registered_day_kWh",
         [
             "last_registered_date",
@@ -56,7 +53,7 @@ ENERGY_SENSORS_DESC = [
         ],
     ),
     (
-        "Month Consumption",
+        "month_kwh",
         "month_kWh",
         [
             "month_days",
@@ -67,7 +64,7 @@ ENERGY_SENSORS_DESC = [
         ],
     ),
     (
-        "Last Month Consumption",
+        "last_month_kwh",
         "last_month_kWh",
         [
             "last_month_days",
@@ -81,7 +78,7 @@ ENERGY_SENSORS_DESC = [
 
 POWER_SENSORS_DESC = [
     (
-        "Maximeter",
+        "max_power_kw",
         "max_power_kW",
         [
             "max_power_date",
@@ -93,12 +90,12 @@ POWER_SENSORS_DESC = [
 
 COST_SENSORS_DESC = [
     (
-        "Month Bill",
+        "month_eur",
         "month_€",
         [],
     ),
     (
-        "Last Month Bill",
+        "last_month_eur",
         "last_month_€",
         [],
     ),
@@ -226,6 +223,17 @@ class EdataInfoSensor(EdataEntity, SensorEntity):
 
     _attr_icon = "mdi:home-lightning-bolt-outline"
     _attr_native_unit_of_measurement = None
+    _attr_has_entity_name = False
+
+    def __init__(
+        self, coordinator, name: str, state: str, attributes: list[str]
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, name, state, attributes)
+
+        # override to allow backwards compatibility
+        self._attr_translation_key = None
+        self._attr_name = f"edata_{coordinator.id}"
 
     async def service_recreate_statistics(self):
         """Recreates statistics."""
