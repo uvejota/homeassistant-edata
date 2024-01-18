@@ -54,6 +54,10 @@ class EdataCoordinator(DataUpdateCoordinator):
                     p1_kwh_eur=None,
                     p2_kwh_eur=None,
                     p3_kwh_eur=None,
+                    energy_formula=billing[const.BILLING_ENERGY_FORMULA],
+                    power_formula=billing[const.BILLING_POWER_FORMULA],
+                    others_formula=billing[const.BILLING_OTHERS_FORMULA],
+                    surplus_formula=billing[const.BILLING_SURPLUS_FORMULA],
                 )
             else:
                 self._billing = PricingRules(
@@ -66,35 +70,51 @@ class EdataCoordinator(DataUpdateCoordinator):
                     market_kw_year_eur=billing[const.PRICE_MARKET_KW_YEAR],
                     electricity_tax=billing[const.PRICE_ELECTRICITY_TAX],
                     iva_tax=billing[const.PRICE_IVA],
+                    energy_formula=billing[const.BILLING_ENERGY_FORMULA],
+                    power_formula=billing[const.BILLING_POWER_FORMULA],
+                    others_formula=billing[const.BILLING_OTHERS_FORMULA],
+                    surplus_formula=billing[const.BILLING_SURPLUS_FORMULA],
                 )
 
         self.cups = cups.upper()
         self.authorized_nif = authorized_nif
         self.id = scups.lower()
 
+        self.is_storage_migration_complete = os.path.exists(
+            self.hass.config.path(
+                STORAGE_DIR, "edata", f"edata_{self.cups.lower()}.json"
+            )
+        )
+
         # init data shared store
         hass.data[const.DOMAIN][self.id.upper()] = {}
 
         # the api object
-        self._edata = EdataHelper(
-            username,
-            password,
-            self.cups,
-            self.authorized_nif,
-            pricing_rules=self._billing,
-            billing_energy_formula=billing[
-                const.BILLING_ENERGY_FORMULA
-            ],  # TODO improve params passing
-            billing_power_formula=billing[const.BILLING_POWER_FORMULA],
-            billing_others_formula=billing[const.BILLING_OTHERS_FORMULA],
-            billing_surplus_formula=billing[const.BILLING_SURPLUS_FORMULA],
-            data=prev_data,
-        )
+
+        if not self.is_storage_migration_complete:
+            self._edata = EdataHelper(
+                username,
+                password,
+                self.cups,
+                self.authorized_nif,
+                pricing_rules=self._billing,
+                data=prev_data,
+                storage_dir_path=self.hass.config.path(STORAGE_DIR),
+            )
+        else:
+            self._edata = EdataHelper(
+                username,
+                password,
+                self.cups,
+                self.authorized_nif,
+                pricing_rules=self._billing,
+                storage_dir_path=self.hass.config.path(STORAGE_DIR),
+            )
 
         # shared storage
         # making self._data to reference hass.data[const.DOMAIN][self.id.upper()] so we can use it like an alias
-        self.data = hass.data[const.DOMAIN][self.id.upper()]
-        self.data.update(
+        self._data = hass.data[const.DOMAIN][self.id.upper()]
+        self._data.update(
             {
                 const.DATA_STATE: const.STATE_LOADING,
                 const.DATA_ATTRIBUTES: {x: None for x in ATTRIBUTES},
@@ -120,7 +140,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         # preload attributes if first boot
         if (
             not self.reset
-            and self.data.get(const.DATA_STATE, const.STATE_LOADING)
+            and self._data.get(const.DATA_STATE, const.STATE_LOADING)
             == const.STATE_LOADING
         ):
             if False is await self.statistics.test_statistics_integrity():
@@ -146,26 +166,29 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         self._load_data()
 
-        await Store(
-            self.hass,
-            const.STORAGE_VERSION,
-            f"{const.STORAGE_KEY_PREAMBLE}_{self.id.upper()}",
-        ).async_save(utils.serialize_dict(self._edata.data))
+        if not self.is_storage_migration_complete:
+            await Store(
+                self.hass,
+                const.STORAGE_VERSION,
+                f"{const.STORAGE_KEY_PREAMBLE}_{self.id.upper()}",
+            ).async_save(utils.serialize_dict(self._edata.data))
 
-        if os.path.isfile(RECENT_QUERIES_FILE):
-            with open(RECENT_QUERIES_FILE, encoding="utf8") as recent_queries_content:
-                recent_queries = json.load(recent_queries_content)
-                await Store(
-                    self.hass,
-                    const.STORAGE_VERSION,
-                    f"{const.STORAGE_KEY_PREAMBLE}_recent_queries",
-                ).async_save(recent_queries)
+            if os.path.isfile(RECENT_QUERIES_FILE):
+                with open(
+                    RECENT_QUERIES_FILE, encoding="utf8"
+                ) as recent_queries_content:
+                    recent_queries = json.load(recent_queries_content)
+                    await Store(
+                        self.hass,
+                        const.STORAGE_VERSION,
+                        f"{const.STORAGE_KEY_PREAMBLE}_recent_queries",
+                    ).async_save(recent_queries)
 
         # put reset flag down
         if self.reset:
             self.reset = False
 
-        return self.data
+        return self._data
 
     def _load_data(self, preprocess=False):
         """Load data found in built-in statistics into state, attributes and websockets."""
@@ -175,20 +198,20 @@ class EdataCoordinator(DataUpdateCoordinator):
                 self._edata.process_data()
 
             # reference to attributes shared storage
-            attrs = self.data[const.DATA_ATTRIBUTES]
+            attrs = self._data[const.DATA_ATTRIBUTES]
             attrs.update(self._edata.attributes)
 
             # load into websockets
-            self.data[const.WS_CONSUMPTIONS_DAY] = self._edata.data[
+            self._data[const.WS_CONSUMPTIONS_DAY] = self._edata.data[
                 "consumptions_daily_sum"
             ]
-            self.data[const.WS_CONSUMPTIONS_MONTH] = self._edata.data[
+            self._data[const.WS_CONSUMPTIONS_MONTH] = self._edata.data[
                 "consumptions_monthly_sum"
             ]
-            self.data["ws_maximeter"] = self._edata.data["maximeter"]
+            self._data["ws_maximeter"] = self._edata.data["maximeter"]
 
             # update state
-            self.data["state"] = self._edata.attributes[
+            self._data["state"] = self._edata.attributes[
                 "last_registered_date"
             ].strftime("%d/%m/%Y")
 

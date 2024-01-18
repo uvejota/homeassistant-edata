@@ -144,6 +144,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         const.CONF_PVPC,
                         default=self.config_entry.options.get(const.CONF_PVPC, False),
                     ): bool,
+                    # vol.Required(
+                    #     const.CONF_SURPLUS,
+                    #     default=self.config_entry.options.get(const.CONF_PVPC, False),
+                    # ): bool,
                 }
             ),
         )

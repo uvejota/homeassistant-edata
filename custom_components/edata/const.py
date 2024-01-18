@@ -1,5 +1,5 @@
 """Constants definition."""
-from edata.processors.billing import (
+from edata.definitions import (
     DEFAULT_BILLING_ENERGY_FORMULA,
     DEFAULT_BILLING_OTHERS_FORMULA,
     DEFAULT_BILLING_POWER_FORMULA,

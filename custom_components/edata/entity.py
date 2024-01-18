@@ -19,7 +19,7 @@ class EdataEntity(CoordinatorEntity):
 
         # names and identifiers
         self._attr_unique_id = f"{coordinator.id} {name}"
-        self._attr_translation_key = state
+        self._attr_translation_key = name
 
         # state and attribute keys
         self._state = state
