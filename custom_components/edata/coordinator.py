@@ -109,7 +109,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             }
         )
 
-        self._load_data()
+        self._load_data(preprocess=True)
 
         # Used statistic IDs (edata:<id>_metric_to_track)
         self.statistic_ids = {
