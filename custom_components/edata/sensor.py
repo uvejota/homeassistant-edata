@@ -118,10 +118,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
 
     pricing_rules = PricingRules(
         {
-            x: config_entry.options[x]
+            x: config_entry.options.get(x, None)
             for x in config_entry.options
             if x
-            in [
+            in (
                 const.PRICE_P1_KW_YEAR,
                 const.PRICE_P2_KW_YEAR,
                 const.PRICE_P1_KWH,
@@ -130,12 +130,12 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
                 const.PRICE_METER_MONTH,
                 const.PRICE_MARKET_KW_YEAR,
                 const.PRICE_ELECTRICITY_TAX,
-                const.PRICE_IVA,
+                const.PRICE_IVA_TAX,
                 const.BILLING_ENERGY_FORMULA,
                 const.BILLING_POWER_FORMULA,
                 const.BILLING_OTHERS_FORMULA,
                 const.BILLING_SURPLUS_FORMULA,
-            ]
+            )
         }
     )
 
@@ -210,7 +210,7 @@ class EdataInfoSensor(EdataEntity, SensorEntity):
 
     async def service_recreate_statistics(self):
         """Recreates statistics."""
-        await self.coordinator.statistics.rebuild_recent_statistics()
+        await self.coordinator.rebuild_recent_statistics()
 
 
 class EdataEnergySensor(EdataEntity, SensorEntity):

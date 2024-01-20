@@ -35,7 +35,7 @@ PRICE_P3_KWH = "p3_kwh_eur"
 PRICE_METER_MONTH = "meter_month_eur"
 PRICE_MARKET_KW_YEAR = "market_kw_year_eur"
 PRICE_ELECTRICITY_TAX = "electricity_tax"
-PRICE_IVA = "iva"
+PRICE_IVA_TAX = "iva_tax"
 
 DEFAULT_PRICE_P1_KW_YEAR = 30.67266
 DEFAULT_PRICE_P2_KW_YEAR = 1.4243591
