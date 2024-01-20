@@ -69,7 +69,7 @@
           "meter_month_eur": "Meter cost per month",
           "market_kw_year_eur": "Market cost per year",
           "electricity_tax": "Electricity tax (e.g., 1.05 = 5%)",
-          "iva": "IVA tax (e.g., 1.21 = 21%)",
+          "iva_tax": "IVA tax (e.g., 1.21 = 21%)",
           "p1_kwh_eur": "EUR cost of KWH in P1",
           "p2_kwh_eur": "EUR cost of KWH in P2",
           "p3_kwh_eur": "EUR cost of KWH in P3",

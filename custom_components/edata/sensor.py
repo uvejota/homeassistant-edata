@@ -118,7 +118,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
 
     pricing_rules = PricingRules(
         {
-            x: config_entry.options.get(x, None)
+            x: config_entry.options[x]
             for x in config_entry.options
             if x
             in (

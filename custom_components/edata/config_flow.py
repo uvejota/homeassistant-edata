@@ -197,7 +197,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 const.PRICE_IVA_TAX,
                 default=self.config_entry.options.get(
                     const.PRICE_IVA_TAX,
-                    self.config_entry.options.get("iva", const.DEFAULT_PRICE_IVA),
+                    const.DEFAULT_PRICE_IVA,
                 ),
             ): vol.Coerce(float),
         }
