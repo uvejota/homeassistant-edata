@@ -318,7 +318,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         self._last_stats_sum = {
             x: last_stats[x][x][0]["sum"]
             for x in last_stats
-            if "sum" in last_stats[x][x][0] and x in last_stats[x]
+            if x in last_stats[x] and "sum" in last_stats[x][x][0]
         }
 
     async def rebuild_recent_statistics(self, from_dt: datetime | None = None):
