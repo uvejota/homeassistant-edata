@@ -289,28 +289,37 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         # get last record local datetime and eval if any stat is missing
         last_record_dt = {}
-        with contextlib.suppress(Exception):
-            if MAJOR_VERSION < 2022 or (MAJOR_VERSION == 2022 and MINOR_VERSION < 12):
-                for x in statistic_ids:
+
+        if MAJOR_VERSION < 2022 or (MAJOR_VERSION == 2022 and MINOR_VERSION < 12):
+            for x in statistic_ids:
+                try:
                     last_record_dt[x] = dt_util.parse_datetime(
                         last_stats[x][x][0]["end"]
                     )
-            elif MAJOR_VERSION == 2023 and MINOR_VERSION < 3:
-                for x in statistic_ids:
+                except Exception:
+                    last_record_dt[x] = datetime(1970, 1, 1)
+        elif MAJOR_VERSION == 2023 and MINOR_VERSION < 3:
+            for x in statistic_ids:
+                try:
                     last_record_dt[x] = dt_util.as_local(last_stats[x][x][0]["end"])
-            else:
-                for x in statistic_ids:
+                except Exception:
+                    last_record_dt[x] = datetime(1970, 1, 1)
+        else:
+            for x in statistic_ids:
+                try:
                     last_record_dt[x] = dt_util.utc_from_timestamp(
                         last_stats[x][x][0]["end"]
                     )
+                except Exception:
+                    last_record_dt[x] = datetime(1970, 1, 1)
 
-            # store most recent stat for each statistic_id
-            self._last_stats_dt = last_record_dt
-            self._last_stats_sum = {
-                x: last_stats[x][x][0]["sum"]
-                for x in last_stats
-                if "sum" in last_stats[x][x][0]
-            }
+        # store most recent stat for each statistic_id
+        self._last_stats_dt = last_record_dt
+        self._last_stats_sum = {
+            x: last_stats[x][x][0]["sum"]
+            for x in last_stats
+            if "sum" in last_stats[x][x][0] and x in last_stats[x]
+        }
 
     async def rebuild_recent_statistics(self, from_dt: datetime | None = None):
         """Rebuild edata statistics since a given datetime. Defaults to last year."""
