@@ -297,13 +297,13 @@ class EdataCoordinator(DataUpdateCoordinator):
                         last_stats[x][x][0]["end"]
                     )
                 except Exception:
-                    last_record_dt[x] = datetime(1970, 1, 1)
+                    last_record_dt[x] = dt_util.as_utc(datetime(1970, 1, 1))
         elif MAJOR_VERSION == 2023 and MINOR_VERSION < 3:
             for x in statistic_ids:
                 try:
                     last_record_dt[x] = dt_util.as_local(last_stats[x][x][0]["end"])
                 except Exception:
-                    last_record_dt[x] = datetime(1970, 1, 1)
+                    last_record_dt[x] = dt_util.as_utc(datetime(1970, 1, 1))
         else:
             for x in statistic_ids:
                 try:
@@ -311,7 +311,7 @@ class EdataCoordinator(DataUpdateCoordinator):
                         last_stats[x][x][0]["end"]
                     )
                 except Exception:
-                    last_record_dt[x] = datetime(1970, 1, 1)
+                    last_record_dt[x] = dt_util.as_utc(datetime(1970, 1, 1))
 
         # store most recent stat for each statistic_id
         self._last_stats_dt = last_record_dt
