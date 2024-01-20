@@ -304,13 +304,13 @@ class EdataCoordinator(DataUpdateCoordinator):
                         last_stats[x][x][0]["end"]
                     )
 
-        # store most recent stat for each statistic_id
-        self._last_stats_dt = last_record_dt
-        self._last_stats_sum = {
-            x: last_stats[x][x][0]["sum"]
-            for x in last_stats
-            if "sum" in last_stats[x][x][0]
-        }
+            # store most recent stat for each statistic_id
+            self._last_stats_dt = last_record_dt
+            self._last_stats_sum = {
+                x: last_stats[x][x][0]["sum"]
+                for x in last_stats
+                if "sum" in last_stats[x][x][0]
+            }
 
     async def rebuild_recent_statistics(self, from_dt: datetime | None = None):
         """Rebuild edata statistics since a given datetime. Defaults to last year."""
