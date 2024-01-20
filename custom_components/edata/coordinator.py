@@ -1,6 +1,7 @@
 """Data update coordinator definitions."""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta
 import json
 import logging
@@ -12,12 +13,30 @@ from edata.connectors.datadis import RECENT_QUERIES_FILE
 from edata.definitions import ATTRIBUTES, PricingRules
 from edata.helpers import EdataHelper
 from edata.processors import utils
+from homeassistant.components.recorder.db_schema import Statistics
+from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
+from homeassistant.components.recorder.statistics import (
+    async_add_external_statistics,
+    get_last_statistics,
+    get_metadata,
+    list_statistic_ids,
+    statistics_during_period,
+)
+from homeassistant.const import (
+    CURRENCY_EURO,
+    MAJOR_VERSION,
+    MINOR_VERSION,
+    UnitOfEnergy,
+    UnitOfPower,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import STORAGE_DIR, Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util import dt as dt_util
 
 from . import const
-from .stats import EdataStatistics
+from .utils import get_db_instance
+import contextlib
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,68 +52,55 @@ class EdataCoordinator(DataUpdateCoordinator):
         cups: str,
         scups: str,
         authorized_nif: str,
-        billing: dict[str, float] = None,
+        billing: PricingRules | None = None,
         prev_data=None,
     ) -> None:
         """Initialize the data handler.."""
+
+        # Number of cached months (starting from 1st day of the month will be automatic)
+        self._default_cache_months = 12
+
+        # Store properties
         self.hass = hass
-
-        self._experimental = False
-        self._billing = None
-        if billing is not None:
-            self._billing = PricingRules(
-                p1_kw_year_eur=billing[const.PRICE_P1_KW_YEAR],
-                p2_kw_year_eur=billing[const.PRICE_P2_KW_YEAR],
-                p1_kwh_eur=billing.get(const.PRICE_P1_KWH, None),
-                p2_kwh_eur=billing.get(const.PRICE_P2_KWH, None),
-                p3_kwh_eur=billing.get(const.PRICE_P3_KWH, None),
-                meter_month_eur=billing[const.PRICE_METER_MONTH],
-                market_kw_year_eur=billing[const.PRICE_MARKET_KW_YEAR],
-                electricity_tax=billing[const.PRICE_ELECTRICITY_TAX],
-                iva_tax=billing[const.PRICE_IVA],
-                energy_formula=billing[const.BILLING_ENERGY_FORMULA],
-                power_formula=billing[const.BILLING_POWER_FORMULA],
-                others_formula=billing[const.BILLING_OTHERS_FORMULA],
-                surplus_formula=billing.get(const.BILLING_SURPLUS_FORMULA, "0"),
-            )
-
         self.cups = cups.upper()
         self.authorized_nif = authorized_nif
         self.id = scups.lower()
+        self.billing_rules = billing
 
+        # Check if v2023 storage has already been migrated
         self.is_storage_migration_complete = os.path.exists(
             self.hass.config.path(
                 STORAGE_DIR, "edata", f"edata_{self.cups.lower()}.json"
             )
         )
 
-        # init data shared store
+        # Init shared data
         hass.data[const.DOMAIN][self.id] = {}
 
-        # the api object
-
+        # Instantiate the api helper
         if not self.is_storage_migration_complete:
+            # ... providing old data manually, if migration hasn't been done yet
             self._edata = EdataHelper(
                 username,
                 password,
                 self.cups,
                 self.authorized_nif,
-                pricing_rules=self._billing,
+                pricing_rules=self.billing_rules,
                 data=prev_data,
                 storage_dir_path=self.hass.config.path(STORAGE_DIR),
             )
         else:
+            # ... or just providing the storage dir path otherwise
             self._edata = EdataHelper(
                 username,
                 password,
                 self.cups,
                 self.authorized_nif,
-                pricing_rules=self._billing,
+                pricing_rules=self.billing_rules,
                 storage_dir_path=self.hass.config.path(STORAGE_DIR),
             )
 
-        # shared storage
-        # making self._data to reference hass.data[const.DOMAIN][self.id] so we can use it like an alias
+        # Making self._data to reference hass.data[const.DOMAIN][self.id] so we can use it like an alias
         self._data = hass.data[const.DOMAIN][self.id]
         self._data.update(
             {
@@ -103,12 +109,76 @@ class EdataCoordinator(DataUpdateCoordinator):
             }
         )
 
-        if prev_data is not None:
-            self._load_data(preprocess=True)
+        self._load_data()
 
-        self.statistics = EdataStatistics(
-            self.hass, self.id, self._billing is not None, self._edata
-        )
+        # Used statistic IDs (edata:<id>_metric_to_track)
+        self.statistic_ids = {
+            const.STAT_ID_KWH(self.id),
+            const.STAT_ID_P1_KWH(self.id),
+            const.STAT_ID_P2_KWH(self.id),
+            const.STAT_ID_P3_KWH(self.id),
+            const.STAT_ID_SURP_KWH(self.id),
+            const.STAT_ID_P1_SURP_KWH(self.id),
+            const.STAT_ID_P2_SURP_KWH(self.id),
+            const.STAT_ID_P3_SURP_KWH(self.id),
+            const.STAT_ID_KW(self.id),
+            const.STAT_ID_P1_KW(self.id),
+            const.STAT_ID_P2_KW(self.id),
+        }
+
+        if self.billing_rules:
+            # If billing rules are provided, we also track costs
+            self.statistic_ids.update(
+                {
+                    const.STAT_ID_EUR(self.id),
+                    const.STAT_ID_P1_EUR(self.id),
+                    const.STAT_ID_P2_EUR(self.id),
+                    const.STAT_ID_P3_EUR(self.id),
+                    const.STAT_ID_POWER_EUR(self.id),
+                    const.STAT_ID_ENERGY_EUR(self.id),
+                    const.STAT_ID_P1_ENERGY_EUR(self.id),
+                    const.STAT_ID_P2_ENERGY_EUR(self.id),
+                    const.STAT_ID_P3_ENERGY_EUR(self.id),
+                }
+            )
+
+        # Stats id grouped by scope
+        self.consumption_stat_ids = {
+            const.STAT_ID_KWH(self.id),
+            const.STAT_ID_P1_KWH(self.id),
+            const.STAT_ID_P2_KWH(self.id),
+            const.STAT_ID_P3_KWH(self.id),
+            const.STAT_ID_SURP_KWH(self.id),
+            const.STAT_ID_P1_SURP_KWH(self.id),
+            const.STAT_ID_P2_SURP_KWH(self.id),
+            const.STAT_ID_P3_SURP_KWH(self.id),
+        }
+
+        self.maximeter_stat_ids = {
+            const.STAT_ID_KW(self.id),
+            const.STAT_ID_P1_KW(self.id),
+            const.STAT_ID_P2_KW(self.id),
+        }
+
+        self.cost_stat_ids = {
+            const.STAT_ID_EUR(self.id),
+            const.STAT_ID_P1_EUR(self.id),
+            const.STAT_ID_P2_EUR(self.id),
+            const.STAT_ID_P3_EUR(self.id),
+            const.STAT_ID_POWER_EUR(self.id),
+            const.STAT_ID_ENERGY_EUR(self.id),
+            const.STAT_ID_P1_ENERGY_EUR(self.id),
+            const.STAT_ID_P2_ENERGY_EUR(self.id),
+            const.STAT_ID_P3_ENERGY_EUR(self.id),
+        }
+
+        # We also track last stats sum and datetime
+        self._last_stats_sum = None
+        self._last_stats_dt = None
+
+        # Just the preamble of the statistics
+        self._stat_id_preamble = f"{const.DOMAIN}:{self.id}"
+
         super().__init__(
             hass,
             _LOGGER,
@@ -123,12 +193,12 @@ class EdataCoordinator(DataUpdateCoordinator):
         await self.hass.async_add_executor_job(
             self._edata.update,
             datetime.today().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            - relativedelta(months=12),  # since: 1 year ago
+            - relativedelta(months=self._default_cache_months),  # since: 1 year ago
             datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
             - timedelta(minutes=1),  # to: yesterday midnight
         )
 
-        await self.statistics.update_statistics()
+        await self.update_statistics()
 
         self._load_data()
 
@@ -173,12 +243,342 @@ class EdataCoordinator(DataUpdateCoordinator):
             self._data["ws_maximeter"] = self._edata.data["maximeter"]
 
             # update state
-            self._data["state"] = self._edata.attributes[
-                "last_registered_date"
-            ].strftime("%d/%m/%Y")
+            with contextlib.suppress(AttributeError):
+                self._data["state"] = self._edata.attributes[
+                    "last_registered_date"
+                ].strftime("%d/%m/%Y")
 
         except Exception:
             _LOGGER.warning("Some data is missing, will try to fetch later")
             return False
 
         return True
+
+    async def _update_last_stats_summary(self):
+        """Update self._last_stats_sum and self._last_stats_dt."""
+
+        statistic_ids = await get_db_instance(self.hass).async_add_executor_job(
+            list_statistic_ids, self.hass
+        )
+        statistic_ids = [
+            x["statistic_id"]
+            for x in statistic_ids
+            if x["statistic_id"].startswith(self._stat_id_preamble)
+        ]
+
+        # fetch last stats
+        if MAJOR_VERSION < 2022 or (MAJOR_VERSION == 2022 and MINOR_VERSION < 12):
+            last_stats = {
+                _stat: await get_db_instance(self.hass).async_add_executor_job(
+                    get_last_statistics, self.hass, 1, _stat, True
+                )
+                for _stat in statistic_ids
+            }
+        else:
+            last_stats = {
+                _stat: await get_db_instance(self.hass).async_add_executor_job(
+                    get_last_statistics,
+                    self.hass,
+                    1,
+                    _stat,
+                    True,
+                    {"max", "sum"},
+                )
+                for _stat in statistic_ids
+            }
+
+        # get last record local datetime and eval if any stat is missing
+        last_record_dt = {}
+        if MAJOR_VERSION < 2022 or (MAJOR_VERSION == 2022 and MINOR_VERSION < 12):
+            for x in statistic_ids:
+                last_record_dt[x] = dt_util.parse_datetime(last_stats[x][x][0]["end"])
+        elif MAJOR_VERSION == 2023 and MINOR_VERSION < 3:
+            for x in statistic_ids:
+                last_record_dt[x] = dt_util.as_local(last_stats[x][x][0]["end"])
+        else:
+            for x in statistic_ids:
+                last_record_dt[x] = dt_util.utc_from_timestamp(
+                    last_stats[x][x][0]["end"]
+                )
+
+        # store most recent stat for each statistic_id
+        self._last_stats_dt = last_record_dt
+        self._last_stats_sum = {
+            x: last_stats[x][x][0]["sum"]
+            for x in last_stats
+            if "sum" in last_stats[x][x][0]
+        }
+
+    async def rebuild_recent_statistics(self, from_dt: datetime | None = None):
+        """Rebuild edata statistics since a given datetime. Defaults to last year."""
+
+        # give from_dt a proper default value
+        if from_dt is None:
+            from_dt = (
+                datetime.now().replace(day=1, hour=0, minute=0, second=0)
+                - timedelta(hours=1)
+                - relativedelta.relativedelta(years=1)
+            )
+
+        # get all statistic_ids starting with edata:<id/scups>
+        all_ids = await get_db_instance(self.hass).async_add_executor_job(
+            list_statistic_ids, self.hass
+        )
+        to_clear = [
+            x["statistic_id"]
+            for x in all_ids
+            if x["statistic_id"].startswith(self._stat_id_preamble)
+        ]
+
+        if len(to_clear) == 0:
+            return
+
+        # retrieve stored statistics along with its metadata
+        old_metadata = await get_db_instance(self.hass).async_add_executor_job(
+            get_metadata, self.hass
+        )
+
+        old_data = await get_db_instance(self.hass).async_add_executor_job(
+            statistics_during_period,
+            self.hass,
+            datetime(1970, 1, 1),
+            from_dt,
+            set(to_clear),
+            "hour",
+            None,
+            {"state", "sum"},
+        )
+
+        # wipe all-time statistics (since it is the only method provided by home assistant)
+        _LOGGER.warning(
+            const.WARN_STATISTICS_CLEAR,
+            to_clear,
+        )
+        get_db_instance(self.hass).async_clear_statistics(to_clear)
+
+        # now restore old statistics
+        for stat_id in old_data:
+            get_db_instance(self.hass).async_import_statistics(
+                old_metadata[stat_id][1],
+                [
+                    StatisticData(
+                        start=dt_util.utc_from_timestamp(x["start"]),
+                        state=x["state"],
+                        sum=x["sum"] if "sum" in x else None,
+                        mean=x["mean"] if "mean" in x else None,
+                        max=x["max"] if "max" in x else None,
+                    )
+                    for x in old_data[stat_id]
+                ],
+                Statistics,
+            )
+
+        # ... at this point, you DON'T know when will the recorder instance finish the statistics import.
+        # this is dirty, but it seems to work most of the times
+        await asyncio.sleep(5)
+        await self.update_statistics()
+
+    async def update_statistics(self):
+        """Update Long Term Statistics with newly found data."""
+
+        # first fetch from db last statistics for current id
+        await self._update_last_stats_summary()
+
+        await self._update_consumption_stats()
+        await self._update_maximeter_stats()
+
+        if self.billing_rules:
+            # costs are only processed if billing functionality is enabled
+            await self._update_cost_stats()
+
+    async def _add_statistics(self, new_stats):
+        """Add new statistics as a bundle."""
+
+        for stat_id in new_stats:
+            if stat_id in self.consumption_stat_ids:
+                metadata = StatisticMetaData(
+                    has_mean=False,
+                    has_sum=True,
+                    name=const.STAT_TITLE_KWH(self.id, stat_id),
+                    source=const.DOMAIN,
+                    statistic_id=stat_id,
+                    unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+                )
+            elif stat_id in self.cost_stat_ids:
+                metadata = StatisticMetaData(
+                    has_mean=False,
+                    has_sum=True,
+                    name=const.STAT_TITLE_EUR(self.id, stat_id),
+                    source=const.DOMAIN,
+                    statistic_id=stat_id,
+                    unit_of_measurement=CURRENCY_EURO,
+                )
+            elif stat_id in self.maximeter_stat_ids:
+                metadata = StatisticMetaData(
+                    has_mean=True,
+                    has_sum=False,
+                    name=const.STAT_TITLE_KW(self.id, stat_id),
+                    source=const.DOMAIN,
+                    statistic_id=stat_id,
+                    unit_of_measurement=UnitOfPower.KILO_WATT,
+                )
+            else:
+                continue
+            async_add_external_statistics(self.hass, metadata, new_stats[stat_id])
+
+    async def _update_consumption_stats(self) -> dict[str, list[StatisticData]]:
+        """Build long-term statistics for consumptions."""
+
+        new_stats = {x: [] for x in self.consumption_stat_ids}
+
+        # init as 0 if need
+        for stat_id in self.consumption_stat_ids:
+            if stat_id not in self._last_stats_sum:
+                self._last_stats_sum[stat_id] = 0
+
+        _label = "value_kWh"
+        for data in self._edata.data.get("consumptions", {}):
+            dt_found = dt_util.as_local(data["datetime"])
+            _p = utils.get_pvpc_tariff(data["datetime"])
+            by_tariff_ids = [
+                const.STAT_ID_KWH(self.id),
+                const.STAT_ID_SURP_KWH(self.id),
+            ]
+            by_tariff_ids.extend([x for x in self.consumption_stat_ids if _p in x])
+            for stat_id in by_tariff_ids:
+                if (stat_id not in self._last_stats_dt) or (
+                    dt_found >= self._last_stats_dt[stat_id]
+                ):
+                    _label = "value_kWh" if "surp" not in stat_id else "surplus_kWh"
+                    if _label in data and data[_label] is not None:
+                        new_stats[stat_id].append(
+                            StatisticData(
+                                start=dt_found,
+                                state=data[_label],
+                            )
+                        )
+
+        for stat_id in new_stats:
+            for stat_data in new_stats[stat_id]:
+                self._last_stats_sum[stat_id] += stat_data["state"]
+                stat_data["sum"] = self._last_stats_sum[stat_id]
+
+        await self._add_statistics(new_stats)
+
+    async def _update_cost_stats(self) -> dict[str, list[StatisticData]]:
+        """Build long-term statistics for cost."""
+        new_stats = {x: [] for x in self.cost_stat_ids}
+
+        # init as 0 if need
+        for stat_id in self.cost_stat_ids:
+            if stat_id not in self._last_stats_sum:
+                self._last_stats_sum[stat_id] = 0
+
+        for data in self._edata.data.get("cost_hourly_sum", {}):
+            dt_found = dt_util.as_local(data["datetime"])
+            tariff = utils.get_pvpc_tariff(data["datetime"])
+
+            if (const.STAT_ID_POWER_EUR(self.id) not in self._last_stats_dt) or (
+                dt_found >= self._last_stats_dt[const.STAT_ID_POWER_EUR(self.id)]
+            ):
+                new_stats[const.STAT_ID_POWER_EUR(self.id)].append(
+                    StatisticData(
+                        start=dt_found,
+                        state=data["power_term"],
+                    )
+                )
+
+            if (const.STAT_ID_ENERGY_EUR(self.id) not in self._last_stats_dt) or (
+                dt_found >= self._last_stats_dt[const.STAT_ID_ENERGY_EUR(self.id)]
+            ):
+                new_stats[const.STAT_ID_ENERGY_EUR(self.id)].append(
+                    StatisticData(
+                        start=dt_found,
+                        state=data["energy_term"],
+                    )
+                )
+
+            if (const.STAT_ID_EUR(self.id) not in self._last_stats_dt) or (
+                dt_found >= self._last_stats_dt[const.STAT_ID_EUR(self.id)]
+            ):
+                new_stats[const.STAT_ID_EUR(self.id)].append(
+                    StatisticData(
+                        start=dt_found,
+                        state=data["value_eur"],
+                    )
+                )
+
+            if tariff == "p1":
+                stat_id_energy_eur_px = const.STAT_ID_P1_ENERGY_EUR(self.id)
+                stat_id_eur_px = const.STAT_ID_P1_EUR(self.id)
+            elif tariff == "p2":
+                stat_id_energy_eur_px = const.STAT_ID_P2_ENERGY_EUR(self.id)
+                stat_id_eur_px = const.STAT_ID_P2_EUR(self.id)
+            elif tariff == "p3":
+                stat_id_energy_eur_px = const.STAT_ID_P3_ENERGY_EUR(self.id)
+                stat_id_eur_px = const.STAT_ID_P3_EUR(self.id)
+
+            if (stat_id_energy_eur_px not in self._last_stats_dt) or (
+                dt_found >= self._last_stats_dt[stat_id_energy_eur_px]
+            ):
+                new_stats[stat_id_energy_eur_px].append(
+                    StatisticData(
+                        start=dt_found,
+                        state=data["energy_term"],
+                    )
+                )
+
+            if (stat_id_eur_px not in self._last_stats_dt) or (
+                dt_found >= self._last_stats_dt[stat_id_eur_px]
+            ):
+                new_stats[stat_id_eur_px].append(
+                    StatisticData(
+                        start=dt_found,
+                        state=data["value_eur"],
+                    )
+                )
+
+        for stat_id in new_stats:
+            for stat_data in new_stats[stat_id]:
+                self._last_stats_sum[stat_id] += stat_data["state"]
+                stat_data["sum"] = self._last_stats_sum[stat_id]
+
+        await self._add_statistics(new_stats)
+
+    async def _update_maximeter_stats(self) -> dict[str, list[StatisticData]]:
+        """Build long-term statistics for maximeter."""
+
+        _label = "value_kW"
+        new_stats = {x: [] for x in self.maximeter_stat_ids}
+
+        for data in self._edata.data.get("maximeter", {}):
+            dt_found = dt_util.as_local(data["datetime"])
+            stat_id_by_tariff = (
+                const.STAT_ID_P1_KW(self.id)
+                if utils.get_pvpc_tariff(data["datetime"]) == "p1"
+                else const.STAT_ID_P2_KW(self.id)
+            )
+
+            if (const.STAT_ID_KW(self.id) not in self._last_stats_dt) or (
+                dt_found >= self._last_stats_dt[const.STAT_ID_KW(self.id)]
+            ):
+                new_stats[const.STAT_ID_KW(self.id)].append(
+                    StatisticData(
+                        start=dt_found.replace(minute=0),
+                        state=data[_label],
+                        max=data[_label],
+                    )
+                )
+
+            if (stat_id_by_tariff not in self._last_stats_dt) or (
+                dt_found >= self._last_stats_dt[stat_id_by_tariff]
+            ):
+                new_stats[stat_id_by_tariff].append(
+                    StatisticData(
+                        start=dt_found.replace(minute=0),
+                        state=data[_label],
+                        max=data[_label],
+                    )
+                )
+
+        await self._add_statistics(new_stats)
