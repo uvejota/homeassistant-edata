@@ -43,7 +43,7 @@
                     "meter_month_eur": "Cost mensual lloger del comptador (€)",
                     "market_kw_year_eur": "Cost anual per mercat de kW (€)",
                     "electricity_tax": "Impost sobre l'electricitat (ex: 1,05 per a un 5%)",
-                    "iva": "IVA (ex: 1,21 per a un 21%)",
+                    "iva_tax": "IVA (ex: 1,21 per a un 21%)",
                     "p1_kwh_eur": "Energia: Preu per kWh a la franja Punta - P1 (€)",
                     "p2_kwh_eur": "Energia: Preu per kWh a la franja Pla - P2 (€)",
                     "p3_kwh_eur": "Energia: Preu per kWh a la franja Vall - P3 (€)"
