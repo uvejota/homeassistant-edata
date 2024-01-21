@@ -12,7 +12,6 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import selector as sel
 
 from . import const, utils
 
