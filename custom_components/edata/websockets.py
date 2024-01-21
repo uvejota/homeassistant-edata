@@ -22,14 +22,14 @@ _LOGGER = logging.getLogger(__name__)
 def websocket_get_daily_data(hass: HomeAssistant, connection, msg):
     """Publish daily consumptions list data.."""
     try:
-        data = hass.data[const.DOMAIN][msg["scups"].upper()].get(
+        data = hass.data[const.DOMAIN][msg["scups"].lower()].get(
             "ws_consumptions_day", []
         )
         # served data is filtered so only last 'records' records are represented
         connection.send_result(msg["id"], data[-msg.get("records", 30) :])
     except KeyError as _:
         _LOGGER.error(
-            "The provided scups parameter is not correct: %s", msg["scups"].upper()
+            "The provided scups parameter is not correct: %s", msg["scups"].lower()
         )
     except Exception as _:
         _LOGGER.exception("Unhandled exception when processing websockets: %s", _)
@@ -42,13 +42,13 @@ def websocket_get_monthly_data(hass: HomeAssistant, connection, msg):
     try:
         connection.send_result(
             msg["id"],
-            hass.data[const.DOMAIN][msg["scups"].upper()].get(
+            hass.data[const.DOMAIN][msg["scups"].lower()].get(
                 "ws_consumptions_month", []
             ),
         )
     except KeyError as _:
         _LOGGER.error(
-            "The provided scups parameter is not correct: %s", msg["scups"].upper()
+            "The provided scups parameter is not correct: %s", msg["scups"].lower()
         )
     except Exception as _:
         _LOGGER.exception("Unhandled exception when processing websockets: %s", _)
@@ -59,13 +59,13 @@ def websocket_get_monthly_data(hass: HomeAssistant, connection, msg):
 def websocket_get_maximeter(hass: HomeAssistant, connection, msg):
     """Publish maximeter list data.."""
     try:
-        data = hass.data[const.DOMAIN][msg["scups"].upper()].get("ws_maximeter", [])
+        data = hass.data[const.DOMAIN][msg["scups"].lower()].get("ws_maximeter", [])
         if "tariff" in msg:
             data = [x for x in data if x[f"value_p{msg['tariff']}_kW"] > 0]
         connection.send_result(msg["id"], data)
     except KeyError as _:
         _LOGGER.error(
-            "The provided scups parameter is not correct: %s", msg["scups"].upper()
+            "The provided scups parameter is not correct: %s", msg["scups"].lower()
         )
     except Exception as _:
         _LOGGER.exception("Unhandled exception when processing websockets: %s", _)

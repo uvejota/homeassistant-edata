@@ -58,8 +58,10 @@
       "init": {
         "title": "Configuración",
         "data": {
+          "cycle_start_day": "Primer día del ciclo (de 1 a 30)",
           "billing": "Activar facturación",
-          "pvpc": "PVPC"
+          "pvpc": "PVPC",
+          "surplus": "Cálculo de excedente (no soportado con PVPC)"
         }
       },
       "costs": {
@@ -74,6 +76,14 @@
           "p1_kwh_eur": "Coste por kWh en P1 (€)",
           "p2_kwh_eur": "Coste por kWh en P2 (€)",
           "p3_kwh_eur": "Coste por kWh en P3 (€)",
+          "surplus_p1_kwh_eur": "Compensación por kWh generado en P1 (€)",
+          "surplus_p2_kwh_eur": "Compensación por kWh generado en P2 (€)",
+          "surplus_p3_kwh_eur": "Compensación por kWh generado en P3 (€)"
+        }
+      },
+      "formulas": {
+        "title": "Fórmulas",
+        "data": {
           "energy_formula": "Término de energía (€)",
           "power_formula": "Término de potencia (€)",
           "others_formula": "Otros gastos (e.g., contador, €)",

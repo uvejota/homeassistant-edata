@@ -289,29 +289,20 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         # get last record local datetime and eval if any stat is missing
         last_record_dt = {}
-
-        if MAJOR_VERSION < 2022 or (MAJOR_VERSION == 2022 and MINOR_VERSION < 12):
-            for x in statistic_ids:
-                try:
+        for x in statistic_ids:
+            try:
+                if MAJOR_VERSION <= 2022:
                     last_record_dt[x] = dt_util.parse_datetime(
                         last_stats[x][x][0]["end"]
                     )
-                except Exception:
-                    last_record_dt[x] = dt_util.as_utc(datetime(1970, 1, 1))
-        elif MAJOR_VERSION == 2023 and MINOR_VERSION < 3:
-            for x in statistic_ids:
-                try:
+                elif MAJOR_VERSION == 2023 and MINOR_VERSION < 3:
                     last_record_dt[x] = dt_util.as_local(last_stats[x][x][0]["end"])
-                except Exception:
-                    last_record_dt[x] = dt_util.as_utc(datetime(1970, 1, 1))
-        else:
-            for x in statistic_ids:
-                try:
+                else:
                     last_record_dt[x] = dt_util.utc_from_timestamp(
                         last_stats[x][x][0]["end"]
                     )
-                except Exception:
-                    last_record_dt[x] = dt_util.as_utc(datetime(1970, 1, 1))
+            except Exception:
+                last_record_dt[x] = dt_util.as_utc(datetime(1970, 1, 1))
 
         # store most recent stat for each statistic_id
         self._last_stats_dt = last_record_dt

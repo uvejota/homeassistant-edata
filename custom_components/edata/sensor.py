@@ -122,6 +122,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
             for x in config_entry.options
             if x
             in (
+                const.CONF_CYCLE_START_DAY,
                 const.PRICE_P1_KW_YEAR,
                 const.PRICE_P2_KW_YEAR,
                 const.PRICE_P1_KWH,

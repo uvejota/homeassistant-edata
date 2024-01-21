@@ -12,6 +12,7 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import selector as sel
 
 from . import const, utils
 
@@ -106,7 +107,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(config_entry) -> OptionsFlowHandler:
+        """Return the options flow handler."""
         return OptionsFlowHandler(config_entry)
 
 
@@ -118,7 +120,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         self.config_entry = config_entry
         self.inputs = {}
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(self, user_input=None) -> FlowResult:
         """Manage the options."""
 
         if user_input is not None:
@@ -144,21 +146,33 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         const.CONF_PVPC,
                         default=self.config_entry.options.get(const.CONF_PVPC, False),
                     ): bool,
+                    vol.Required(
+                        const.CONF_SURPLUS,
+                        default=self.config_entry.options.get(
+                            const.CONF_SURPLUS, False
+                        ),
+                    ): bool,
                     # vol.Required(
-                    #     const.CONF_SURPLUS,
-                    #     default=self.config_entry.options.get(const.CONF_PVPC, False),
-                    # ): bool,
+                    #     const.CONF_CYCLE_START_DAY,
+                    #     default=self.config_entry.options.get(
+                    #         const.CONF_CYCLE_START_DAY, 1
+                    #     ),
+                    # ): sel.NumberSelector(
+                    #     sel.NumberSelectorConfig(
+                    #         min=1, max=30, mode=sel.NumberSelectorMode.SLIDER
+                    #     )
+                    # ),
                 }
             ),
         )
 
-    async def async_step_costs(self, user_input=None):
+    async def async_step_costs(self, user_input=None) -> FlowResult:
         """Manage the options."""
 
         if user_input is not None:
             for key in user_input:
                 self.inputs[key] = user_input[key]
-            return self.async_create_entry(title="", data=self.inputs)
+            return await self.async_step_formulas()
 
         base_schema = {
             vol.Required(
@@ -205,48 +219,94 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         nonpvpc_schema = {
             vol.Required(
                 const.PRICE_P1_KWH,
-                default=self.config_entry.options.get(const.PRICE_P1_KWH),
+                default=self.config_entry.options.get(const.PRICE_P1_KWH, 0),
             ): vol.Coerce(float),
             vol.Required(
                 const.PRICE_P2_KWH,
-                default=self.config_entry.options.get(const.PRICE_P2_KWH),
+                default=self.config_entry.options.get(const.PRICE_P2_KWH, 0),
             ): vol.Coerce(float),
             vol.Required(
                 const.PRICE_P3_KWH,
-                default=self.config_entry.options.get(const.PRICE_P3_KWH),
+                default=self.config_entry.options.get(const.PRICE_P3_KWH, 0),
             ): vol.Coerce(float),
         }
 
-        formulas_schema = {
+        surplus_schema = {
             vol.Required(
-                const.BILLING_ENERGY_FORMULA,
-                default=self.config_entry.options.get(
-                    const.BILLING_ENERGY_FORMULA, const.DEFAULT_BILLING_ENERGY_FORMULA
-                ),
-            ): str,
+                const.PRICE_SURP_P1_KWH,
+                default=self.config_entry.options.get(const.PRICE_SURP_P1_KWH, 0),
+            ): vol.Coerce(float),
             vol.Required(
-                const.BILLING_POWER_FORMULA,
-                default=self.config_entry.options.get(
-                    const.BILLING_POWER_FORMULA, const.DEFAULT_BILLING_POWER_FORMULA
-                ),
-            ): str,
+                const.PRICE_SURP_P2_KWH,
+                default=self.config_entry.options.get(const.PRICE_SURP_P2_KWH, 0),
+            ): vol.Coerce(float),
             vol.Required(
-                const.BILLING_OTHERS_FORMULA,
-                default=self.config_entry.options.get(
-                    const.BILLING_OTHERS_FORMULA, const.DEFAULT_BILLING_OTHERS_FORMULA
-                ),
-            ): str,
-            # vol.Required(
-            #     const.BILLING_SURPLUS_FORMULA,
-            #     default=self.config_entry.options.get(
-            #         const.BILLING_SURPLUS_FORMULA, const.DEFAULT_BILLING_SURPLUS_FORMULA
-            #     ),
-            # ): str,
+                const.PRICE_SURP_P3_KWH,
+                default=self.config_entry.options.get(const.PRICE_SURP_P3_KWH, 0),
+            ): vol.Coerce(float),
         }
+
+        if self.inputs[const.CONF_PVPC]:
+            schema = vol.Schema(base_schema)
+        else:
+            schema = vol.Schema(base_schema).extend(nonpvpc_schema)
+            if self.inputs[const.CONF_SURPLUS]:
+                schema = schema.extend(surplus_schema)
 
         return self.async_show_form(
             step_id="costs",
-            data_schema=vol.Schema(base_schema).extend(formulas_schema)
-            if self.inputs[const.CONF_PVPC]
-            else vol.Schema(base_schema).extend(nonpvpc_schema).extend(formulas_schema),
+            data_schema=schema,
+        )
+
+    async def async_step_formulas(self, user_input=None) -> FlowResult:
+        """Manage the options."""
+
+        if user_input is not None:
+            for key in user_input:
+                self.inputs[key] = user_input[key]
+            return self.async_create_entry(title="", data=self.inputs)
+
+        formulas_schema = vol.Schema(
+            {
+                vol.Required(
+                    const.BILLING_ENERGY_FORMULA,
+                    default=self.config_entry.options.get(
+                        const.BILLING_ENERGY_FORMULA,
+                        const.DEFAULT_BILLING_ENERGY_FORMULA,
+                    ),
+                ): str,
+                vol.Required(
+                    const.BILLING_POWER_FORMULA,
+                    default=self.config_entry.options.get(
+                        const.BILLING_POWER_FORMULA, const.DEFAULT_BILLING_POWER_FORMULA
+                    ),
+                ): str,
+                vol.Required(
+                    const.BILLING_OTHERS_FORMULA,
+                    default=self.config_entry.options.get(
+                        const.BILLING_OTHERS_FORMULA,
+                        const.DEFAULT_BILLING_OTHERS_FORMULA,
+                    ),
+                ): str,
+            }
+        )
+
+        if self.inputs[const.CONF_SURPLUS]:
+            formulas_schema.extend(
+                {
+                    vol.Required(
+                        const.BILLING_SURPLUS_FORMULA,
+                        default=self.config_entry.options.get(
+                            const.BILLING_SURPLUS_FORMULA,
+                            const.DEFAULT_BILLING_SURPLUS_FORMULA,
+                        ),
+                    ): str,
+                }
+            )
+        else:
+            self.inputs[const.BILLING_SURPLUS_FORMULA] = "0"
+
+        return self.async_show_form(
+            step_id="formulas",
+            data_schema=formulas_schema,
         )
