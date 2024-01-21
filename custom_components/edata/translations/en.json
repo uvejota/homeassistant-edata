@@ -57,8 +57,10 @@
       "init": {
         "title": "Configuration",
         "data": {
+          "cycle_start_day": "First day of your billing cycle (from 1 to 30)",
           "billing": "Activate billing",
-          "pvpc": "PVPC"
+          "pvpc": "PVPC",
+          "surplus": "Compute surplus (unsupported for PVPC)"
         }
       },
       "costs": {
@@ -73,11 +75,19 @@
           "p1_kwh_eur": "EUR cost of KWH in P1",
           "p2_kwh_eur": "EUR cost of KWH in P2",
           "p3_kwh_eur": "EUR cost of KWH in P3",
-          "energy_formula": "Energy term calculus (EUR)",
-          "power_formula": "Power term calculus (EUR)",
-          "others_formula": "Others term calculus (EUR)",
-          "surplus_formula": "Surplus term calculus (this quantity gets substracted)"
+          "surplus_p1_kwh_eur": "EUR surplus compensation cost of KWH in P1",
+          "surplus_p2_kwh_eur": "EUR surplus compensation cost of KWH in P2",
+          "surplus_p3_kwh_eur": "EUR surplus compensation cost of KWH in P3"
         }
+      }
+    },
+    "formulas": {
+      "title": "Formulas",
+      "data": {
+        "energy_formula": "Energy term calculus (EUR)",
+        "power_formula": "Power term calculus (EUR)",
+        "others_formula": "Others term calculus (EUR)",
+        "surplus_formula": "Surplus term calculus (this quantity gets substracted)"
       }
     }
   }

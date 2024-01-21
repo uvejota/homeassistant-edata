@@ -23,6 +23,8 @@ CONF_EXPERIMENTAL = "experimental"
 CONF_DEBUG = "debug"
 CONF_BILLING = "billing"
 CONF_PVPC = "pvpc"
+CONF_SURPLUS = "surplus"
+CONF_CYCLE_START_DAY = "cycle_start_day"
 CONF_WIPE = "wipe_data"
 CONF_AUTHORIZEDNIF = "authorized_nif"
 
@@ -32,6 +34,9 @@ PRICE_P2_KW_YEAR = "p2_kw_year_eur"
 PRICE_P1_KWH = "p1_kwh_eur"
 PRICE_P2_KWH = "p2_kwh_eur"
 PRICE_P3_KWH = "p3_kwh_eur"
+PRICE_SURP_P1_KWH = "surplus_p1_kwh_eur"
+PRICE_SURP_P2_KWH = "surplus_p2_kwh_eur"
+PRICE_SURP_P3_KWH = "surplus_p3_kwh_eur"
 PRICE_METER_MONTH = "meter_month_eur"
 PRICE_MARKET_KW_YEAR = "market_kw_year_eur"
 PRICE_ELECTRICITY_TAX = "electricity_tax"
@@ -45,7 +50,7 @@ DEFAULT_PRICE_P3_KWH = None
 DEFAULT_PRICE_METER_MONTH = 0.81
 DEFAULT_PRICE_MARKET_KW_YEAR = 3.113
 DEFAULT_PRICE_ELECTRICITY_TAX = 1.05
-DEFAULT_PRICE_IVA = 1.05
+DEFAULT_PRICE_IVA = 1.1
 
 BILLING_ENERGY_FORMULA = "energy_formula"
 BILLING_POWER_FORMULA = "power_formula"
