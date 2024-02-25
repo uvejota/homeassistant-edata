@@ -90,7 +90,7 @@ class EdataCard extends LitElement {
     return {
       entity: "sensor.edata_XXXX",
       chart: "consumption",
-      aggr: "monthly",
+      aggr: "month",
       records: 12,
       title: "Gráfico de ejemplo",
     };
