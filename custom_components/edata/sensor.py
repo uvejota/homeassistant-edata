@@ -3,7 +3,6 @@
 import json
 import logging
 
-from edata.connectors.datadis import RECENT_QUERIES_FILE
 from edata.processors import utils as edata_utils
 from edata.definitions import PricingRules
 

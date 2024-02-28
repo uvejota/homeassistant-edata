@@ -9,7 +9,7 @@ import os
 
 from dateutil.relativedelta import relativedelta
 
-from edata.connectors.datadis import RECENT_QUERIES_FILE
+from edata.connectors.datadis import DEFAULT_RECENT_QUERIES_FILE
 from edata.definitions import ATTRIBUTES, PricingRules
 from edata.helpers import EdataHelper
 from edata.processors import utils
@@ -209,9 +209,9 @@ class EdataCoordinator(DataUpdateCoordinator):
                 f"{const.STORAGE_KEY_PREAMBLE}_{self.id}",
             ).async_save(utils.serialize_dict(self._edata.data))
 
-            if os.path.isfile(RECENT_QUERIES_FILE):
+            if os.path.isfile(DEFAULT_RECENT_QUERIES_FILE):
                 with open(
-                    RECENT_QUERIES_FILE, encoding="utf8"
+                    DEFAULT_RECENT_QUERIES_FILE, encoding="utf8"
                 ) as recent_queries_content:
                     recent_queries = json.load(recent_queries_content)
                     await Store(
