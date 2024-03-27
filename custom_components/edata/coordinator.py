@@ -82,6 +82,7 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         # Making self._data to reference hass.data[const.DOMAIN][self.id] so we can use it like an alias
         self._data = hass.data[const.DOMAIN][self.id]
+        self._data["edata"] = self._edata
         self._data.update(
             {
                 const.DATA_STATE: const.STATE_LOADING,

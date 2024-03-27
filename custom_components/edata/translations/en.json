@@ -101,6 +101,18 @@
           "others_formula": "Others term calculus (EUR)",
           "surplus_formula": "Surplus term calculus (this quantity gets substracted)"
         }
+      },
+      "confirm": {
+        "title": "Simulation (with taxes)",
+        "data": {
+          "month": "Simulated month",
+          "value_eur": "Factura (€)",
+          "energy_term": "Energy term (€)",
+          "power_term": "Power term (€)",
+          "others_term": "Others term (e.g., meter, €)",
+          "surplus_term": "Surplus term (this quantity gets substracted)",
+          "confirm": "Confirm changes"
+        }
       }
     }
   }

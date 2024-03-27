@@ -102,6 +102,18 @@
           "others_formula": "Otros gastos (e.g., contador, €)",
           "surplus_formula": "Retorno por generación (se resta del coste total, €)"
         }
+      },
+      "confirm": {
+        "title": "Simulación (con impuestos)",
+        "data": {
+          "month": "Mes simulado",
+          "value_eur": "Factura (€)",
+          "energy_term": "Término de energía (€)",
+          "power_term": "Término de potencia (€)",
+          "others_term": "Otros gastos (e.g., contador, €)",
+          "surplus_term": "Retorno por generación (se resta del coste total, €)",
+          "confirm": "Confirmar cambios"
+        }
       }
     }
   }
