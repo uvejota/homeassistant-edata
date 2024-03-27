@@ -9,10 +9,10 @@ import os
 
 from dateutil.relativedelta import relativedelta
 
-from edata.connectors.datadis import DEFAULT_RECENT_QUERIES_FILE
 from edata.definitions import ATTRIBUTES, PricingRules
 from edata.helpers import EdataHelper
 from edata.processors import utils
+from edata.migrate import migrate_pre2024_storage_if_needed
 from homeassistant.components.recorder.db_schema import Statistics
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
 from homeassistant.components.recorder.statistics import (
@@ -37,6 +37,7 @@ from homeassistant.util import dt as dt_util
 from . import const
 from .utils import get_db_instance
 import contextlib
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,37 +69,20 @@ class EdataCoordinator(DataUpdateCoordinator):
         self.billing_rules = billing
 
         # Check if v2023 storage has already been migrated
-        self.is_storage_migration_complete = os.path.exists(
-            self.hass.config.path(
-                STORAGE_DIR, "edata", f"edata_{self.cups.lower()}.json"
-            )
-        )
+        migrate_pre2024_storage_if_needed(self.cups, self.id)
 
         # Init shared data
         hass.data[const.DOMAIN][self.id] = {}
 
         # Instantiate the api helper
-        if not self.is_storage_migration_complete:
-            # ... providing old data manually, if migration hasn't been done yet
-            self._edata = EdataHelper(
-                username,
-                password,
-                self.cups,
-                self.authorized_nif,
-                pricing_rules=self.billing_rules,
-                data=prev_data,
-                storage_dir_path=self.hass.config.path(STORAGE_DIR),
-            )
-        else:
-            # ... or just providing the storage dir path otherwise
-            self._edata = EdataHelper(
-                username,
-                password,
-                self.cups,
-                self.authorized_nif,
-                pricing_rules=self.billing_rules,
-                storage_dir_path=self.hass.config.path(STORAGE_DIR),
-            )
+        self._edata = EdataHelper(
+            username,
+            password,
+            self.cups,
+            self.authorized_nif,
+            pricing_rules=self.billing_rules,
+            storage_dir_path=self.hass.config.path(STORAGE_DIR),
+        )
 
         # Making self._data to reference hass.data[const.DOMAIN][self.id] so we can use it like an alias
         self._data = hass.data[const.DOMAIN][self.id]
@@ -201,24 +185,6 @@ class EdataCoordinator(DataUpdateCoordinator):
         await self.update_statistics()
 
         self._load_data()
-
-        if not self.is_storage_migration_complete:
-            await Store(
-                self.hass,
-                const.STORAGE_VERSION,
-                f"{const.STORAGE_KEY_PREAMBLE}_{self.id}",
-            ).async_save(utils.serialize_dict(self._edata.data))
-
-            if os.path.isfile(DEFAULT_RECENT_QUERIES_FILE):
-                with open(
-                    DEFAULT_RECENT_QUERIES_FILE, encoding="utf8"
-                ) as recent_queries_content:
-                    recent_queries = json.load(recent_queries_content)
-                    await Store(
-                        self.hass,
-                        const.STORAGE_VERSION,
-                        f"{const.STORAGE_KEY_PREAMBLE}_recent_queries",
-                    ).async_save(recent_queries)
 
         return self._data
 
