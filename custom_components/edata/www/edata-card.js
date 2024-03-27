@@ -136,6 +136,7 @@ class EdataCard extends LitElement {
       : DEF_RECORDS_FOR_METHOD[this._aggr];
     this._title = config.title || PROG_NAME;
 
+    this._colors = config.colors || Apex.colors;
     // store original config
     this._config = config;
   }
@@ -161,6 +162,7 @@ class EdataCard extends LitElement {
         id: "chart",
         type: "bar",
       },
+      colors: this._colors,
       yaxis: {
         title: {
           text: DEF_ENERGY_UNIT,
@@ -207,6 +209,7 @@ class EdataCard extends LitElement {
         stacked: true,
         type: "bar",
       },
+      colors: this._colors,
       yaxis: {
         title: {
           text: DEF_ENERGY_UNIT,
@@ -253,6 +256,7 @@ class EdataCard extends LitElement {
         stacked: true,
         type: "bar",
       },
+      colors: this._colors,
       yaxis: {
         title: {
           text: DEF_COST_UNIT,
@@ -299,6 +303,7 @@ class EdataCard extends LitElement {
         id: "chart",
         type: "scatter",
       },
+      colors: this._colors,
       yaxis: {
         title: {
           text: DEF_POWER_UNIT,
