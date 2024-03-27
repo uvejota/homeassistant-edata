@@ -70,7 +70,7 @@ Apex.tooltip = {
   },
 };
 
-Apex.colors = ["#FF5733", "#FFC300", "#09AF00"];
+Apex.colors = ["#e54304", "#ff9e22", "#9ccc65"];
 
 // EdataCard class
 class EdataCard extends LitElement {
