@@ -1,159 +1,186 @@
-"""Sensor platform for edata component"""
+"""Sensor platform for edata component."""
 
-import json
 import logging
 
-import voluptuous as vol
-from edata.connectors.datadis import RECENT_QUERIES_FILE
-from edata.processors import utils as edata_utils
-from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
-from homeassistant.config_entries import SOURCE_IMPORT
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, EVENT_HOMEASSISTANT_START
-from homeassistant.core import CoreState, callback
-from homeassistant.helpers import config_validation as cv
+from edata.definitions import PricingRules
+
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.const import (
+    CONF_PASSWORD,
+    CONF_USERNAME,
+    CURRENCY_EURO,
+    EVENT_HOMEASSISTANT_START,
+    UnitOfEnergy,
+    UnitOfPower,
+)
+from homeassistant.core import CoreState, HomeAssistant, callback
 from homeassistant.helpers import entity_platform
-from homeassistant.helpers.storage import Store
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import const
-from . import utils
 from .coordinator import EdataCoordinator
+from .entity import EdataEntity
 from .websockets import async_register_websockets
 
 # HA variables
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORM_SCHEMA = vol.All(
-    cv.deprecated(CONF_USERNAME),
-    cv.deprecated(CONF_PASSWORD),
-    cv.deprecated(const.CONF_CUPS),
-    cv.deprecated(const.CONF_EXPERIMENTAL),
-    cv.deprecated(const.CONF_PROVIDER),
-    PLATFORM_SCHEMA.extend(
-        (
-            {
-                vol.Optional(const.CONF_DEBUG): cv.boolean,
-                vol.Optional(const.CONF_PROVIDER): cv.string,
-                vol.Optional(CONF_USERNAME): cv.string,
-                vol.Optional(CONF_PASSWORD): cv.string,
-                vol.Optional(const.CONF_CUPS): cv.string,
-                vol.Optional(const.CONF_EXPERIMENTAL): cv.boolean,
-            }
-        ),
+INFO_SENSORS_DESC = [
+    # (name, state_key, [attributes_key])
+    (
+        "info",
+        "cups",
+        ["contract_p1_kW", "contract_p2_kW"],
     ),
-)
+]
+
+ENERGY_SENSORS_DESC = [
+    (
+        "yesterday_kwh",
+        "yesterday_kWh",
+        ["yesterday_hours", "yesterday_p1_kWh", "yesterday_p2_kWh", "yesterday_p3_kWh"],
+    ),
+    (
+        "yesterday_surplus_kwh",
+        "yesterday_surplus_kWh",
+        [
+            "yesterday_hours",
+            "yesterday_surplus_p1_kWh",
+            "yesterday_surplus_p2_kWh",
+            "yesterday_surplus_p3_kWh",
+        ],
+    ),
+    (
+        "last_registered_day_kwh",
+        "last_registered_day_kWh",
+        [
+            "last_registered_date",
+            "last_registered_day_hours",
+            "last_registered_day_p1_kWh",
+            "last_registered_day_p2_kWh",
+            "last_registered_day_p3_kWh",
+        ],
+    ),
+    (
+        "last_registered_day_surplus_kwh",
+        "last_registered_day_surplus_kWh",
+        [
+            "last_registered_date",
+            "last_registered_day_hours",
+            "last_registered_day_surplus_p1_kWh",
+            "last_registered_day_surplus_p2_kWh",
+            "last_registered_day_surplus_p3_kWh",
+        ],
+    ),
+    (
+        "month_kwh",
+        "month_kWh",
+        [
+            "month_days",
+            "month_daily_kWh",
+            "month_p1_kWh",
+            "month_p2_kWh",
+            "month_p3_kWh",
+        ],
+    ),
+    (
+        "month_surplus_kwh",
+        "month_surplus_kWh",
+        [
+            "month_days",
+            "month_surplus_p1_kWh",
+            "month_surplus_p2_kWh",
+            "month_surplus_p3_kWh",
+        ],
+    ),
+    (
+        "last_month_kwh",
+        "last_month_kWh",
+        [
+            "last_month_days",
+            "last_month_daily_kWh",
+            "last_month_p1_kWh",
+            "last_month_p2_kWh",
+            "last_month_p3_kWh",
+        ],
+    ),
+    (
+        "last_month_surplus_kwh",
+        "last_month_surplus_kWh",
+        [
+            "last_month_days",
+            "last_month_surplus_p1_kWh",
+            "last_month_surplus_p2_kWh",
+            "last_month_surplus_p3_kWh",
+        ],
+    ),
+]
+
+POWER_SENSORS_DESC = [
+    (
+        "max_power_kw",
+        "max_power_kW",
+        [
+            "max_power_date",
+            "max_power_mean_kW",
+            "max_power_90perc_kW",
+        ],
+    ),
+]
+
+COST_SENSORS_DESC = [
+    (
+        "month_eur",
+        "month_€",
+        [],
+    ),
+    (
+        "last_month_eur",
+        "last_month_€",
+        [],
+    ),
+]
 
 
-VALID_ENTITY_CONFIG = vol.Schema(
-    {
-        vol.Required(CONF_USERNAME): cv.string,
-        vol.Required(CONF_PASSWORD): cv.string,
-        vol.Required(const.CONF_CUPS): cv.string,
-        vol.Optional(const.CONF_EXPERIMENTAL, default=False): cv.boolean,
-        # vol.Optional(const.CONF_PROVIDER): cv.string
-    },
-    extra=vol.REMOVE_EXTRA,
-)
-
-
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Import edata configuration from YAML."""
+async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entities):
+    """Set up entry."""
     hass.data.setdefault(const.DOMAIN, {})
 
-    if config.get(const.CONF_DEBUG, False):
+    # get configured parameters
+    usr = config_entry.data[CONF_USERNAME]
+    pwd = config_entry.data[CONF_PASSWORD]
+    cups = config_entry.data[const.CONF_CUPS]
+    authorized_nif = config_entry.data[const.CONF_AUTHORIZEDNIF]
+    scups = config_entry.data[const.CONF_SCUPS]
+    # is_pvpc = config_entry.options[const.CONF_PVPC]
+
+    if config_entry.options.get(const.CONF_DEBUG, False):
         logging.getLogger("edata").setLevel(logging.INFO)
     else:
         logging.getLogger("edata").setLevel(logging.WARNING)
 
-    if any(
-        key in config
-        for key in [
-            CONF_USERNAME,
-            CONF_PASSWORD,
-            const.CONF_CUPS,
-            const.CONF_EXPERIMENTAL,
-            const.CONF_PROVIDER,
-        ]
-    ):
-        try:
-            validated_config = VALID_ENTITY_CONFIG(config)
-            _LOGGER.warning(
-                "Loading edata sensor via platform setup is deprecated. It will be imported into Home Assistant integration. Please remove it from your configuration"
-            )
-            hass.async_create_task(
-                hass.config_entries.flow.async_init(
-                    const.DOMAIN,
-                    context={"source": SOURCE_IMPORT},
-                    data=validated_config,
-                )
-            )
-        except vol.Error as ex:
-            _LOGGER.warning("Invalid config '%s': %s", config, ex)
-
-    return True
-
-
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    """Set up entry."""
-    hass.data.setdefault(const.DOMAIN, {})
-
-    usr = config_entry.data[CONF_USERNAME]
-    pwd = config_entry.data[CONF_PASSWORD]
-    cups = config_entry.data[const.CONF_CUPS]
-
-    if not utils.check_cups_integrity(cups):
-        _LOGGER.error(
-            "Specified CUPS (%s) is invalid, please copy it from Datadis website", cups
-        )
-
-    authorized_nif = config_entry.data.get(const.CONF_AUTHORIZEDNIF, None)
-    scups = config_entry.data.get(const.CONF_SCUPS, cups[-4:].upper())
-
-    is_pvpc = config_entry.options.get(const.CONF_PVPC, False)
-
-    billing = (
+    pricing_rules = PricingRules(
         {
-            const.PRICE_P1_KW_YEAR: config_entry.options.get(const.PRICE_P1_KW_YEAR),
-            const.PRICE_P2_KW_YEAR: config_entry.options.get(const.PRICE_P2_KW_YEAR),
-            const.PRICE_P1_KWH: config_entry.options.get(const.PRICE_P1_KWH)
-            if not is_pvpc
-            else None,
-            const.PRICE_P2_KWH: config_entry.options.get(const.PRICE_P2_KWH)
-            if not is_pvpc
-            else None,
-            const.PRICE_P3_KWH: config_entry.options.get(const.PRICE_P3_KWH)
-            if not is_pvpc
-            else None,
-            const.PRICE_METER_MONTH: config_entry.options.get(const.PRICE_METER_MONTH),
-            const.PRICE_MARKET_KW_YEAR: config_entry.options.get(
-                const.PRICE_MARKET_KW_YEAR
-            ),
-            const.PRICE_ELECTRICITY_TAX: config_entry.options.get(
-                const.PRICE_ELECTRICITY_TAX
-            ),
-            const.PRICE_IVA: config_entry.options.get(const.PRICE_IVA),
+            x: config_entry.options[x]
+            for x in config_entry.options
+            if x
+            in (
+                const.CONF_CYCLE_START_DAY,
+                const.PRICE_P1_KW_YEAR,
+                const.PRICE_P2_KW_YEAR,
+                const.PRICE_P1_KWH,
+                const.PRICE_P2_KWH,
+                const.PRICE_P3_KWH,
+                const.PRICE_METER_MONTH,
+                const.PRICE_MARKET_KW_YEAR,
+                const.PRICE_ELECTRICITY_TAX,
+                const.PRICE_IVA_TAX,
+                const.BILLING_ENERGY_FORMULA,
+                const.BILLING_POWER_FORMULA,
+                const.BILLING_OTHERS_FORMULA,
+                const.BILLING_SURPLUS_FORMULA,
+            )
         }
-        if config_entry.options.get(const.CONF_BILLING, False)
-        else None
     )
-
-    # load old data if any
-    serialized_data = await Store(
-        hass,
-        const.STORAGE_VERSION,
-        f"{const.STORAGE_KEY_PREAMBLE}_{scups}",
-    ).async_load()
-    storage = edata_utils.deserialize_dict(serialized_data)
-
-    datadis_recent_queries = await Store(
-        hass,
-        const.STORAGE_VERSION,
-        f"{const.STORAGE_KEY_PREAMBLE}_recent_queries",
-    ).async_load()
-
-    if datadis_recent_queries:
-        with open(RECENT_QUERIES_FILE, "w", encoding="utf8") as queries_file:
-            json.dump(datadis_recent_queries, queries_file)
 
     platform = entity_platform.async_get_current_platform()
 
@@ -170,8 +197,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         cups,
         scups,
         authorized_nif,
-        billing,
-        prev_data=None if not storage else storage,
+        pricing_rules,
     )
 
     # postpone first refresh to speed up startup
@@ -186,7 +212,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, async_first_refresh)
 
     # add sensor entities
-    async_add_entities([EdataSensor(coordinator)])
+    _entities = []
+    _entities.extend([EdataInfoSensor(coordinator, *x) for x in INFO_SENSORS_DESC])
+    _entities.extend([EdataEnergySensor(coordinator, *x) for x in ENERGY_SENSORS_DESC])
+    _entities.extend([EdataPowerSensor(coordinator, *x) for x in POWER_SENSORS_DESC])
+    _entities.extend([EdataCostSensor(coordinator, *x) for x in COST_SENSORS_DESC])
+    async_add_entities(_entities)
 
     # register websockets
     async_register_websockets(hass)
@@ -194,30 +225,44 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     return True
 
 
-class EdataSensor(CoordinatorEntity, SensorEntity):
-    """Representation of an e-data Sensor."""
+class EdataInfoSensor(EdataEntity, SensorEntity):
+    """Representation of the info related to an e-data sensor."""
 
-    _attr_icon = "hass:flash"
+    _attr_icon = "mdi:home-lightning-bolt-outline"
     _attr_native_unit_of_measurement = None
+    _attr_has_entity_name = False
 
-    def __init__(self, coordinator):
+    def __init__(
+        self, coordinator, name: str, state: str, attributes: list[str]
+    ) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator)
-        self._attr_name = coordinator.name
-        self._data = coordinator.hass.data[const.DOMAIN][coordinator.id.upper()]
-        self._coordinator = coordinator
+        super().__init__(coordinator, name, state, attributes)
 
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        return self._data.get("state", const.STATE_ERROR)
-
-    @property
-    def extra_state_attributes(self):
-        """Return the state attributes."""
-        return self._data.get("attributes", {})
+        # override to allow backwards compatibility
+        self._attr_translation_key = None
+        self._attr_name = f"edata_{coordinator.id}"
 
     async def service_recreate_statistics(self):
-        """Recreates statistics"""
-        await self._coordinator.statistics.clear_all_statistics()
-        await self._coordinator.statistics.update_statistics()
+        """Recreates statistics."""
+        await self.coordinator.rebuild_recent_statistics()
+
+
+class EdataEnergySensor(EdataEntity, SensorEntity):
+    """Representation of an energy-related e-data sensor."""
+
+    _attr_icon = "mdi:counter"
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+
+
+class EdataPowerSensor(EdataEntity, SensorEntity):
+    """Representation of a power-related e-data sensor."""
+
+    _attr_icon = "mdi:gauge"
+    _attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
+
+
+class EdataCostSensor(EdataEntity, SensorEntity):
+    """Representation of an cost-related e-data sensor."""
+
+    _attr_icon = "mdi:currency-eur"
+    _attr_native_unit_of_measurement = CURRENCY_EURO

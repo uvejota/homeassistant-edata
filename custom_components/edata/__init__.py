@@ -2,14 +2,26 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
+from . import utils
 
 PLATFORMS: list[str] = ["sensor"]
 _LOGGER = logging.getLogger(__name__)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType):
+    path = Path(__file__).parent / "www"
+    name = "edata-card.js"
+    utils.register_static_path(hass.http.app, "/edata/" + name, path / name)
+    version = getattr(hass.data["integrations"][DOMAIN], "version", 0)
+    await utils.init_resource(hass, "/edata/edata-card.js", str(version))
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -30,13 +42,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        hass.data[DOMAIN][entry.data.get("scups").upper()] = {}
+        hass.data.get(DOMAIN, {}).pop(entry.data.get("scups"), None)
 
     return unload_ok
 
 
-async def async_remove_entry(hass, entry) -> None:
+async def async_remove_entry(hass: HomeAssistant, entry) -> None:
     """Handle removal of an entry."""
+    hass.data.get(DOMAIN, {}).pop(entry.data.get("scups"), None)
 
 
 async def options_update_listener(hass: HomeAssistant, config_entry: ConfigEntry):

@@ -5,38 +5,47 @@
 # homeassistant-edata
 ![imagen](https://user-images.githubusercontent.com/3638478/206875660-79c9d914-cd09-47c4-b82b-463d2e82982d.png)
 
-Esta integración para Home Assistant te permite seguir de un vistazo tus consumos y máximas potencias alcanzadas, obteniendo sus datos desde plataformas como Datadis o REData (precios PVPC), y ofreciendo técnicas para su representación gráfica en lovelace mediante el componente apexcharts-card. Además, integra estos datos con el panel de energía de Home Assistant.
+Esta integración para Home Assistant te permite seguir de un vistazo tu consumo, generación y máximas potencias registradas (maxímetro) configurando tu usuario de Datadis. Además ofrece la posibilidad de personalizar reglas de tarificación (desde la versión 2023.01.0).
 
+Para la visualización de los datos, existen varias alternativas:
+1. Configurar el Panel de Energía nativo de Home Assistant.
+2. Utilizar la tarjeta nativa de esta integración (edata-card).
+3. Utilizar tarjetas de terceros (e.g., apexcharts-card). Por su comodidad, se ofrece una API mediante WebSockets para la lectura de los datos.
+
+Ejemplo:
 ![Dashboard](https://i.imgur.com/P4TcGLH.png)
 
-Algunas aclaraciones:
-* Los datos mostrados **jamás serán en tiempo real**, ya que se saca de la información que registra/factura tu distribuidora y expone a través de la plataforma Datadis. *Normalmente* cada día registran el día anterior.
-* La tarificación de la integración está en pruebas y sólo funciona a día de hoy con tarifas 2.0TD si tu tarifa es precio fijo (se permite distinción entre tramos) o PVPC. **A día de hoy, NO se incluye tope de gas.**
+## Limitaciones
+
+* Los datos mostrados **jamás serán en tiempo real**, ya que se saca de la información que registra/factura tu distribuidora y expone a través de la plataforma Datadis. *Siendo optimistas* obtendrás tus datos con al menos dos días de retraso.
+* La tarificación de la integración sólo funciona a día de hoy con tarifas 2.0TD si tu tarifa es precio fijo (se permite distinción entre tramos) o PVPC. **NO se incluye tope de gas.**.
+* Se depende de la disponibilidad de Datadis, si la API no devuelve datos, no hay NADA que hacer. **Lo que se ve en la Web de Datadis no tiene por qué coincidir con los datos que devuelve la API, son fuentes distintas**
 
 ## Instalación
 
 Para instalar esta integración en Home Assistant necesitarás:
 
 * una cuenta funcional (y validada) en la web de [Datadis](https://www.datadis.es)
-  * no hay que marcar la casilla de la API al registrar, usaremos la privada que está habilitada por defecto),
-* una instalación *reciente* y funcional de Home Assistant (a partir de ahora HA),
-* tener o instalar HACS en tu entorno de HA, y
-* (opcional/recomendado) tener o instalar el componente [apexchart-card](https://github.com/RomRider/apexcharts-card) usando HACS.
+  * no hay que marcar la casilla de la API al registrar, usaremos la privada que está habilitada por defecto,
+* una instalación *reciente* y funcional de Home Assistant (a partir de ahora HA), los componentes `recorder` y `lovelace` disponibles,
+* tener o instalar [HACS](https://hacs.xyz/),
+* (opcional) tener o instalar el componente [apexchart-card](https://github.com/RomRider/apexcharts-card) (usando HACS) si se quisiera utilizar este método para visualizar los datos.
 
 Una vez satisfecho lo anterior, los pasos a seguir para la instalación son:
 
-1. Instalar HACS en tu entorno de Home Assistant (ver <https://hacs.xyz/>),
-2. Añadir este repositorio (<https://github.com/uvejota/homeassistant-edata>) a los repositorios personalizados de HACS,
-3. Instalar la integración mediante HACS, y
-4. Buscar "edata" en `Configuración > Dispositivos y servicios > Añadir integración`)
+1. Añadir este repositorio (<https://github.com/uvejota/homeassistant-edata>) a los repositorios personalizados de HACS,
+2. Instalar la integración mediante HACS, y
+3. Buscar "edata" en `Configuración > Dispositivos y servicios > Añadir integración`)
 
 ![Selección de edata](assets/install.png)
 
-5. Configurar sus credenciales de Datadis, indicando el NIF autorizado únicamente si no es el titular del suministro indicado). **Copie y pegue el CUPS** directamente desde la web de Datadis, en mayúscula. Algunas distribuidoras adhieren algunos caracteres adicionales.
+5. Configurar sus credenciales de Datadis, indicando el NIF autorizado únicamente si no es el titular del suministro indicado. **Copie y pegue el CUPS** directamente desde la web de Datadis, en mayúscula. Algunas distribuidoras adhieren algunos caracteres adicionales.
 
 ![Paso de configuración](assets/install-step1.png)
 
-6. Esperar unos minutos, le aparecerá un nuevo sensor llamado `sensor.edata_xxxx` donde `xxxx` dependerá de los últimos cuatro caracteres de su CUPS. En un futuro se podrá elegir el número de dígitos a mostrar, para evitar colisiones si se han configurado muchos suministros.
+6. Esperar unos minutos. Le aparecerá un nuevo sensor llamado `sensor.edata_xxxx` donde `xxxx` dependerá de los últimos cuatro caracteres de su CUPS. En un futuro se podrá elegir el número de dígitos a mostrar, para evitar colisiones si se han configurado muchos suministros.
+
+**NOTA: La instalación puede tardar bastante, ya que la integración "rescata" el último año de consumos desde Datadis, y ésta a veces puede tomarse su tiempo. Periódicamente, la integración solicitará únicamente lo que le falta, en intervalos de 24h.**
 
 ## Atributos de la integración
 
@@ -83,6 +92,10 @@ A partir de la versión `2022.01.0` de edata, ésta es compatible con las estad�
 | `edata:xxxx_p1_consumption` | `sum` | `kWh` | Consumo en P1 |
 | `edata:xxxx_p2_consumption` | `sum` | `kWh` | Consumo en P2 |
 | `edata:xxxx_p3_consumption` | `sum` | `kWh` | Consumo en P3 |
+| `edata:xxxx_surplus` | `sum` | `kWh` | Generación total  (>= `2024.01.0`)|
+| `edata:xxxx_p1_surplus` | `sum` | `kWh` | Generación en P1  (>= `2024.01.0`)|
+| `edata:xxxx_p2_surplus` | `sum` | `kWh` | Generación en P2  (>= `2024.01.0`)|
+| `edata:xxxx_p3_surplus` | `sum` | `kWh` | Generación en P3  (>= `2024.01.0`)|
 | `edata:xxxx_maximeter` | `max` | `kW` | Maxímetro (>= `2022.09.0`)|
 | `edata:xxxx_p1_maximeter` | `max` | `kW` | Maxímetro en P1 (>= `2022.09.0`)|
 | `edata:xxxx_p2_maximeter` | `max` | `kW` | Maxímetro en P2 (>= `2022.09.0`)|
@@ -96,11 +109,15 @@ A partir de la versión `2022.01.0` de edata, ésta es compatible con las estad�
 | `edata:xxxx_p2_energy_cost`*  | `float` | `€` | Coste (energía) en P2 (>= `2022.12.4`)|
 | `edata:xxxx_p3_energy_cost`*  | `float` | `€` | Coste (energía) en P3 (>= `2022.12.4`)|
 
-\* Los campos marcados con asterisco no están habilitados por defecto, y se habilitan en `Ajustes > Dispositivos y Servicios > XXXX (edata) - Configurar`. Primero deberá seleccionar si desea activar o no las funciones de facturación, y en caso de utilizar PVPC seleccionará también dicha casilla.
+\* Los campos marcados con asterisco no están habilitados por defecto, y se habilitan como indica el siguiente apartado.
+
+## Configurar la tarificación
+
+Navegue hasta `Ajustes > Dispositivos y Servicios > XXXX (edata) - Configurar`. Primero deberá seleccionar si desea activar o no las funciones de facturación, y en caso de utilizar PVPC seleccionará también dicha casilla.
 
 ![Opciones de edata](assets/configure-step1.png)
 
-A continuación, tendrá que configurar los costes asociados a cada término (según su contrato). No se da soporte al coste asociado a la excepción ibérica (tope del gas), aunque sí está incluido en PVPC.
+A continuación, tendrá que configurar los costes asociados a cada término (según su contrato).
 
 ![Opciones de facturación](assets/configure-step2.png)
 
