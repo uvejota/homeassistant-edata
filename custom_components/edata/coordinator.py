@@ -2,17 +2,15 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from datetime import datetime, timedelta
-import json
 import logging
-import os
 
 from dateutil.relativedelta import relativedelta
 
 from edata.definitions import ATTRIBUTES, PricingRules
 from edata.helpers import EdataHelper
 from edata.processors import utils
-from .migrate import migrate_pre2024_storage_if_needed
 from homeassistant.components.recorder.db_schema import Statistics
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
 from homeassistant.components.recorder.statistics import (
@@ -30,14 +28,13 @@ from homeassistant.const import (
     UnitOfPower,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.storage import STORAGE_DIR, Store
+from homeassistant.helpers.storage import STORAGE_DIR
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from . import const
+from .migrate import migrate_pre2024_storage_if_needed
 from .utils import get_db_instance
-import contextlib
-
 
 _LOGGER = logging.getLogger(__name__)
 

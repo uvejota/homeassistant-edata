@@ -24,6 +24,8 @@ def migrate_pre2024_storage_if_needed(
     old_path = hass.config.path(STORAGE_DIR, f"{STORAGE_KEY_PREAMBLE}_{_id}")
     new_path = hass.config.path(STORAGE_DIR, "edata", f"edata_{_cups}.json")
 
+    os.makedirs(os.path.dirname(new_path), exist_ok=True)
+
     need_migration = not os.path.exists(new_path)
 
     try:
@@ -36,7 +38,7 @@ def migrate_pre2024_storage_if_needed(
 
     if need_migration and (old_data is not None):
         _LOGGER.info("Migrating storage to 2024.xx.xx strategy")
-        with open(new_path, "w", encoding="utf8") as new_file:
+        with open(new_path, "x", encoding="utf8") as new_file:
             json.dump(old_data, new_file)
         _LOGGER.info("Storage migrated successfuly, removing old storage")
         with open(old_path, mode="w", encoding="utf8") as old_file:
