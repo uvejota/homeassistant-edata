@@ -58,8 +58,9 @@
         "title": "Configuration",
         "data": {
           "cycle_start_day": "First day of your billing cycle (from 1 to 30)",
-          "billing": "Activate billing",
+          "billing": "Enable billing",
           "pvpc": "PVPC",
+          "debug": "Enable debugging",
           "surplus": "Compute surplus (unsupported for PVPC)"
         }
       },

@@ -115,6 +115,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
     scups = config_entry.data[const.CONF_SCUPS]
     # is_pvpc = config_entry.options[const.CONF_PVPC]
 
+    if config_entry.get(const.CONF_DEBUG, False):
+        logging.getLogger("edata").setLevel(logging.INFO)
+    else:
+        logging.getLogger("edata").setLevel(logging.WARNING)
+
     pricing_rules = PricingRules(
         {
             x: config_entry.options[x]

@@ -61,6 +61,7 @@
           "cycle_start_day": "Primer día del ciclo (de 1 a 30)",
           "billing": "Activar facturación",
           "pvpc": "PVPC",
+          "debug": "Activar depuración",
           "surplus": "Cálculo de excedente (no soportado con PVPC)"
         }
       },

@@ -136,6 +136,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=vol.Schema(
                 {
                     vol.Required(
+                        const.CONF_DEBUG,
+                        default=self.config_entry.options.get(const.CONF_DEBUG, False),
+                    ): bool,
+                    vol.Required(
                         const.CONF_BILLING,
                         default=self.config_entry.options.get(
                             const.CONF_BILLING, False
