@@ -175,6 +175,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             for key in user_input:
                 self.inputs[key] = user_input[key]
+            return self.async_create_entry(title="", data=self.inputs)
+            ### TODO: Formulas step disabled until internal testing
             return await self.async_step_formulas()
 
         base_schema = {

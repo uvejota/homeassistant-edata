@@ -12,7 +12,7 @@ from dateutil.relativedelta import relativedelta
 from edata.definitions import ATTRIBUTES, PricingRules
 from edata.helpers import EdataHelper
 from edata.processors import utils
-from edata.migrate import migrate_pre2024_storage_if_needed
+from .migrate import migrate_pre2024_storage_if_needed
 from homeassistant.components.recorder.db_schema import Statistics
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
 from homeassistant.components.recorder.statistics import (
@@ -54,7 +54,6 @@ class EdataCoordinator(DataUpdateCoordinator):
         scups: str,
         authorized_nif: str,
         billing: PricingRules | None = None,
-        prev_data=None,
     ) -> None:
         """Initialize the data handler.."""
 
@@ -69,7 +68,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         self.billing_rules = billing
 
         # Check if v2023 storage has already been migrated
-        migrate_pre2024_storage_if_needed(self.cups, self.id)
+        migrate_pre2024_storage_if_needed(hass, self.cups, self.id)
 
         # Init shared data
         hass.data[const.DOMAIN][self.id] = {}

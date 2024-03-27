@@ -8,7 +8,7 @@ import os
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import STORAGE_DIR
 
-from edata.const import STORAGE_KEY_PREAMBLE
+from .const import STORAGE_KEY_PREAMBLE
 
 _LOGGER = logging.getLogger(__name__)
 

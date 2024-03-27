@@ -1,9 +1,7 @@
 """Sensor platform for edata component."""
 
-import json
 import logging
 
-from edata.processors import utils as edata_utils
 from edata.definitions import PricingRules
 
 from homeassistant.components.sensor import SensorEntity
@@ -17,7 +15,6 @@ from homeassistant.const import (
 )
 from homeassistant.core import CoreState, HomeAssistant, callback
 from homeassistant.helpers import entity_platform
-from homeassistant.helpers.storage import Store
 
 from . import const
 from .coordinator import EdataCoordinator
@@ -43,6 +40,16 @@ ENERGY_SENSORS_DESC = [
         ["yesterday_hours", "yesterday_p1_kWh", "yesterday_p2_kWh", "yesterday_p3_kWh"],
     ),
     (
+        "yesterday_surplus_kwh",
+        "yesterday_surplus_kWh",
+        [
+            "yesterday_hours",
+            "yesterday_surplus_p1_kWh",
+            "yesterday_surplus_p2_kWh",
+            "yesterday_surplus_p3_kWh",
+        ],
+    ),
+    (
         "last_registered_day_kwh",
         "last_registered_day_kWh",
         [
@@ -51,6 +58,17 @@ ENERGY_SENSORS_DESC = [
             "last_registered_day_p1_kWh",
             "last_registered_day_p2_kWh",
             "last_registered_day_p3_kWh",
+        ],
+    ),
+    (
+        "last_registered_day_surplus_kwh",
+        "last_registered_day_surplus_kWh",
+        [
+            "last_registered_date",
+            "last_registered_day_hours",
+            "last_registered_day_surplus_p1_kWh",
+            "last_registered_day_surplus_p2_kWh",
+            "last_registered_day_surplus_p3_kWh",
         ],
     ),
     (
@@ -65,6 +83,16 @@ ENERGY_SENSORS_DESC = [
         ],
     ),
     (
+        "month_surplus_kwh",
+        "month_surplus_kWh",
+        [
+            "month_days",
+            "month_surplus_p1_kWh",
+            "month_surplus_p2_kWh",
+            "month_surplus_p3_kWh",
+        ],
+    ),
+    (
         "last_month_kwh",
         "last_month_kWh",
         [
@@ -73,6 +101,16 @@ ENERGY_SENSORS_DESC = [
             "last_month_p1_kWh",
             "last_month_p2_kWh",
             "last_month_p3_kWh",
+        ],
+    ),
+    (
+        "last_month_surplus_kwh",
+        "last_month_surplus_kWh",
+        [
+            "last_month_days",
+            "last_month_surplus_p1_kWh",
+            "last_month_surplus_p2_kWh",
+            "last_month_surplus_p3_kWh",
         ],
     ),
 ]
@@ -115,7 +153,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
     scups = config_entry.data[const.CONF_SCUPS]
     # is_pvpc = config_entry.options[const.CONF_PVPC]
 
-    if config_entry.get(const.CONF_DEBUG, False):
+    if config_entry.options.get(const.CONF_DEBUG, False):
         logging.getLogger("edata").setLevel(logging.INFO)
     else:
         logging.getLogger("edata").setLevel(logging.WARNING)
@@ -152,14 +190,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
         "service_recreate_statistics",
     )
 
-    # load old data if any
-    serialized_data = await Store(
-        hass,
-        const.STORAGE_VERSION,
-        f"{const.STORAGE_KEY_PREAMBLE}_{scups}",
-    ).async_load()
-    storage = edata_utils.deserialize_dict(serialized_data)
-
     coordinator = EdataCoordinator(
         hass,
         usr,
@@ -168,7 +198,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
         scups,
         authorized_nif,
         pricing_rules,
-        prev_data=storage if storage else None,
     )
 
     # postpone first refresh to speed up startup

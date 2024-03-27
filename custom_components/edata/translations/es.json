@@ -14,6 +14,18 @@
       "last_registered_day_kwh": {
         "name": "Último consumo registrado"
       },
+      "month_surplus_kwh": {
+        "name": "Retorno en el mes"
+      },
+      "last_month_surplus_kwh": {
+        "name": "Retorno durante último mes"
+      },
+      "yesterday_surplus_kwh": {
+        "name": "Retorno ayer"
+      },
+      "last_registered_day_surplus_kwh": {
+        "name": "Último retorno registrado"
+      },
       "max_power_kw": {
         "name": "Potencia máxima registrada"
       },
