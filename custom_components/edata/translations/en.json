@@ -111,6 +111,7 @@
           "power_term": "Power term (€)",
           "others_term": "Others term (e.g., meter, €)",
           "surplus_term": "Surplus term (this quantity gets substracted)",
+          "apply_from": "Update bills since...",
           "confirm": "Confirm changes"
         }
       }

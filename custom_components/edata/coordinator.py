@@ -20,6 +20,7 @@ from homeassistant.components.recorder.statistics import (
     list_statistic_ids,
     statistics_during_period,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CURRENCY_EURO,
     MAJOR_VERSION,
@@ -99,9 +100,9 @@ class EdataCoordinator(DataUpdateCoordinator):
             const.STAT_ID_P2_KWH(self.id),
             const.STAT_ID_P3_KWH(self.id),
             const.STAT_ID_SURP_KWH(self.id),
-            const.STAT_ID_P1_SURP_KWH(self.id),
-            const.STAT_ID_P2_SURP_KWH(self.id),
-            const.STAT_ID_P3_SURP_KWH(self.id),
+            # const.STAT_ID_P1_SURP_KWH(self.id),
+            # const.STAT_ID_P2_SURP_KWH(self.id),
+            # const.STAT_ID_P3_SURP_KWH(self.id),
             const.STAT_ID_KW(self.id),
             const.STAT_ID_P1_KW(self.id),
             const.STAT_ID_P2_KW(self.id),
@@ -130,9 +131,9 @@ class EdataCoordinator(DataUpdateCoordinator):
             const.STAT_ID_P2_KWH(self.id),
             const.STAT_ID_P3_KWH(self.id),
             const.STAT_ID_SURP_KWH(self.id),
-            const.STAT_ID_P1_SURP_KWH(self.id),
-            const.STAT_ID_P2_SURP_KWH(self.id),
-            const.STAT_ID_P3_SURP_KWH(self.id),
+            # const.STAT_ID_P1_SURP_KWH(self.id),
+            # const.STAT_ID_P2_SURP_KWH(self.id),
+            # const.STAT_ID_P3_SURP_KWH(self.id),
         }
 
         self.maximeter_stat_ids = {
@@ -312,7 +313,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             set(to_clear),
             "hour",
             None,
-            {"state", "sum"},
+            {"state", "sum", "mean", "max"},
         )
 
         # wipe all-time statistics (since it is the only method provided by home assistant)
@@ -548,3 +549,12 @@ class EdataCoordinator(DataUpdateCoordinator):
                 )
 
         await self._add_statistics(new_stats)
+
+    async def options_changed(self, hass: HomeAssistant, config_entry: ConfigEntry):
+        """Apply updates on options change."""
+
+        if config_entry.options.get("update_billing_since", None) is not None:
+            dt_from = dt_util.parse_datetime(
+                config_entry.options["update_billing_since"]
+            )
+            await self.rebuild_recent_statistics(dt_from)

@@ -15,6 +15,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import CoreState, HomeAssistant, callback
 from homeassistant.helpers import entity_platform
+from homeassistant.util import dt as dt_util
 
 from . import const
 from .coordinator import EdataCoordinator
@@ -151,7 +152,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
     cups = config_entry.data[const.CONF_CUPS]
     authorized_nif = config_entry.data[const.CONF_AUTHORIZEDNIF]
     scups = config_entry.data[const.CONF_SCUPS]
-    # is_pvpc = config_entry.options[const.CONF_PVPC]
 
     if config_entry.options.get(const.CONF_DEBUG, False):
         logging.getLogger("edata").setLevel(logging.INFO)
@@ -221,6 +221,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
 
     # register websockets
     async_register_websockets(hass)
+
+    # Set options callback
+    config_entry.async_on_unload(
+        config_entry.add_update_listener(coordinator.options_changed)
+    )
 
     return True
 

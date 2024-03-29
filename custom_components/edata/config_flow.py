@@ -1,7 +1,6 @@
 """Config flow for edata integration."""
 from __future__ import annotations
 
-import datetime
 import logging
 from typing import Any
 
@@ -69,7 +68,7 @@ async def simulate_last_month_billing(
     hass: HomeAssistant, config_entry: config_entries.ConfigEntry, data: dict[str, Any]
 ) -> dict[str, Any]:
     """Validate the user input from the 'step formulas'."""
-
+    coordinator_id = config_entry.data["scups"].lower()
     pricing_rules = PricingRules(
         {
             x: data[x]
@@ -95,15 +94,13 @@ async def simulate_last_month_billing(
     )
     proc = BillingProcessor(
         {
-            "consumptions": hass.data[const.DOMAIN][config_entry.data["scups"].lower()][
-                "edata"
-            ].data["consumptions"],
-            "contracts": hass.data[const.DOMAIN][config_entry.data["scups"].lower()][
-                "edata"
-            ].data["contracts"],
-            "prices": hass.data[const.DOMAIN][config_entry.data["scups"].lower()][
-                "edata"
-            ].data["pvpc"],
+            "consumptions": hass.data[const.DOMAIN][coordinator_id]["edata"].data[
+                "consumptions"
+            ],
+            "contracts": hass.data[const.DOMAIN][coordinator_id]["edata"].data[
+                "contracts"
+            ],
+            "prices": hass.data[const.DOMAIN][coordinator_id]["edata"].data["pvpc"],
             "rules": pricing_rules,
         }
     )
@@ -208,16 +205,16 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             const.CONF_SURPLUS, False
                         ),
                     ): bool,
-                    # vol.Required(
-                    #     const.CONF_CYCLE_START_DAY,
-                    #     default=self.config_entry.options.get(
-                    #         const.CONF_CYCLE_START_DAY, 1
-                    #     ),
-                    # ): sel.NumberSelector(
-                    #     sel.NumberSelectorConfig(
-                    #         min=1, max=30, mode=sel.NumberSelectorMode.SLIDER
-                    #     )
-                    # ),
+                    vol.Required(
+                        const.CONF_CYCLE_START_DAY,
+                        default=self.config_entry.options.get(
+                            const.CONF_CYCLE_START_DAY, 1
+                        ),
+                    ): sel.NumberSelector(
+                        sel.NumberSelectorConfig(
+                            min=1, max=30, mode=sel.NumberSelectorMode.SLIDER
+                        )
+                    ),
                 }
             ),
         )
@@ -384,8 +381,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         """Manage the options."""
 
         if user_input is not None and user_input["confirm"]:
-            for key in user_input:
-                self.inputs[key] = user_input[key]
+            self.inputs["update_billing_since"] = user_input["apply_from"]
             return self.async_create_entry(title="", data=self.inputs)
 
         confirm_schema = vol.Schema(
@@ -414,6 +410,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     "others_term",
                     default=self.sim["others_term"],
                 ): vol.Coerce(float),
+                vol.Required(
+                    "apply_from",
+                ): sel.DateTimeSelector(),
                 vol.Required(
                     "confirm",
                     default=False,

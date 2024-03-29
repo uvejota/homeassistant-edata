@@ -112,6 +112,7 @@
           "power_term": "Término de potencia (€)",
           "others_term": "Otros gastos (e.g., contador, €)",
           "surplus_term": "Retorno por generación (se resta del coste total, €)",
+          "apply_from": "Recalcular facturas desde...",
           "confirm": "Confirmar cambios"
         }
       }
