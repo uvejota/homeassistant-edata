@@ -5,20 +5,23 @@
 # homeassistant-edata
 ![imagen](https://user-images.githubusercontent.com/3638478/206875660-79c9d914-cd09-47c4-b82b-463d2e82982d.png)
 
-Esta integración para Home Assistant te permite seguir de un vistazo tu consumo, generación y máximas potencias registradas (maxímetro) configurando tu usuario de Datadis. Además ofrece la posibilidad de personalizar reglas de tarificación (desde la versión 2023.01.0).
+Esta integración para Home Assistant te permite seguir de un vistazo tu consumo, generación y máximas potencias registradas (maxímetro) configurando tu usuario de Datadis.
 
 Para la visualización de los datos, existen varias alternativas:
 1. Configurar el Panel de Energía nativo de Home Assistant.
 2. Utilizar la tarjeta nativa de esta integración (edata-card).
-3. Utilizar tarjetas de terceros (e.g., apexcharts-card). Por su comodidad, se ofrece una API mediante WebSockets para la lectura de los datos.
+3. Utilizar tarjetas de terceros (e.g., apexcharts-card) que consume los datos de la integración por Websockets.
 
-Ejemplo:
+Ejemplo con tarjetas nativas:
+![Dashboard](assets/dashboard.png)
+
+Ejemplo con ApexCharts:
 ![Dashboard](https://i.imgur.com/P4TcGLH.png)
 
 ## Limitaciones
 
 * Los datos mostrados **jamás serán en tiempo real**, ya que se saca de la información que registra/factura tu distribuidora y expone a través de la plataforma Datadis. *Siendo optimistas* obtendrás tus datos con al menos dos días de retraso.
-* Las opciones de tarificación para **estimar** la factura, quedan limitadas a tarifas 2.0TD PVPC, o precio fijo con distinción de tres tramos: punta, llano y valle. La tarificación del retorno NO es compatible con el uso de PVPC, luego está **en pruebas**.
+* Las opciones de tarificación para **estimar** la factura, quedan limitadas a tarifas 2.0TD PVPC, o precio fijo con distinción de tres tramos: punta, llano y valle. La tarificación del retorno NO está disponible aún.
 * Se depende de la disponibilidad de Datadis, si la API no devuelve datos, no hay NADA que hacer. **Lo que se ve en la Web de Datadis no tiene por qué coincidir con los datos que devuelve la API, son fuentes distintas**
 
 ## Instalación
@@ -27,64 +30,37 @@ Para instalar esta integración en Home Assistant necesitarás:
 
 * una cuenta funcional (y validada) en la web de [Datadis](https://www.datadis.es)
   * no hay que marcar la casilla de la API al registrar, usaremos la privada que está habilitada por defecto,
-* una instalación *reciente* y funcional de Home Assistant (a partir de ahora HA), los componentes `recorder` y `lovelace` disponibles,
-* tener o instalar [HACS](https://hacs.xyz/),
-* (opcional) tener o instalar el componente [apexchart-card](https://github.com/RomRider/apexcharts-card) (usando HACS) si se quisiera utilizar este método para visualizar los datos.
+* una instalación *reciente* y funcional de Home Assistant (a partir de ahora HA), los componentes `recorder` y `lovelace` deben estar disponibles (lo están por defecto),
+* instalar [HACS](https://hacs.xyz/),
+* (opcional) instalar el componente [apexchart-card](https://github.com/RomRider/apexcharts-card) (usando HACS) si se quisiera utilizar este método para visualizar los datos.
 
 Una vez satisfecho lo anterior, los pasos a seguir para la instalación son:
 
 1. Añadir este repositorio (<https://github.com/uvejota/homeassistant-edata>) a los repositorios personalizados de HACS,
 2. Instalar la integración mediante HACS, y
-3. Buscar "edata" en `Configuración > Dispositivos y servicios > Añadir integración`)
+3. Buscar "edata" en `Configuración > Dispositivos y servicios > Añadir integración`
 
 ![Selección de edata](assets/install.png)
 
-5. Configurar sus credenciales de Datadis, indicando el NIF autorizado únicamente si no es el titular del suministro indicado. **Copie y pegue el CUPS** directamente desde la web de Datadis, en mayúscula. Algunas distribuidoras adhieren algunos caracteres adicionales.
+4. Configurar sus credenciales de Datadis, indicando el NIF autorizado únicamente si no es el titular del suministro indicado. **Copie y pegue el CUPS** directamente desde la web de Datadis, en mayúscula. Algunas distribuidoras adhieren algunos caracteres adicionales.
 
 ![Paso de configuración](assets/install-step1.png)
 
-6. Esperar unos minutos. Le aparecerá un nuevo sensor llamado `sensor.edata_xxxx` donde `xxxx` dependerá de los últimos cuatro caracteres de su CUPS. En un futuro se podrá elegir el número de dígitos a mostrar, para evitar colisiones si se han configurado muchos suministros.
+> **IMPORTANTE: ** El último campo (NIF autorizado) hay que dejarlo vacío si eres el titular del CUPS. Está pensado para poder ceder el acceso a tus datos a una tercera persona.
 
-**NOTA: La instalación puede tardar bastante, ya que la integración "rescata" el último año de consumos desde Datadis, y ésta a veces puede tomarse su tiempo. Periódicamente, la integración solicitará únicamente lo que le falta, en intervalos de 24h.**
+5. Esperar unos minutos. Le aparecerá un nuevo sensor dispositivo, que consta de un sensor principal llamado `sensor.edata_xxxx` donde `xxxx` dependerá de los últimos caracteres de su CUPS, y de otros sensores con los datos.
 
-## Atributos de la integración
+> **NOTA:** La instalación puede tardar bastante en su primera ejecución, ya que la integración "rescata" el último año de consumos desde Datadis, y ésta a veces puede tomarse su tiempo. Periódicamente, la integración solicitará únicamente lo que le falta, en intervalos de 24h.
 
-La integración soporta de momento los siguientes atributos:
+## Sensores de la integración
 
-| Parámetro | Tipo | Unidad | Significado |
-| ------------- | ------------- | ------------- | ------------- |
-| `cups` | `string` | - | Identificador de su CUPS |
-| `contract_p1_kW` | `float` | `kW` | Potencia contratada en P1 en el contrato vigente |
-| `contract_p2_kW` | `float` | `kW` | Potencia contratada en P2 en el contrato vigente |
-| `yesterday_kWh` | `float` | `kWh` | Consumo total registrado durante el día de ayer |
-| `yesterday_p1_kWh` | `float` | `kWh` | Consumo en P1 registrado durante el día de ayer |
-| `yesterday_p2_kWh` | `float` | `kWh` | Consumo en P2 registrado durante el día de ayer |
-| `yesterday_p3_kWh` | `float` | `kWh` | Consumo en P3 registrado durante el día de ayer |
-| `last_day_date` | `date` | `%Y-%m-%d %H:%S` | Último día registrado |
-| `last_day_kWh` | `float` | `kWh` | Consumo total registrado durante el último día registrado |
-| `last_day_p1_kWh` | `float` | `kWh` | Consumo en P1 registrado durante el último día registrado |
-| `last_day_p2_kWh` | `float` | `kWh` | Consumo en P2 registrado durante el último día registrado |
-| `last_day_p3_kWh` | `float` | `kWh` | Consumo en P3 registrado durante el último día registrado |
-| `month_kWh` | `float` | `kWh` | Consumo total registrado durante el mes en curso (natural) |
-| `month_days` | `float` | `d` | Días computados en el mes en curso |
-| `month_daily_kWh` | `float` | `kWh` | Consumo medio diario registrado durante el mes en curso |
-| `month_p1_kWh` | `float` | `kWh` | Consumo en P1 registrado durante el mes en curso |
-| `month_p2_kWh` | `float` | `kWh` | Consumo en P2 registrado durante el mes en curso |
-| `month_p3_kWh` | `float` | `kWh` | Consumo en P3 registrado durante el mes en curso |
-| `last_month_kWh` | `float` | `kWh` | Consumo total registrado durante el mes pasado (natural) |
-| `last_month_days` | `float` | `d` | Días computados en el mes pasado |
-| `last_month_daily_kWh` | `float` | `kWh` | Consumo diario registrado durante el mes pasado |
-| `last_month_p1_kWh` | `float` | `kWh` | Consumo en P1 registrado durante el mes pasado |
-| `last_month_p2_kWh` | `float` | `kWh` | Consumo en P2 registrado durante el mes pasado |
-| `last_month_p3_kWh` | `float` | `kWh` | Consumo en P3 registrado durante el mes pasado |
-| `max_power_kW` | `float` | `kW` | Máxima potencia registrada en los últimos 12 meses |
-| `max_power_date` | `date` | `%Y-%m-%d %H:%S` | Fecha correspondiente a la máxima potencia registrada en los últimos 12 meses |
-| `max_power_mean_kW` | `float` | `kW` | Media de las potencias máximas registradas en los últimos 12 meses |
-| `max_power_90perc_kW` | `float` | `kW` | Percentil 90 de las potencias máximas registradas en los últimos 12 meses |
+La integración ofrece los sensores de la figura. Cada sensor dispone de una serie de atributos visibles al pinchar, por ejemplo indicando qué parte del consumo se ha registrado en P1, P2, y P3.
+
+![Sensores](assets/sensors.png)
 
 ## Integración con panel Energía (Long Term Statistics)
 
-A partir de la versión `2022.01.0` de edata, ésta es compatible con las estadísticas de HA, lo cual habilita su uso en el panel de energía. Por defecto, las estadísticas generadas serán:
+La integración combina almacenamiento local (en ficheros), con la base de datos de estadísticas nativa de Home Assistant, lo cual habilita su uso en el panel de energía. Por defecto, las estadísticas generadas serán:
 
 | statistic_id | Tipo | Unidad | Significado |
 | ------------- | ------------- | ------------- | ------------- |
@@ -92,10 +68,7 @@ A partir de la versión `2022.01.0` de edata, ésta es compatible con las estad�
 | `edata:xxxx_p1_consumption` | `sum` | `kWh` | Consumo en P1 |
 | `edata:xxxx_p2_consumption` | `sum` | `kWh` | Consumo en P2 |
 | `edata:xxxx_p3_consumption` | `sum` | `kWh` | Consumo en P3 |
-| `edata:xxxx_surplus` | `sum` | `kWh` | Generación total  (>= `2024.01.0`)|
-| `edata:xxxx_p1_surplus` | `sum` | `kWh` | Generación en P1  (>= `2024.01.0`)|
-| `edata:xxxx_p2_surplus` | `sum` | `kWh` | Generación en P2  (>= `2024.01.0`)|
-| `edata:xxxx_p3_surplus` | `sum` | `kWh` | Generación en P3  (>= `2024.01.0`)|
+| `edata:xxxx_surplus` | `sum` | `kWh` | Generación total  (>= `2024.07.0`)|
 | `edata:xxxx_maximeter` | `max` | `kW` | Maxímetro (>= `2022.09.0`)|
 | `edata:xxxx_p1_maximeter` | `max` | `kW` | Maxímetro en P1 (>= `2022.09.0`)|
 | `edata:xxxx_p2_maximeter` | `max` | `kW` | Maxímetro en P2 (>= `2022.09.0`)|
@@ -125,46 +98,28 @@ Una vez configuradas y calculadas (tendrá que esperar un poco), las estadístic
 
 ![Opciones de edata](assets/configure-energy.png)
 
-## Representación gráfica de los datos (requiere apexcharts-card)
+> **NOTA:** Esta integración hace un uso _gracioso_ del panel de estadísticas de Home Assistant que, aunque lo permite, no está totalmente preparado para manipular estadísticas a pasado.
 
-### Informe textual
+## Gráficas nativas
 
-Puede visualizarlos a modo de informe mediante la siguiente tarjeta, **sustituyendo `xxxx`, en minúscula, cuando sea necesario (dos veces)**:
+![Tarjeta](assets/card.png)
 
-<details>
-<summary>He leído las instrucciones y quiero ver el contenido (hacer click para mostrar)</summary>
-
-``` yaml
-type: markdown
-content: >
-  {% for attr in states.sensor.edata_xxxx.attributes %} {%- if not
-  attr=="friendly_name" and not attr=="unit_of_measurement"  and not
-  attr=="icon" -%} **{{attr}}**: {{state_attr("sensor.edata_xxxx", attr)}} {{-
-  '\n' -}} {%- endif %} {%- endfor -%}
-title: Informe
+```yaml
+title: Consumo mensual # título de tu tarjeta
+type: custom:edata-card
+chart: consumptions # opciones: consumptions, costs, maximeter
+entity: sensor.edata_xxxx # el id de tu sensor principal
+aggr: month # opciones: hour, day, month
+records: 12 # número de registros
+colors: # opcional, para cambiar los colores
+  - '#e54304'
+  - '#ff9e22'
+  - '#9CCC65'
 ```
 
-</details>
+> **NOTA:** en futuras versiones se contempla ampliar y mejorar las funcionalidades de la tarjeta.
 
-### Definición de nuevos sensores a partir de los atributos
-
-También puedes extraer uno de los atributos como un sensor aparte siguiendo el siguiente ejemplo (por [@thekimera](https://github.com/thekimera)):
-
-<details>
-<summary>He leído las instrucciones y quiero ver el contenido</summary>
-
-``` yaml
-sensor:
-  - platform: template
-    sensors:
-      last_month_consumption:
-        friendly_name: "Consumo mes anterior"
-        value_template: >-
-           {{ state_attr('sensor.edata_xxxx', 'last_month_kWh') | float }}
-        unit_of_measurement: kWh
-```
-
-</details>
+## Gráficas basadas en apexcharts-card
 
 A continuación se ofrecen una serie de tarjetas (en yaml) que permiten **visualizar los datos obtenidos mediante gráficas interactivas generadas con un componente llamado apexcharts-card**, que también debe instalarse manualmente o mediante HACS. Siga las instrucciones de <https://github.com/RomRider/apexcharts-card> y recuerde tener el repositorio a mano para personalizar las gráficas a continuación.
 
@@ -279,8 +234,8 @@ header:
   colorize_states: false
 all_series_config:
   type: column
-  unit: kWh
   yaxis_id: eje
+  unit: kWh
   extend_to: false
   show:
     legend_value: false
@@ -290,52 +245,39 @@ series:
     name: Total
     data_generator: |
       return hass.connection.sendMessagePromise({
-      type: 'edata/consumptions/monthly',
-      scups: 'xxxx'}).then(
-          (resp) => {
-              return resp.map((data, index) => {
-                return [new Date(data['datetime']).getTime(), data['value_kWh']];
-              });
-          }
-      );
+      type: 'edata/ws/consumptions',
+      scups: 'xxxx',
+      aggr: 'month',
+      records: 12});
     show:
       in_chart: true
   - entity: sensor.edata_xxxx
     name: Punta
     data_generator: |
       return hass.connection.sendMessagePromise({
-      type: 'edata/consumptions/monthly',
-      scups: 'xxxx'}).then(
-          (resp) => {
-              return resp.map((data, index) => {
-                return [new Date(data['datetime']).getTime(), data['value_p1_kWh']];
-              });
-          }
-      );
+      type: 'edata/ws/consumptions',
+      scups: 'xxxx',
+      aggr: 'month',
+      tariff: 'p1',
+      records: 12});
   - entity: sensor.edata_xxxx
     name: Llano
     data_generator: |
       return hass.connection.sendMessagePromise({
-      type: 'edata/consumptions/monthly',
-      scups: 'xxxx'}).then(
-          (resp) => {
-              return resp.map((data, index) => {
-                return [new Date(data['datetime']).getTime(), data['value_p2_kWh']];
-              });
-          }
-      );
+      type: 'edata/ws/consumptions',
+      scups: 'xxxx',
+      aggr: 'month',
+      tariff: 'p2',
+      records: 12});
   - entity: sensor.edata_xxxx
     name: Valle
     data_generator: |
       return hass.connection.sendMessagePromise({
-      type: 'edata/consumptions/monthly',
-      scups: 'xxxx'}).then(
-          (resp) => {
-              return resp.map((data, index) => {
-                return [new Date(data['datetime']).getTime(), data['value_p3_kWh']];
-              });
-          }
-      );
+      type: 'edata/ws/consumptions',
+      scups: 'xxxx',
+      aggr: 'month',
+      tariff: 'p3',
+      records: 12});
 ```
 
 </details>
@@ -351,7 +293,7 @@ series:
 type: custom:apexcharts-card
 graph_span: 1y
 span:
-  offset: '-30d'
+  offset: '-15d'
 header:
   show: true
   title: Maxímetro
@@ -360,41 +302,43 @@ header:
 chart_type: scatter
 series:
   - entity: sensor.edata_xxxx
-    name: Potencia máxima
     type: column
     extend_to: false
-    unit: kW
+    name: Punta
     show:
       extremas: true
       datalabels: false
     data_generator: |
       return hass.connection.sendMessagePromise({
-      type: 'edata/maximeter',
-      scups: 'xxxx'}).then(
-          (resp) => {
-              return resp.map((data, index) => {
-                return [new Date(data['datetime']).getTime(), data['value_kW']];
-              });
-          }
-      );
-
+      type: 'edata/ws/maximeter',
+      tariff: 'p1',
+      scups: 'xxxx'});
+  - entity: sensor.edata_xxxx
+    type: column
+    extend_to: false
+    name: Llano y Valle
+    show:
+      extremas: true
+      datalabels: false
+    data_generator: |
+      return hass.connection.sendMessagePromise({
+      type: 'edata/ws/maximeter',
+      tariff: 'p2',
+      scups: 'xxxx'});
 ```
 
 </details>
 
-### Detalle: ayer
+### Detalle: último día registrado
 
 ![Captura ayer](https://i.imgur.com/tfYnVn3.png)
 
-<details>
-<summary>He leído las instrucciones y quiero ver el contenido</summary>
-
-``` yaml
+```yaml
 type: custom:apexcharts-card
 chart_type: pie
 header:
   show: true
-  title: Ayer
+  title: Último día registrado
   show_states: true
   colorize_states: true
   floating: true
@@ -407,21 +351,27 @@ apex_config:
   chart:
     height: 250px
 series:
-  - entity: sensor.edata_xxxx
-    attribute: yesterday_kWh
+  - entity: sensor.xxxx_ultimo_consumo_registrado
+    attribute: last_registered_day_kWh
     show:
       in_chart: false
       in_header: true
     name: Total
-  - entity: sensor.edata_xxxx
-    attribute: yesterday_p1_kWh
+  - entity: sensor.xxxx_ultimo_consumo_registrado
+    attribute: last_registered_day_p1_kWh
     name: Punta
-  - entity: sensor.edata_xxxx
-    attribute: yesterday_p2_kWh
+  - entity: sensor.xxxx_ultimo_consumo_registrado
+    attribute: last_registered_day_p2_kWh
     name: Llano
-  - entity: sensor.edata_xxxx
-    attribute: yesterday_p3_kWh
+  - entity: sensor.xxxx_ultimo_consumo_registrado
+    attribute: last_registered_day_p3_kWh
     name: Valle
+  - entity: sensor.xxxx_ultimo_consumo_registrado
+    name: Día del mes
+    unit: ''
+    show:
+      in_chart: false
+      in_header: true
 ```
 
 </details>
@@ -451,28 +401,26 @@ apex_config:
   chart:
     height: 250px
 series:
-  - entity: sensor.edata_xxxx
-    attribute: month_kWh
+  - entity: sensor.xxxx_consumo_en_el_mes
     show:
       in_chart: false
       in_header: true
     name: Total
-  - entity: sensor.edata_xxxx
+  - entity: sensor.xxxx_consumo_en_el_mes
     attribute: month_p1_kWh
     name: Punta
-  - entity: sensor.edata_xxxx
+  - entity: sensor.xxxx_consumo_en_el_mes
     attribute: month_p2_kWh
     name: Llano
-  - entity: sensor.edata_xxxx
+  - entity: sensor.xxxx_consumo_en_el_mes
     attribute: month_p3_kWh
     name: Valle
-  - entity: sensor.edata_xxxx
-    attribute: month_€
-    unit: €
+  - entity: sensor.xxxx_factura_del_mes
+    name: Facturación
     show:
       in_chart: false
       in_header: true
-    name: Factura
+    unit: €
 ```
 
 </details>
@@ -502,28 +450,26 @@ apex_config:
   chart:
     height: 250px
 series:
-  - entity: sensor.edata_xxxx
-    attribute: last_month_kWh
+  - entity: sensor.xxxx_consumo_durante_ultimo_mes
     show:
       in_chart: false
       in_header: true
     name: Total
-  - entity: sensor.edata_xxxx
+  - entity: sensor.xxxx_consumo_durante_ultimo_mes
     attribute: last_month_p1_kWh
     name: Punta
-  - entity: sensor.edata_xxxx
+  - entity: sensor.xxxx_consumo_durante_ultimo_mes
     attribute: last_month_p2_kWh
     name: Llano
-  - entity: sensor.edata_xxxx
+  - entity: sensor.xxxx_consumo_durante_ultimo_mes
     attribute: last_month_p3_kWh
     name: Valle
-  - entity: sensor.edata_xxxx
-    attribute: last_month_€
-    unit: €
+  - entity: sensor.xxxx_factura_del_ultimo_mes
+    name: Facturación
     show:
       in_chart: false
       in_header: true
-    name: Factura
+    unit: €
 ```
 
 </details>
@@ -538,13 +484,7 @@ series:
 >1. Si no se ha creado el sensor `sensor.edata_xxxx`, algo ha fallado y posiblemente sea una mala configuración del sensor, revise el log y siga las instrucciones.
 >2. Si el sensor se ha creado, pero sólo el atributo CUPS está relleno, es posible que Datadis no esté operativo en ese instante, deje la integración funcionando y se recuperará sola.
 >3. Si el sensor se ha creado, y el atributo CUPS no está relleno, ha debido introducir erróneamente (a) sus credenciales, (b) su CUPS. Copie y pegue todos los datos anteriores desde la web de Datadis.es. Insisto, copie y pegue, algunas distribuidoras ofrecen un número de CUPS con dos dígitos adicionales que no coinciden con el de Datadis.
->4. Si no tiene idea de qué ocurre, puede habilitar logs de mayor detalle añadiendo lo siguiente al fichero `configuration.yaml`:
->``` yaml
->sensor:
->  - platform: edata
->    debug: true
->```
->
+>4. Si no tiene idea de qué ocurre, puede habilitar la depuración en la configuración del dispositivo.
 >Si nada de lo anterior funciona, cree una *issue* en <https://github.com/uvejota/homeassistant-edata/issues>, indicando versión, sintomatología y aportando los logs del paciente, y trataré de ayudarle lo antes posible.
 
 **¿Por qué hay huecos en mis datos?**
@@ -556,6 +496,6 @@ series:
 >Lo mejor que puedes hacer es esperar, sé que quieres ver tus datos ya, pero confía en mí, recargar la integración o reiniciar HA sólo va a conseguir que saturemos la API de Datadis. La integración está preparada para consultar cada hora (lo cual me parece más que razonable) los datos que le faltan completando los huecos. Cuanto más datos te faltan (e.g., primera ejecución), más tarda.
 
 
-**El panel de energía me muestra huecos o consumos duplicados, pero las tarjetas de apexcharts no**
+**Veo huecos o consumos duplicados**
 
 >Desde la versión `2022.09.0`, puedes regenerar las estadísticas manualmente mediante un servicio (`Herramientas para desarrolladores > Servicios > edata.recreate_statistics`).
