@@ -9,13 +9,15 @@ Esta integración para Home Assistant te permite seguir de un vistazo tu consumo
 
 Para la visualización de los datos, existen varias alternativas:
 1. Configurar el Panel de Energía nativo de Home Assistant.
-2. Utilizar la tarjeta nativa de esta integración (edata-card).
-3. Utilizar tarjetas de terceros (e.g., apexcharts-card) que consume los datos de la integración por Websockets.
+2. Utilizar la tarjeta nativa de esta integración (edata-card). **RECOMENDADO, CONFIGURACIÓN SENCILLA.**
+3. Utilizar tarjetas de terceros (e.g., apexcharts-card) que consume los datos de la integración por Websockets. **Para los más cafeteros...**
 
-Ejemplo con tarjetas nativas:
+**Ejemplo con tarjetas nativas:**
+
 ![Dashboard](assets/dashboard.png)
 
-Ejemplo con ApexCharts:
+**Ejemplo con apexcharts-card:**
+
 ![Dashboard](https://i.imgur.com/P4TcGLH.png)
 
 ## Limitaciones
@@ -46,7 +48,7 @@ Una vez satisfecho lo anterior, los pasos a seguir para la instalación son:
 
 ![Paso de configuración](assets/install-step1.png)
 
-> **IMPORTANTE: ** El último campo (NIF autorizado) hay que dejarlo vacío si eres el titular del CUPS. Está pensado para poder ceder el acceso a tus datos a una tercera persona.
+> **IMPORTANTE:** El último campo (NIF autorizado) hay que dejarlo vacío si eres el titular del CUPS. Está pensado para poder ceder el acceso a tus datos a una tercera persona.
 
 5. Esperar unos minutos. Le aparecerá un nuevo sensor dispositivo, que consta de un sensor principal llamado `sensor.edata_xxxx` donde `xxxx` dependerá de los últimos caracteres de su CUPS, y de otros sensores con los datos.
 
@@ -88,11 +90,41 @@ La integración combina almacenamiento local (en ficheros), con la base de datos
 
 Navegue hasta `Ajustes > Dispositivos y Servicios > XXXX (edata) - Configurar`. Primero deberá seleccionar si desea activar o no las funciones de facturación, y en caso de utilizar PVPC seleccionará también dicha casilla.
 
+1. Activar la facturación y/o PVPC.
+
 ![Opciones de edata](assets/configure-step1.png)
 
-A continuación, tendrá que configurar los costes asociados a cada término (según su contrato).
+2. Si no ha activado PVPC, tendrá que configurar los costes asociados a cada término (según su contrato).
 
 ![Opciones de facturación](assets/configure-step2.png)
+
+3. Personalización de fórmulas con expresiones jinja2. Tendrá que adaptar la fórmula según su tipología de contrato.
+
+Las variables disponibles son las configuradas en el paso anterior y los consumos del periodo a tarificar, pero con los siguientes nombres:
+* `electricity_tax`: impuesto a la electricidad (e.g. 1.05 para el 5%)
+* `iva_tax`: IVA (e.g., 1.21 para 21%)
+* `kwh_eur`: coste del kWh en euros para la hora del consumo (se escoge automáticamente entre p1, p2, y p3; según convenga)
+* `kwh`: energía consumida en kWh
+* `p1_kw` y `p2_kw`: potencia contratada en P1 y P2 (en kW)
+* `p1_kw_year_eur` y `p2_kw_year_eur`: Coste de la potencia por kW en P1 y P2 (en euros y anual)
+* `market_kw_year_eur`: Coste anual por mercado de kW
+* `meter_month_eur`: Coste del alquiler del contador en euros al mes
+
+Las variables anteriores pueden usarse para formar expresiones para los siguientes términos: energía, potencia y otros. No olvides contemplar el IVA. Puedes utilizar la que viene por defecto como base.
+
+> **NOTA 1:** ¡Siempre en minúscula!
+> **NOTA 2:** ¡No elimines las llaves del principio y final!
+> **NOTA 3:** El retorno o batería virtual aún no está soportado.
+
+![Fórmulas](assets/configure-step3.png)
+
+4. Simulación del último mes y selección de la fecha de inicio para aplicar nueva tarificación.
+
+Este último paso es para confirmar que hemos confeccionado nuestras fórmulas correctamente. Es un simulador del último mes completo (si estás a mediados de julio, calculará junio), de modo que si se acerca a la de tu factura... ¡Lo has hecho bien!
+
+No hay que rellenar nada, sólo visualizar, marcar la fecha desde la cual quieres aplicar los cambios de tarificación, y confirmar.
+
+![Simulación del último mes](assets/configure-step4.png)
 
 Una vez configuradas y calculadas (tendrá que esperar un poco), las estadísticas pueden configurarse en el panel de energía en `Ajustes > Paneles de control > Energía > Añadir consumo (Red Eléctrica)`:
 
@@ -332,6 +364,9 @@ series:
 ### Detalle: último día registrado
 
 ![Captura ayer](https://i.imgur.com/tfYnVn3.png)
+
+<details>
+<summary>He leído las instrucciones y quiero ver el contenido</summary>
 
 ```yaml
 type: custom:apexcharts-card
