@@ -134,7 +134,11 @@ Una vez configuradas y calculadas (tendrá que esperar un poco), las estadístic
 
 ## Gráficas nativas
 
+Se ofrecen una serie de tarjetas nativas que simplifican significativamente la configuración. Por ejemplo:
+
 ![Tarjeta](assets/card.png)
+
+Cuya configuración en YAML es la siguiente.
 
 ```yaml
 title: Consumo mensual # título de tu tarjeta
