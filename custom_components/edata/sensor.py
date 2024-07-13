@@ -148,7 +148,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
     usr = config_entry.data[CONF_USERNAME]
     pwd = config_entry.data[CONF_PASSWORD]
     cups = config_entry.data[const.CONF_CUPS]
-    authorized_nif = config_entry.data[const.CONF_AUTHORIZEDNIF]
+    authorized_nif = config_entry.data.get(const.CONF_AUTHORIZEDNIF, None)
     scups = config_entry.data[const.CONF_SCUPS]
 
     if config_entry.options.get(const.CONF_DEBUG, False):
