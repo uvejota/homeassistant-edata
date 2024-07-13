@@ -179,6 +179,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
             )
         }
     )
+    # TODO fix in python-edata to take defaults
+    if const.PRICE_IVA_TAX not in pricing_rules:
+        pricing_rules[const.PRICE_IVA_TAX] = 1.1
 
     platform = entity_platform.async_get_current_platform()
 
