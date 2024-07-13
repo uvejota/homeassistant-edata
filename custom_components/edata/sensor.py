@@ -3,7 +3,6 @@
 import logging
 
 from edata.definitions import PricingRules
-
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import (
     CONF_PASSWORD,
@@ -15,7 +14,6 @@ from homeassistant.const import (
 )
 from homeassistant.core import CoreState, HomeAssistant, callback
 from homeassistant.helpers import entity_platform
-from homeassistant.util import dt as dt_util
 
 from . import const
 from .coordinator import EdataCoordinator

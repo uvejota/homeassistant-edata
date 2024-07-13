@@ -279,6 +279,9 @@ class EdataCoordinator(DataUpdateCoordinator):
     async def rebuild_recent_statistics(self, from_dt: datetime | None = None):
         """Rebuild edata statistics since a given datetime. Defaults to last year."""
 
+        # recalculate all data
+        self._edata.process_data(incremental_update=False)
+
         # give from_dt a proper default value
         if from_dt is None:
             from_dt = (

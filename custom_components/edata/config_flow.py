@@ -173,6 +173,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         """Manage the options."""
 
         if user_input is not None:
+            user_input[const.CONF_SURPLUS] = False  # TODO allow config
             if not user_input[const.CONF_BILLING]:
                 return self.async_create_entry(
                     title="",
@@ -199,22 +200,22 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         const.CONF_PVPC,
                         default=self.config_entry.options.get(const.CONF_PVPC, False),
                     ): bool,
-                    vol.Required(
-                        const.CONF_SURPLUS,
-                        default=self.config_entry.options.get(
-                            const.CONF_SURPLUS, False
-                        ),
-                    ): bool,
-                    vol.Required(
-                        const.CONF_CYCLE_START_DAY,
-                        default=self.config_entry.options.get(
-                            const.CONF_CYCLE_START_DAY, 1
-                        ),
-                    ): sel.NumberSelector(
-                        sel.NumberSelectorConfig(
-                            min=1, max=30, mode=sel.NumberSelectorMode.SLIDER
-                        )
-                    ),
+                    # vol.Required(
+                    #     const.CONF_SURPLUS,
+                    #     default=self.config_entry.options.get(
+                    #         const.CONF_SURPLUS, False
+                    #     ),
+                    # ): bool,
+                    # vol.Required(
+                    #     const.CONF_CYCLE_START_DAY,
+                    #     default=self.config_entry.options.get(
+                    #         const.CONF_CYCLE_START_DAY, 1
+                    #     ),
+                    # ): sel.NumberSelector(
+                    #     sel.NumberSelectorConfig(
+                    #         min=1, max=30, mode=sel.NumberSelectorMode.SLIDER
+                    #     )
+                    # ),
                 }
             ),
         )
@@ -402,10 +403,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     "power_term",
                     default=self.sim["power_term"],
                 ): vol.Coerce(float),
-                vol.Required(
-                    "surplus_term",
-                    default=self.sim["surplus_term"],
-                ): vol.Coerce(float),
+                # vol.Required(
+                #     "surplus_term",
+                #     default=self.sim["surplus_term"],
+                # ): vol.Coerce(float),
                 vol.Required(
                     "others_term",
                     default=self.sim["others_term"],

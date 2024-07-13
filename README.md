@@ -18,7 +18,7 @@ Ejemplo:
 ## Limitaciones
 
 * Los datos mostrados **jamás serán en tiempo real**, ya que se saca de la información que registra/factura tu distribuidora y expone a través de la plataforma Datadis. *Siendo optimistas* obtendrás tus datos con al menos dos días de retraso.
-* La tarificación de la integración sólo funciona a día de hoy con tarifas 2.0TD si tu tarifa es precio fijo (se permite distinción entre tramos) o PVPC. **NO se incluye tope de gas.**.
+* Las opciones de tarificación para **estimar** la factura, quedan limitadas a tarifas 2.0TD PVPC, o precio fijo con distinción de tres tramos: punta, llano y valle. La tarificación del retorno NO es compatible con el uso de PVPC, luego está **en pruebas**.
 * Se depende de la disponibilidad de Datadis, si la API no devuelve datos, no hay NADA que hacer. **Lo que se ve en la Web de Datadis no tiene por qué coincidir con los datos que devuelve la API, son fuentes distintas**
 
 ## Instalación
