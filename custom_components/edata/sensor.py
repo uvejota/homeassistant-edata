@@ -150,7 +150,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
     cups = config_entry.data[const.CONF_CUPS]
     authorized_nif = config_entry.data.get(const.CONF_AUTHORIZEDNIF, None)
     scups = config_entry.data[const.CONF_SCUPS]
-    billing_enabled = config_entry.data.get(const.CONF_BILLING, False)
+    billing_enabled = config_entry.options.get(const.CONF_BILLING, False)
 
     if config_entry.options.get(const.CONF_DEBUG, False):
         logging.getLogger("edata").setLevel(logging.INFO)
