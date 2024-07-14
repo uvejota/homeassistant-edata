@@ -12,6 +12,20 @@ Para la visualización de los datos, existen varias alternativas:
 2. Utilizar la tarjeta nativa de esta integración (edata-card). **RECOMENDADO, CONFIGURACIÓN SENCILLA.**
 3. Utilizar tarjetas de terceros (e.g., apexcharts-card) que consume los datos de la integración por Websockets. **Para los más cafeteros...**
 
+
+## Índice de contenidos
+
+1. [Ejemplo de Dashboard](#Ejemplo-de-Dashboard)<br>
+2. [Limitaciones](#Limitaciones)<br>
+3. [Instalación](#Instalación)<br>
+4. [Sensores de la integración](#Sensores-de-la-integración)<br>
+5. [Integración con panel Energía (Long Term Statistics)](#Integración-con-panel-Energía-(Long-Term-Statistics))<br>
+6. [Configurar la tarificación](#Configurar-la-tarificación)<br>
+7. [Gráficas con tarjeta nativa](#Gráficas-con-tarjeta-nativa)<br>
+8. [Gráficas basadas en apexcharts-card](#Gráficas-basadas-en-apexcharts-card)<br>
+9. [Acceso a datos descargados](#Acceso-a-datos-descargados)<br>
+10. [FAQ](#FAQ)
+
 ## Ejemplo de Dashboard
 
 ### Ejemplo con tarjeta nativa:
