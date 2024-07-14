@@ -1,4 +1,5 @@
-"""Config flow for edata integration."""
+"""Configuration Flow (GUI)."""
+
 from __future__ import annotations
 
 import logging
