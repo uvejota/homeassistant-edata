@@ -4,9 +4,13 @@ import logging
 
 import voluptuous as vol
 
-from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.components.websocket_api import async_register_command
+from homeassistant.components.websocket_api import (
+    async_register_command,
+    websocket_command,
+    async_response,
+    BASE_COMMAND_MESSAGE_SCHEMA,
+)
 from . import const
 from .utils import (
     get_consumptions_history,
@@ -72,7 +76,7 @@ def websocket_get_maximeter(hass: HomeAssistant, connection, msg):
         connection.send_result(msg["id"], [])
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{const.DOMAIN}/ws/consumptions",
         vol.Required("scups"): str,
@@ -81,7 +85,7 @@ def websocket_get_maximeter(hass: HomeAssistant, connection, msg):
         vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_consumptions(hass: HomeAssistant, connection, msg):
     """Fetch consumptions history."""
     _scups = msg["scups"].lower()
@@ -97,7 +101,7 @@ async def ws_get_consumptions(hass: HomeAssistant, connection, msg):
     connection.send_result(msg["id"], data)
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{const.DOMAIN}/ws/surplus",
         vol.Required("scups"): str,
@@ -106,7 +110,7 @@ async def ws_get_consumptions(hass: HomeAssistant, connection, msg):
         vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_surplus(hass: HomeAssistant, connection, msg):
     """Fetch surplus history."""
     _scups = msg["scups"].lower()
@@ -122,7 +126,7 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
     connection.send_result(msg["id"], data)
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{const.DOMAIN}/ws/costs",
         vol.Required("scups"): str,
@@ -131,7 +135,7 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
         vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_cost(hass: HomeAssistant, connection, msg):
     """Fetch costs history."""
     _scups = msg["scups"].lower()
@@ -147,14 +151,14 @@ async def ws_get_cost(hass: HomeAssistant, connection, msg):
     connection.send_result(msg["id"], data)
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{const.DOMAIN}/ws/maximeter",
         vol.Required("scups"): str,
         vol.Optional("tariff"): vol.Union("p1", "p2"),
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_maximeter(hass: HomeAssistant, connection, msg):
     """Fetch consumptions history."""
     _scups = msg["scups"].lower()
@@ -177,7 +181,7 @@ def async_register_websockets(hass: HomeAssistant):
         hass,
         f"{const.DOMAIN}/consumptions/daily",
         websocket_get_daily_data,
-        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+        BASE_COMMAND_MESSAGE_SCHEMA.extend(
             {
                 vol.Required("type"): f"{const.DOMAIN}/consumptions/daily",
                 vol.Required("scups"): str,
@@ -191,7 +195,7 @@ def async_register_websockets(hass: HomeAssistant):
         hass,
         f"{const.DOMAIN}/consumptions/monthly",
         websocket_get_monthly_data,
-        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+        BASE_COMMAND_MESSAGE_SCHEMA.extend(
             {
                 vol.Required("type"): f"{const.DOMAIN}/consumptions/monthly",
                 vol.Required("scups"): str,
@@ -204,7 +208,7 @@ def async_register_websockets(hass: HomeAssistant):
         hass,
         f"{const.DOMAIN}/maximeter",
         websocket_get_maximeter,
-        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+        BASE_COMMAND_MESSAGE_SCHEMA.extend(
             {
                 vol.Required("type"): f"{const.DOMAIN}/maximeter",
                 vol.Required("scups"): str,
