@@ -14,11 +14,11 @@ Para la visualización de los datos, existen varias alternativas:
 
 ## Ejemplo de Dashboard
 
-### Ejemplo con tarjeta nativa:
+### Ejemplo con tarjeta nativa:
 
 ![Dashboard](assets/dashboard.png)
 
-### Ejemplo con apexcharts-card:
+### Ejemplo con apexcharts-card:
 
 ![Dashboard](https://i.imgur.com/P4TcGLH.png)
 
@@ -136,7 +136,7 @@ Una vez configuradas y calculadas (tendrá que esperar un poco), las estadístic
 
 > **NOTA:** Esta integración hace un uso _gracioso_ del panel de estadísticas de Home Assistant que, aunque lo permite, no está totalmente preparado para manipular estadísticas a pasado.
 
-## Gráficas nativas
+## Gráficas con tarjeta nativa
 
 Se ofrecen una serie de tarjetas nativas que simplifican significativamente la configuración. Por ejemplo:
 
@@ -163,7 +163,7 @@ colors: # opcional, para cambiar los colores
 
 A continuación se ofrecen una serie de tarjetas (en yaml) que permiten **visualizar los datos obtenidos mediante gráficas interactivas generadas con un componente llamado apexcharts-card**, que también debe instalarse manualmente o mediante HACS. Siga las instrucciones de <https://github.com/RomRider/apexcharts-card> y recuerde tener el repositorio a mano para personalizar las gráficas a continuación.
 
-**NOTA: en las siguientes tarjetas deberá reemplazar TODAS las ocurrencias de `xxxx` por sus últimos cuatro caracteres de su CUPS**.
+> **IMPORTANTE:** en las siguientes tarjetas deberá reemplazar TODAS las ocurrencias de `xxxx` por sus últimos cuatro caracteres de su CUPS.
 
 ### Consumo diario
 
@@ -522,6 +522,14 @@ series:
 ```
 
 </details>
+
+## Acceso a datos descargados
+
+Los datos descargados se almacenan en:
+1. Base de datos de estadísticas de HA (Long Term Statistics)
+2. Ficheros json ubicado en `config/.storage/edata/edata_xxxx.json`
+
+Para acceder a los mismos, puede consumir la propia API de websockets que utilizan las tarjetas. Puede encontrar su definición en el fichero `websockets.py`.
 
 ## FAQ
 
