@@ -150,38 +150,43 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
     cups = config_entry.data[const.CONF_CUPS]
     authorized_nif = config_entry.data.get(const.CONF_AUTHORIZEDNIF, None)
     scups = config_entry.data[const.CONF_SCUPS]
+    billing_enabled = config_entry.data.get(const.CONF_BILLING, False)
 
     if config_entry.options.get(const.CONF_DEBUG, False):
         logging.getLogger("edata").setLevel(logging.INFO)
     else:
         logging.getLogger("edata").setLevel(logging.WARNING)
 
-    pricing_rules = PricingRules(
-        {
-            x: config_entry.options[x]
-            for x in config_entry.options
-            if x
-            in (
-                const.CONF_CYCLE_START_DAY,
-                const.PRICE_P1_KW_YEAR,
-                const.PRICE_P2_KW_YEAR,
-                const.PRICE_P1_KWH,
-                const.PRICE_P2_KWH,
-                const.PRICE_P3_KWH,
-                const.PRICE_METER_MONTH,
-                const.PRICE_MARKET_KW_YEAR,
-                const.PRICE_ELECTRICITY_TAX,
-                const.PRICE_IVA_TAX,
-                const.BILLING_ENERGY_FORMULA,
-                const.BILLING_POWER_FORMULA,
-                const.BILLING_OTHERS_FORMULA,
-                const.BILLING_SURPLUS_FORMULA,
-            )
+    if billing_enabled:
+        pricing_rules = {
+            const.PRICE_ELECTRICITY_TAX: const.DEFAULT_PRICE_ELECTRICITY_TAX,
+            const.PRICE_IVA_TAX: const.DEFAULT_PRICE_IVA,
         }
-    )
-    # TODO fix in python-edata to take defaults
-    if const.PRICE_IVA_TAX not in pricing_rules:
-        pricing_rules[const.PRICE_IVA_TAX] = 1.1
+        pricing_rules.update(
+            {
+                x: config_entry.options[x]
+                for x in config_entry.options
+                if x
+                in (
+                    const.CONF_CYCLE_START_DAY,
+                    const.PRICE_P1_KW_YEAR,
+                    const.PRICE_P2_KW_YEAR,
+                    const.PRICE_P1_KWH,
+                    const.PRICE_P2_KWH,
+                    const.PRICE_P3_KWH,
+                    const.PRICE_METER_MONTH,
+                    const.PRICE_MARKET_KW_YEAR,
+                    const.PRICE_ELECTRICITY_TAX,
+                    const.PRICE_IVA_TAX,
+                    const.BILLING_ENERGY_FORMULA,
+                    const.BILLING_POWER_FORMULA,
+                    const.BILLING_OTHERS_FORMULA,
+                    const.BILLING_SURPLUS_FORMULA,
+                )
+            }
+        )
+    else:
+        pricing_rules = None
 
     platform = entity_platform.async_get_current_platform()
 
