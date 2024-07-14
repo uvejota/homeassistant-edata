@@ -6,7 +6,7 @@ import voluptuous as vol
 
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
-
+from homeassistant.components.websocket_api import async_register_command
 from . import const
 from .utils import (
     get_consumptions_history,
@@ -173,7 +173,8 @@ def async_register_websockets(hass: HomeAssistant):
 
     ## v1
     # for daily consumptions
-    hass.components.websocket_api.async_register_command(
+    async_register_command(
+        hass,
         f"{const.DOMAIN}/consumptions/daily",
         websocket_get_daily_data,
         websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
@@ -186,7 +187,8 @@ def async_register_websockets(hass: HomeAssistant):
     )
 
     # for monthly consumptions
-    hass.components.websocket_api.async_register_command(
+    async_register_command(
+        hass,
         f"{const.DOMAIN}/consumptions/monthly",
         websocket_get_monthly_data,
         websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
@@ -198,7 +200,8 @@ def async_register_websockets(hass: HomeAssistant):
     )
 
     # for maximeter
-    hass.components.websocket_api.async_register_command(
+    async_register_command(
+        hass,
         f"{const.DOMAIN}/maximeter",
         websocket_get_maximeter,
         websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
@@ -211,7 +214,7 @@ def async_register_websockets(hass: HomeAssistant):
     )
 
     ## v2:
-    hass.components.websocket_api.async_register_command(ws_get_consumptions)
-    hass.components.websocket_api.async_register_command(ws_get_surplus)
-    hass.components.websocket_api.async_register_command(ws_get_cost)
-    hass.components.websocket_api.async_register_command(ws_get_maximeter)
+    async_register_command(hass, ws_get_consumptions)
+    async_register_command(hass, ws_get_surplus)
+    async_register_command(hass, ws_get_cost)
+    async_register_command(hass, ws_get_maximeter)
