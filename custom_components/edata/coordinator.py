@@ -297,7 +297,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         """Rebuild edata statistics since a given datetime. Defaults to last year."""
 
         # recalculate all data
-        self._edata.process_data(incremental_update=False)
+        await self.hass.async_add_executor_job(self._edata.process_data, False)
 
         # give from_dt a proper default value
         if from_dt is None:
