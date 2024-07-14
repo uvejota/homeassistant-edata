@@ -538,8 +538,6 @@ Para acceder a los mismos, puede consumir la propia API de websockets que utiliz
 | `ws_get_cost`            | Obtiene el historial de costes.       | `/ws/costs`          | `type` (requerido): Tipo de comando. <br> `scups` (requerido): Identificador SCUPS. <br> `aggr` (opcional, por defecto: "day"): Nivel de agregación ("day", "hour", "week", "month"). <br> `records` (opcional, por defecto: 30): Número de registros a obtener. <br> `tariff` (opcional): Tramo ("p1", "p2", "p3"). |
 | `ws_get_maximeter`       | Obtiene el historial del maximetro.   | `/ws/maximeter`      | `type` (requerido): Tipo de comando. <br> `scups` (requerido): Identificador SCUPS. <br> `tariff` (opcional): Tramo ("p1", "p2").   |
 
-Espero que esta tabla sea de ayuda.
-
 ## FAQ
 
 **¿Por qué no me funciona?**
