@@ -107,7 +107,7 @@ async def ws_get_consumptions(hass: HomeAssistant, connection, msg):
         vol.Required("scups"): str,
         vol.Optional("aggr", default="day"): vol.Union("day", "hour", "week", "month"),
         vol.Optional("records", default=30): int,
-        vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
+        # vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
     }
 )
 @async_response
@@ -116,10 +116,10 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
     _scups = msg["scups"].lower()
     _aggr = msg["aggr"]
     _records = msg["records"]
-    _tariff = None if "tariff" not in msg else msg["tariff"]
+    # _tariff = None if "tariff" not in msg else msg["tariff"]
 
     try:
-        data = await get_surplus_history(hass, _scups, _tariff, _aggr, _records)
+        data = await get_surplus_history(hass, _scups, _aggr, _records)
     except KeyError:
         data = []
         _LOGGER.info("Stats not found for CUPS %s", _scups)

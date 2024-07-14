@@ -142,19 +142,12 @@ async def get_consumptions_history(
 async def get_surplus_history(
     hass: HomeAssistant,
     scups: str,
-    tariff: None | str,
     aggr: str,
     records: int = 30,
 ) -> list[tuple[datetime, float]]:
     "Fetch last N statistics records."
-    if tariff is None:
-        _stat_id = const.STAT_ID_SURP_KWH(scups)
-    elif tariff == "p1":
-        _stat_id = const.STAT_ID_P1_SURP_KWH(scups)
-    elif tariff == "p2":
-        _stat_id = const.STAT_ID_P2_SURP_KWH(scups)
-    elif tariff == "p3":
-        _stat_id = const.STAT_ID_P3_SURP_KWH(scups)
+
+    _stat_id = const.STAT_ID_SURP_KWH(scups)
 
     if aggr == "hour":
         _dt_unit = timedelta(hours=1)

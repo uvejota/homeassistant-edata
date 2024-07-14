@@ -217,35 +217,14 @@ class EdataCard extends LitElement {
       },
       series: [
         {
-          name: LABELS_BY_LOCALE["es"]["p1"],
+          // name: LABELS_BY_LOCALE["es"]["p1"],
           data: await this._hass.callWS({
             type: "edata/ws/surplus",
             scups: this._scups,
             aggr: this._aggr,
-            tariff: "p1",
             records: this._records,
           }),
-        },
-        {
-          name: LABELS_BY_LOCALE["es"]["p2"],
-          data: await this._hass.callWS({
-            type: "edata/ws/surplus",
-            scups: this._scups,
-            aggr: this._aggr,
-            tariff: "p2",
-            records: this._records,
-          }),
-        },
-        {
-          name: LABELS_BY_LOCALE["es"]["p3"],
-          data: await this._hass.callWS({
-            type: "edata/ws/surplus",
-            scups: this._scups,
-            aggr: this._aggr,
-            tariff: "p3",
-            records: this._records,
-          }),
-        },
+        }
       ],
     };
   }
@@ -351,6 +330,8 @@ class EdataCard extends LitElement {
           chartOptions = await this.getMaximeterChartOptions();
           break;
       }
+
+      console.log(chartOptions)
 
       this._chart = new ApexCharts(
         this.shadowRoot.querySelector("#chart"),
