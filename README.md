@@ -19,7 +19,7 @@ Para la visualización de los datos, existen varias alternativas:
 2. [Limitaciones](#Limitaciones)<br>
 3. [Instalación](#Instalación)<br>
 4. [Sensores de la integración](#Sensores-de-la-integración)<br>
-5. [Integración con panel Energía (Long Term Statistics)](#Integración-con-panel-Energía-(Long-Term-Statistics))<br>
+5. [Integración con panel Energía (Long Term Statistics)](#Integración-con-panel-Energía-Long-Term-Statistics)<br>
 6. [Configurar la tarificación](#Configurar-la-tarificación)<br>
 7. [Gráficas con tarjeta nativa](#Gráficas-con-tarjeta-nativa)<br>
 8. [Gráficas basadas en apexcharts-card](#Gráficas-basadas-en-apexcharts-card)<br>
