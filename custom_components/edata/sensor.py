@@ -191,7 +191,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
         "service_recreate_statistics",
     )
 
-    coordinator = EdataCoordinator(
+    coordinator = await EdataCoordinator.async_setup(
         hass,
         usr,
         pwd,

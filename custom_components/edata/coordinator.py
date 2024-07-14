@@ -168,8 +168,25 @@ class EdataCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=60),
         )
 
+    @classmethod
+    async def async_setup(
+        cls,
+        hass: HomeAssistant,
+        username: str,
+        password: str,
+        cups: str,
+        scups: str,
+        authorized_nif: str,
+        billing: PricingRules | None = None,
+    ):
+        """Async constructor."""
+
+        return await hass.async_add_executor_job(
+            cls, hass, username, password, cups, scups, authorized_nif, billing
+        )
+
     async def _async_update_data(self):
-        """Update data via API.."""
+        """Update data via API."""
 
         # fetch last 365 days
         await self.hass.async_add_executor_job(
