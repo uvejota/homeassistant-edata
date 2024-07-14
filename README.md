@@ -12,11 +12,13 @@ Para la visualización de los datos, existen varias alternativas:
 2. Utilizar la tarjeta nativa de esta integración (edata-card). **RECOMENDADO, CONFIGURACIÓN SENCILLA.**
 3. Utilizar tarjetas de terceros (e.g., apexcharts-card) que consume los datos de la integración por Websockets. **Para los más cafeteros...**
 
-**Ejemplo con tarjetas nativas:**
+## Ejemplo de Dashboard
+
+### Ejemplo con tarjeta nativa:
 
 ![Dashboard](assets/dashboard.png)
 
-**Ejemplo con apexcharts-card:**
+### Ejemplo con apexcharts-card:
 
 ![Dashboard](https://i.imgur.com/P4TcGLH.png)
 
@@ -209,6 +211,7 @@ series:
       in_brush: true
   - entity: sensor.edata_xxxx
     name: Punta
+    stack_group: "1"
     data_generator: |
       return hass.connection.sendMessagePromise({
       type: 'edata/consumptions/daily',
@@ -221,6 +224,7 @@ series:
       );
   - entity: sensor.edata_xxxx
     name: Llano
+    stack_group: "1"
     data_generator: |
       return hass.connection.sendMessagePromise({
       type: 'edata/consumptions/daily',
@@ -233,6 +237,7 @@ series:
       );
   - entity: sensor.edata_xxxx
     name: Valle
+    stack_group: "1"
     data_generator: |
       return hass.connection.sendMessagePromise({
       type: 'edata/consumptions/daily',
@@ -291,6 +296,7 @@ series:
       in_chart: true
   - entity: sensor.edata_xxxx
     name: Punta
+    stack_group: "1"
     data_generator: |
       return hass.connection.sendMessagePromise({
       type: 'edata/ws/consumptions',
@@ -300,6 +306,7 @@ series:
       records: 12});
   - entity: sensor.edata_xxxx
     name: Llano
+    stack_group: "1"
     data_generator: |
       return hass.connection.sendMessagePromise({
       type: 'edata/ws/consumptions',
@@ -309,6 +316,7 @@ series:
       records: 12});
   - entity: sensor.edata_xxxx
     name: Valle
+    stack_group: "1"
     data_generator: |
       return hass.connection.sendMessagePromise({
       type: 'edata/ws/consumptions',
