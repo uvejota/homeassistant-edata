@@ -304,7 +304,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             from_dt = (
                 datetime.now().replace(day=1, hour=0, minute=0, second=0)
                 - timedelta(hours=1)
-                - relativedelta.relativedelta(years=1)
+                - relativedelta(years=1)
             )
 
         # get all statistic_ids starting with edata:<id/scups>
