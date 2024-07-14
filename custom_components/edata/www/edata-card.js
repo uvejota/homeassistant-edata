@@ -156,6 +156,29 @@ class EdataCard extends LitElement {
   }
 
   async getConsumptionChartOptions() {
+
+    const [p1, p2, p3] = this.normalizeX(
+      await this._hass.callWS({
+        type: "edata/ws/consumptions",
+        scups: this._scups,
+        aggr: this._aggr,
+        tariff: "p1",
+        records: this._records,
+      }), await this._hass.callWS({
+        type: "edata/ws/consumptions",
+        scups: this._scups,
+        aggr: this._aggr,
+        tariff: "p2",
+        records: this._records,
+      }), await this._hass.callWS({
+        type: "edata/ws/consumptions",
+        scups: this._scups,
+        aggr: this._aggr,
+        tariff: "p3",
+        records: this._records,
+      })
+    )
+
     return {
       chart: {
         stacked: true,
@@ -171,33 +194,15 @@ class EdataCard extends LitElement {
       series: [
         {
           name: LABELS_BY_LOCALE["es"]["p1"],
-          data: await this._hass.callWS({
-            type: "edata/ws/consumptions",
-            scups: this._scups,
-            aggr: this._aggr,
-            tariff: "p1",
-            records: this._records,
-          }),
+          data: p1,
         },
         {
           name: LABELS_BY_LOCALE["es"]["p2"],
-          data: await this._hass.callWS({
-            type: "edata/ws/consumptions",
-            scups: this._scups,
-            aggr: this._aggr,
-            tariff: "p2",
-            records: this._records,
-          }),
+          data: p2,
         },
         {
           name: LABELS_BY_LOCALE["es"]["p3"],
-          data: await this._hass.callWS({
-            type: "edata/ws/consumptions",
-            scups: this._scups,
-            aggr: this._aggr,
-            tariff: "p3",
-            records: this._records,
-          }),
+          data: p3,
         },
       ],
     };
@@ -307,6 +312,29 @@ class EdataCard extends LitElement {
         },
       ],
     };
+  }
+
+  normalizeX(list1, list2, list3) {
+      const allX = new Set();
+
+      // Recopilamos todos los valores únicos de x de las tres listas
+      list1.forEach(([x, _]) => allX.add(x));
+      list2.forEach(([x, _]) => allX.add(x));
+      list3.forEach(([x, _]) => allX.add(x));
+
+      // Convertimos el set a array y lo ordenamos
+      const sortedX = Array.from(allX).sort((a, b) => a - b);
+
+      const mergeList = (list) => {
+          const map = new Map(list);
+          return sortedX.map(x => [x, map.get(x) || 0]);
+      };
+
+      const newList1 = mergeList(list1);
+      const newList2 = mergeList(list2);
+      const newList3 = mergeList(list3);
+
+      return [newList1, newList2, newList3];
   }
 
   async renderChart() {
