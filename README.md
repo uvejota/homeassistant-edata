@@ -115,9 +115,9 @@ Las variables disponibles son las configuradas en el paso anterior y los consumo
 Las variables anteriores pueden usarse para formar expresiones para los siguientes términos: energía, potencia y otros. No olvides contemplar el IVA. Puedes utilizar la que viene por defecto como base.
 
 > **NOTA 1:** ¡Siempre en minúscula!
-
+>
 > **NOTA 2:** ¡No elimines las llaves del principio y final!
-
+>
 > **NOTA 3:** El retorno o batería virtual aún no está soportado.
 
 ![Fórmulas](assets/configure-step3.png)
