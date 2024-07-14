@@ -529,7 +529,16 @@ Los datos descargados se almacenan en:
 1. Base de datos de estadísticas de HA (Long Term Statistics)
 2. Ficheros json ubicado en `config/.storage/edata/edata_xxxx.json`
 
-Para acceder a los mismos, puede consumir la propia API de websockets que utilizan las tarjetas. Puede encontrar su definición en el fichero `websockets.py`.
+Para acceder a los mismos, puede consumir la propia API de websockets que utilizan las tarjetas, bajo las definiciones a continuación
+
+| **Nombre del WebSocket** | **Descripción**                       | **Endpoint**                           | **Parámetros**                                                                                                                  |
+|--------------------------|---------------------------------------|------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
+| `ws_get_consumptions`    | Obtiene el historial de consumos.     | `/ws/consumptions`   | `type` (requerido): Tipo de comando. <br> `scups` (requerido): Identificador SCUPS (CUPS abreviado). <br> `aggr` (opcional, por defecto: "day"): Nivel de agregación ("day", "hour", "week", "month"). <br> `records` (opcional, por defecto: 30): Número de registros a obtener. <br> `tariff` (opcional): Tramo ("p1", "p2", "p3"). |
+| `ws_get_surplus`         | Obtiene el historial de excedentes.   | `/ws/surplus`        | `type` (requerido): Tipo de comando. <br> `scups` (requerido): Identificador SCUPS. <br> `aggr` (opcional, por defecto: "day"): Nivel de agregación ("day", "hour", "week", "month"). <br> `records` (opcional, por defecto: 30): Número de registros a obtener. <br> `tariff` (opcional): Tramo ("p1", "p2", "p3"). |
+| `ws_get_cost`            | Obtiene el historial de costes.       | `/ws/costs`          | `type` (requerido): Tipo de comando. <br> `scups` (requerido): Identificador SCUPS. <br> `aggr` (opcional, por defecto: "day"): Nivel de agregación ("day", "hour", "week", "month"). <br> `records` (opcional, por defecto: 30): Número de registros a obtener. <br> `tariff` (opcional): Tramo ("p1", "p2", "p3"). |
+| `ws_get_maximeter`       | Obtiene el historial del maximetro.   | `/ws/maximeter`      | `type` (requerido): Tipo de comando. <br> `scups` (requerido): Identificador SCUPS. <br> `tariff` (opcional): Tramo ("p1", "p2").   |
+
+Espero que esta tabla sea de ayuda.
 
 ## FAQ
 
