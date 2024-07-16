@@ -226,7 +226,7 @@ class EdataCard extends LitElement {
   }
 
   async getSurplusChartOptions() {
-    return {
+    config = {
       chart: {
         stacked: true,
         type: "bar",
@@ -249,6 +249,20 @@ class EdataCard extends LitElement {
         }
       ],
     };
+
+    if (this._aggr == "year") {
+      config["xaxis"] = {
+        tickAmount: "dataPoints",
+        labels: {
+          datetimeUTC: false,
+          formatter: function (val) {
+            return new Date(val).getFullYear().toString();
+          }
+        }
+      }
+    }
+
+    return config
   }
 
   async getCostsChartOptions() {
@@ -273,7 +287,7 @@ class EdataCard extends LitElement {
         records: this._records,
       })
     )
-    return {
+    config = {
       chart: {
         stacked: true,
         type: "bar",
@@ -299,6 +313,20 @@ class EdataCard extends LitElement {
         },
       ],
     };
+
+    if (this._aggr == "year") {
+      config["xaxis"] = {
+        tickAmount: "dataPoints",
+        labels: {
+          datetimeUTC: false,
+          formatter: function (val) {
+            return new Date(val).getFullYear().toString();
+          }
+        }
+      }
+    }
+
+    return config
   }
 
   async getMaximeterChartOptions() {
