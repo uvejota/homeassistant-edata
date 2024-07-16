@@ -226,7 +226,7 @@ class EdataCard extends LitElement {
   }
 
   async getSurplusChartOptions() {
-    config = {
+    var config = {
       chart: {
         stacked: true,
         type: "bar",
@@ -287,7 +287,8 @@ class EdataCard extends LitElement {
         records: this._records,
       })
     )
-    config = {
+
+    var config = {
       chart: {
         stacked: true,
         type: "bar",
@@ -435,7 +436,7 @@ class EdataCardEditor extends LitElement {
   }
 }
 
-customElements.define("Edata-card-editor", EdataCardEditor);
+customElements.define("edata-card-editor", EdataCardEditor);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "edata-card",
