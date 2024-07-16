@@ -80,7 +80,9 @@ def websocket_get_maximeter(hass: HomeAssistant, connection, msg):
     {
         vol.Required("type"): f"{const.DOMAIN}/ws/consumptions",
         vol.Required("scups"): str,
-        vol.Optional("aggr", default="day"): vol.Union("day", "hour", "week", "month"),
+        vol.Optional("aggr", default="day"): vol.Union(
+            "day", "hour", "week", "month", "year"
+        ),
         vol.Optional("records", default=30): int,
         vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
     }
@@ -105,7 +107,9 @@ async def ws_get_consumptions(hass: HomeAssistant, connection, msg):
     {
         vol.Required("type"): f"{const.DOMAIN}/ws/surplus",
         vol.Required("scups"): str,
-        vol.Optional("aggr", default="day"): vol.Union("day", "hour", "week", "month"),
+        vol.Optional("aggr", default="day"): vol.Union(
+            "day", "hour", "week", "month", "year"
+        ),
         vol.Optional("records", default=30): int,
         # vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
     }
@@ -130,7 +134,9 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
     {
         vol.Required("type"): f"{const.DOMAIN}/ws/costs",
         vol.Required("scups"): str,
-        vol.Optional("aggr", default="day"): vol.Union("day", "hour", "week", "month"),
+        vol.Optional("aggr", default="day"): vol.Union(
+            "day", "hour", "week", "month", "year"
+        ),
         vol.Optional("records", default=30): int,
         vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
     }

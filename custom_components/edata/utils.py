@@ -97,6 +97,22 @@ async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
     return True
 
 
+def group_by_year(data: list[tuple[datetime, float]]) -> list[tuple[datetime, float]]:
+    """Aggregate data by year."""
+    yearly_data = {}
+    for date, value in data:
+        year = date.year
+        if year in yearly_data:
+            yearly_data[year] += value
+        else:
+            yearly_data[year] = value
+    result = [
+        (datetime(year, 1, 1, 0, 0), total) for year, total in yearly_data.items()
+    ]
+    result.sort(key=lambda x: x[0])
+    return result
+
+
 async def get_consumptions_history(
     hass: HomeAssistant,
     scups: str,
@@ -114,6 +130,7 @@ async def get_consumptions_history(
     elif tariff == "p3":
         _stat_id = const.STAT_ID_P3_KWH(scups)
 
+    _aggr = aggr
     if aggr == "hour":
         _dt_unit = timedelta(hours=1)
     elif aggr == "day":
@@ -122,6 +139,9 @@ async def get_consumptions_history(
         _dt_unit = relativedelta.relativedelta(weeks=1)
     elif aggr == "month":
         _dt_unit = relativedelta.relativedelta(months=1)
+    elif aggr == "year":
+        _dt_unit = relativedelta.relativedelta(years=1)
+        _aggr = "month"
     else:
         _LOGGER.warning("Not a valid aggr method '%s'", aggr)
 
@@ -131,12 +151,17 @@ async def get_consumptions_history(
         datetime.now().replace(hour=0, minute=0, second=0) - records * _dt_unit,
         None,
         {_stat_id},
-        aggr,
+        _aggr,
         None,
         {"change"},
     )
     data = data[_stat_id]
-    return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+    if aggr != "year":
+        return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+    else:
+        return group_by_year(
+            [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+        )
 
 
 async def get_surplus_history(
@@ -157,6 +182,8 @@ async def get_surplus_history(
         _dt_unit = relativedelta.relativedelta(weeks=1)
     elif aggr == "month":
         _dt_unit = relativedelta.relativedelta(months=1)
+    elif aggr == "year":
+        _dt_unit = relativedelta.relativedelta(years=1)
     else:
         _LOGGER.warning("Not a valid aggr method '%s'", aggr)
 
@@ -171,7 +198,12 @@ async def get_surplus_history(
         {"change"},
     )
     data = data[_stat_id]
-    return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+    if aggr != "year":
+        return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+    else:
+        return group_by_year(
+            [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+        )
 
 
 async def get_maximeter_history(
@@ -224,6 +256,8 @@ async def get_costs_history(
         _dt_unit = relativedelta.relativedelta(weeks=1)
     elif aggr == "month":
         _dt_unit = relativedelta.relativedelta(months=1)
+    elif aggr == "year":
+        _dt_unit = relativedelta.relativedelta(years=1)
     else:
         _LOGGER.warning("Not a valid aggr method '%s'", aggr)
 
@@ -238,4 +272,9 @@ async def get_costs_history(
         {"change"},
     )
     data = data[_stat_id]
-    return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+    if aggr != "year":
+        return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+    else:
+        return group_by_year(
+            [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+        )

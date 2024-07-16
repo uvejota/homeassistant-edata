@@ -8,10 +8,12 @@ import "https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.45.1/apexcharts.min.
 const PROG_NAME = "edata-card";
 const VALID_CHART_TEMPLATES = ["consumptions", "surplus", "maximeter", "costs"];
 const DEF_CHART_TEMPLATE = "consumptions";
-const VALID_AGGR_PERIODS = ["month", "day", "hour"];
+const VALID_AGGR_PERIODS = ["year", "month", "week", "day", "hour"];
 const DEF_AGGR_PERIOD = "month";
 const DEF_RECORDS_FOR_METHOD = {
-  month: 12,
+  year: 3,
+  month: 13,
+  week: 4,
   day: 60,
   hour: 48,
 };
@@ -25,6 +27,7 @@ const LABELS_BY_LOCALE = {
     p2: "Llano",
     p3: "Valle",
     p2_3: "Llano y Valle",
+    surplus: "Retorno"
   },
 };
 
@@ -179,7 +182,7 @@ class EdataCard extends LitElement {
       })
     )
 
-    return {
+    var config = {
       chart: {
         stacked: true,
         id: "chart",
@@ -206,6 +209,20 @@ class EdataCard extends LitElement {
         },
       ],
     };
+
+    if (this._aggr == "year") {
+      config["xaxis"] = {
+        tickAmount: "dataPoints",
+        labels: {
+          datetimeUTC: false,
+          formatter: function (val) {
+            return new Date(val).getFullYear().toString();
+          }
+        }
+      }
+    }
+
+    return config
   }
 
   async getSurplusChartOptions() {
@@ -222,7 +239,7 @@ class EdataCard extends LitElement {
       },
       series: [
         {
-          // name: LABELS_BY_LOCALE["es"]["p1"],
+          name: LABELS_BY_LOCALE["es"]["surplus"],
           data: await this._hass.callWS({
             type: "edata/ws/surplus",
             scups: this._scups,
@@ -235,6 +252,27 @@ class EdataCard extends LitElement {
   }
 
   async getCostsChartOptions() {
+    const [p1, p2, p3] = this.normalizeX(
+      await this._hass.callWS({
+        type: "edata/ws/costs",
+        scups: this._scups,
+        aggr: this._aggr,
+        tariff: "p1",
+        records: this._records,
+      }), await this._hass.callWS({
+        type: "edata/ws/costs",
+        scups: this._scups,
+        aggr: this._aggr,
+        tariff: "p2",
+        records: this._records,
+      }), await this._hass.callWS({
+        type: "edata/ws/costs",
+        scups: this._scups,
+        aggr: this._aggr,
+        tariff: "p3",
+        records: this._records,
+      })
+    )
     return {
       chart: {
         stacked: true,
@@ -249,33 +287,15 @@ class EdataCard extends LitElement {
       series: [
         {
           name: LABELS_BY_LOCALE["es"]["p1"],
-          data: await this._hass.callWS({
-            type: "edata/ws/costs",
-            scups: this._scups,
-            aggr: this._aggr,
-            tariff: "p1",
-            records: this._records,
-          }),
+          data: p1,
         },
         {
           name: LABELS_BY_LOCALE["es"]["p2"],
-          data: await this._hass.callWS({
-            type: "edata/ws/costs",
-            scups: this._scups,
-            aggr: this._aggr,
-            tariff: "p2",
-            records: this._records,
-          }),
+          data: p2,
         },
         {
           name: LABELS_BY_LOCALE["es"]["p3"],
-          data: await this._hass.callWS({
-            type: "edata/ws/costs",
-            scups: this._scups,
-            aggr: this._aggr,
-            tariff: "p3",
-            records: this._records,
-          }),
+          data: p3,
         },
       ],
     };
@@ -358,8 +378,6 @@ class EdataCard extends LitElement {
           chartOptions = await this.getMaximeterChartOptions();
           break;
       }
-
-      console.log(chartOptions)
 
       this._chart = new ApexCharts(
         this.shadowRoot.querySelector("#chart"),
