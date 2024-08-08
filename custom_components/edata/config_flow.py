@@ -30,6 +30,8 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     }
 )
 
+J2_EXPR_TOKENS = ("{{ ", " }}")
+
 
 class AlreadyConfigured(HomeAssistantError):
     """Error to indicate CUPS is already configured."""
@@ -41,6 +43,13 @@ class InvalidCredentials(HomeAssistantError):
 
 class InvalidCups(HomeAssistantError):
     """Error to indicate cups is invalid."""
+
+
+def test_login(username, password):
+    """Test login synchronously."""
+
+    api = DatadisConnector(username, password)
+    return api.login()
 
 
 async def validate_step_user(
@@ -56,8 +65,9 @@ async def validate_step_user(
         if hass.data.get(const.DOMAIN, {}).get(scups) is None:
             break
 
-    api = DatadisConnector(data[CONF_USERNAME], data[CONF_PASSWORD])
-    result = await hass.async_add_executor_job(api.login)
+    result = await hass.async_add_executor_job(
+        test_login, data[CONF_USERNAME], data[CONF_PASSWORD]
+    )
     if not result:
         raise InvalidCredentials
 
@@ -69,6 +79,7 @@ async def simulate_last_month_billing(
     hass: HomeAssistant, config_entry: config_entries.ConfigEntry, data: dict[str, Any]
 ) -> dict[str, Any]:
     """Validate the user input from the 'step formulas'."""
+
     coordinator_id = config_entry.data["scups"].lower()
     pricing_rules = PricingRules(
         {
@@ -174,7 +185,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         """Manage the options."""
 
         if user_input is not None:
-            user_input[const.CONF_SURPLUS] = False  # TODO allow config
+            user_input[const.CONF_SURPLUS] = False
             if not user_input[const.CONF_BILLING]:
                 return self.async_create_entry(
                     title="",
@@ -201,22 +212,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         const.CONF_PVPC,
                         default=self.config_entry.options.get(const.CONF_PVPC, False),
                     ): bool,
-                    # vol.Required(
-                    #     const.CONF_SURPLUS,
-                    #     default=self.config_entry.options.get(
-                    #         const.CONF_SURPLUS, False
-                    #     ),
-                    # ): bool,
-                    # vol.Required(
-                    #     const.CONF_CYCLE_START_DAY,
-                    #     default=self.config_entry.options.get(
-                    #         const.CONF_CYCLE_START_DAY, 1
-                    #     ),
-                    # ): sel.NumberSelector(
-                    #     sel.NumberSelectorConfig(
-                    #         min=1, max=30, mode=sel.NumberSelectorMode.SLIDER
-                    #     )
-                    # ),
                 }
             ),
         )
@@ -225,6 +220,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         """Manage the options."""
 
         if user_input is not None:
+            if const.PRICE_MARKET_KW_YEAR not in user_input:
+                user_input[const.PRICE_MARKET_KW_YEAR] = 0
             for key in user_input:
                 self.inputs[key] = user_input[key]
             return await self.async_step_formulas()
@@ -249,13 +246,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 ),
             ): vol.Coerce(float),
             vol.Required(
-                const.PRICE_MARKET_KW_YEAR,
-                default=self.config_entry.options.get(
-                    const.PRICE_MARKET_KW_YEAR,
-                    const.DEFAULT_PRICE_MARKET_KW_YEAR,
-                ),
-            ): vol.Coerce(float),
-            vol.Required(
                 const.PRICE_ELECTRICITY_TAX,
                 default=self.config_entry.options.get(
                     const.PRICE_ELECTRICITY_TAX,
@@ -267,6 +257,16 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 default=self.config_entry.options.get(
                     const.PRICE_IVA_TAX,
                     const.DEFAULT_PRICE_IVA,
+                ),
+            ): vol.Coerce(float),
+        }
+
+        pvpc_schema = {
+            vol.Required(
+                const.PRICE_MARKET_KW_YEAR,
+                default=self.config_entry.options.get(
+                    const.PRICE_MARKET_KW_YEAR,
+                    const.DEFAULT_PRICE_MARKET_KW_YEAR,
                 ),
             ): vol.Coerce(float),
         }
@@ -286,27 +286,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             ): vol.Coerce(float),
         }
 
-        surplus_schema = {
-            vol.Required(
-                const.PRICE_SURP_P1_KWH,
-                default=self.config_entry.options.get(const.PRICE_SURP_P1_KWH, 0),
-            ): vol.Coerce(float),
-            vol.Required(
-                const.PRICE_SURP_P2_KWH,
-                default=self.config_entry.options.get(const.PRICE_SURP_P2_KWH, 0),
-            ): vol.Coerce(float),
-            vol.Required(
-                const.PRICE_SURP_P3_KWH,
-                default=self.config_entry.options.get(const.PRICE_SURP_P3_KWH, 0),
-            ): vol.Coerce(float),
-        }
-
         if self.inputs[const.CONF_PVPC]:
-            schema = vol.Schema(base_schema)
+            schema = vol.Schema(base_schema).extend(pvpc_schema)
         else:
             schema = vol.Schema(base_schema).extend(nonpvpc_schema)
-            if self.inputs[const.CONF_SURPLUS]:
-                schema = schema.extend(surplus_schema)
 
         return self.async_show_form(
             step_id="costs",
@@ -317,9 +300,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         """Manage the options."""
 
         if user_input is not None:
+            if const.BILLING_SURPLUS_FORMULA not in user_input:
+                user_input[const.BILLING_SURPLUS_FORMULA] = "0"
+
             for key in user_input:
                 self.inputs[key] = (
-                    user_input[key].replace("{{", "").replace("}}", "").strip()
+                    user_input[key]
+                    .replace(J2_EXPR_TOKENS[0].strip(), "")
+                    .replace(J2_EXPR_TOKENS[1].strip(), "")
+                    .strip()
                 )
             self.sim = await simulate_last_month_billing(
                 self.hass, self.config_entry, self.inputs
@@ -330,49 +319,39 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             {
                 vol.Required(
                     const.BILLING_ENERGY_FORMULA,
-                    default="{{ "
+                    default=J2_EXPR_TOKENS[0]
                     + self.config_entry.options.get(
                         const.BILLING_ENERGY_FORMULA,
-                        const.DEFAULT_BILLING_ENERGY_FORMULA,
+                        const.DEFAULT_CUSTOM_BILLING_FORMULAS[
+                            const.BILLING_ENERGY_FORMULA
+                        ],
                     )
-                    + " }}",
+                    + J2_EXPR_TOKENS[1],
                 ): sel.TemplateSelector(),
                 vol.Required(
                     const.BILLING_POWER_FORMULA,
-                    default="{{ "
+                    default=J2_EXPR_TOKENS[0]
                     + self.config_entry.options.get(
-                        const.BILLING_POWER_FORMULA, const.DEFAULT_BILLING_POWER_FORMULA
+                        const.BILLING_POWER_FORMULA,
+                        const.DEFAULT_CUSTOM_BILLING_FORMULAS[
+                            const.BILLING_POWER_FORMULA
+                        ],
                     )
-                    + " }}",
+                    + J2_EXPR_TOKENS[1],
                 ): sel.TemplateSelector(),
                 vol.Required(
                     const.BILLING_OTHERS_FORMULA,
-                    default="{{ "
+                    default=J2_EXPR_TOKENS[0]
                     + self.config_entry.options.get(
                         const.BILLING_OTHERS_FORMULA,
-                        const.DEFAULT_BILLING_OTHERS_FORMULA,
+                        const.DEFAULT_CUSTOM_BILLING_FORMULAS[
+                            const.BILLING_OTHERS_FORMULA
+                        ],
                     )
-                    + " }}",
+                    + J2_EXPR_TOKENS[1],
                 ): sel.TemplateSelector(),
             }
         )
-
-        if self.inputs[const.CONF_SURPLUS]:
-            formulas_schema = formulas_schema.extend(
-                {
-                    vol.Required(
-                        const.BILLING_SURPLUS_FORMULA,
-                        default="{{ "
-                        + self.config_entry.options.get(
-                            const.BILLING_SURPLUS_FORMULA,
-                            const.DEFAULT_BILLING_SURPLUS_FORMULA,
-                        )
-                        + " }}",
-                    ): sel.TemplateSelector(),
-                }
-            )
-        else:
-            self.inputs[const.BILLING_SURPLUS_FORMULA] = "0"
 
         return self.async_show_form(
             step_id="formulas",
@@ -404,10 +383,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     "power_term",
                     default=self.sim["power_term"],
                 ): vol.Coerce(float),
-                # vol.Required(
-                #     "surplus_term",
-                #     default=self.sim["surplus_term"],
-                # ): vol.Coerce(float),
                 vol.Required(
                     "others_term",
                     default=self.sim["others_term"],

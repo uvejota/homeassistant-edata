@@ -6,7 +6,7 @@ import "https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.45.1/apexcharts.min.
 
 // Set program constants and definitions
 const PROG_NAME = "edata-card";
-const VALID_CHART_TEMPLATES = ["consumptions", "surplus", "maximeter", "costs"];
+const VALID_CHART_TEMPLATES = ["consumptions", "surplus", "maximeter", "costs", "consumption-summary"];
 const DEF_CHART_TEMPLATE = "consumptions";
 const VALID_AGGR_PERIODS = ["year", "month", "week", "day", "hour"];
 const DEF_AGGR_PERIOD = "month";
@@ -86,16 +86,27 @@ class EdataCard extends LitElement {
     return {
       hass: {},
       config: {},
+      _left_title: "",
+      _left_value: "",
+      _left_unit: "",
+      _right_title: "",
+      _right_value: "",
+      _right_unit: ""
     };
+  }
+
+  static getConfigElement() {
+    // Create and return an editor element
+    return document.createElement("edata-card-editor");
   }
 
   static getStubConfig() {
     return {
-      entity: "sensor.edata_XXXX",
+      entity: undefined,
       chart: "consumption",
       aggr: "month",
       records: 12,
-      title: "Gráfico de ejemplo",
+      title: "edata",
     };
   }
 
@@ -112,8 +123,33 @@ class EdataCard extends LitElement {
 
   render() {
     return html`
-      <ha-card header="${this._title}">
-        <div id="chart"></div>
+      <ha-card>
+        <div style="color: var(--secondary-text-color); font-size: 16px; font-weight: 500; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding-left: 15px; padding-top: 15px; ">
+          ${this._title}
+        </div>
+
+        <div style="position: relative; width: 100%; height: 100%; margin: 0 auto;">
+
+        <div id="left" style="position: absolute; width: 20%; height: 20%; top: 0; left: 0; display: flex; align-items: top; justify-content: center; padding-top: 10px">
+          <div id="left-box" style="padding-left: 10px; padding-top: 10px">
+            <span style="font-size: 20px; font-weight: bold;">${this._left_value}</span><span style="font-size: 14px; color: var(--secondary-text-color);"> ${this._left_unit}</span>
+            <br><span style="color: var(--secondary-text-color); font-size: 14px;">${this._left_title}</span>
+          </div>
+        </div>
+
+        <div style="position: relative; width: 100%; height: 100%; margin: 0 auto">
+          <div id="chart" style="display: flex; justify-content: center; align-items: center;"></div>
+        </div>
+
+        <div id="right" style="position: absolute; width: 20%; height: 20%; top: 0; right: 10px; display: flex; align-items: top; justify-content: center; padding-top: 10px">
+
+        <div id="right-box" style="padding-right: 10px; padding-top: 10px; text-align: right">
+          <span style="font-size: 20px; font-weight: bold;">${this._right_value}</span><span style="font-size: 14px; color: var(--secondary-text-color);"> ${this._right_unit}</span>
+          <br><span style="color: var(--secondary-text-color); font-size: 14px;">${this._right_title}</span>
+        </div>
+
+        </div>
+      </div>
       </ha-card>
     `;
   }
@@ -363,6 +399,82 @@ class EdataCard extends LitElement {
     };
   }
 
+  async getConsumptionSummaryOptions() {
+
+    const [p1, p2, p3] = this.normalizeX(
+      await this._hass.callWS({
+        type: "edata/ws/consumptions",
+        scups: this._scups,
+        aggr: this._aggr,
+        tariff: "p1",
+        records: this._records,
+      }), await this._hass.callWS({
+        type: "edata/ws/consumptions",
+        scups: this._scups,
+        aggr: this._aggr,
+        tariff: "p2",
+        records: this._records,
+      }), await this._hass.callWS({
+        type: "edata/ws/consumptions",
+        scups: this._scups,
+        aggr: this._aggr,
+        tariff: "p3",
+        records: this._records,
+      })
+    )
+
+    const item_p1 = p1.slice(-this._records)[0]
+    const item_p2 = p2.slice(-this._records)[0]
+    const item_p3 = p3.slice(-this._records)[0]
+
+    const date = new Date(item_p1[0])
+    this._left_value = Math.round(item_p1[1] + item_p2[1] + item_p3[1])
+    this._left_unit = DEF_ENERGY_UNIT
+    this._left_title = "Total"
+    this._right_value = date.getDate() + "/" + date.getMonth()
+    this._right_unit = ""
+    this._right_title = "Fecha"
+    if (this._aggr === "day") {
+      this._right_value = date.getDate() + "/" + date.getMonth()
+    } else if (this._aggr === "month"){
+      this._right_value = date.getMonth() + "/" + date.getFullYear()
+    } else if (this._aggr === "year"){
+      this._right_value = date.getFullYear()
+    } else if (this._aggr === "hour"){
+      this._right_value = date.getDate() + "/" + date.getMonth() + " " + date.getHours() + "h"
+    } else {
+      this._right_title = ""
+    }
+
+    var config = {
+      chart: {
+        id: "chart",
+        type: "pie",
+        width: 300,
+      },
+      colors: this._colors,
+      series: [item_p1[1] , item_p2[1] , item_p3[1] ],
+      labels: [LABELS_BY_LOCALE["es"]["p1"], LABELS_BY_LOCALE["es"]["p2"], LABELS_BY_LOCALE["es"]["p3"]],
+      legend: {
+        position: "bottom"
+      },
+    };
+
+    if (this._aggr == "year") {
+      config["xaxis"] = {
+        tickAmount: "dataPoints",
+        labels: {
+          datetimeUTC: false,
+          formatter: function (val) {
+            return new Date(val).getFullYear().toString();
+          }
+        }
+      }
+    }
+
+    return config
+  }
+
   normalizeX(list1, list2, list3) {
       const allX = new Set();
 
@@ -406,8 +518,12 @@ class EdataCard extends LitElement {
         case "maximeter":
           chartOptions = await this.getMaximeterChartOptions();
           break;
+        case "consumption-summary":
+          chartOptions = await this.getConsumptionSummaryOptions();
+          break;
       }
 
+      this.render();
       this._chart = new ApexCharts(
         this.shadowRoot.querySelector("#chart"),
         chartOptions
@@ -421,29 +537,87 @@ class EdataCard extends LitElement {
   }
 }
 
-class EdataCardEditor extends LitElement {
-  setConfig(config) {
-    this._config = config;
-  }
-
-  configChanged(newConfig) {
-    const event = new Event("config-changed", {
-      bubbles: true,
-      composed: true,
-    });
-    event.detail = { config: newConfig };
-    this.dispatchEvent(event);
-  }
-}
-
-customElements.define("edata-card-editor", EdataCardEditor);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "edata-card",
-  name: "Edata Card (beta)",
+  name: "edata",
   preview: true,
   description: "Visualize edata's data!",
   documentationURL: "https://github.com/uvejota/homeassistant-edata",
 });
 
 customElements.define("edata-card", EdataCard);
+
+
+class EdataCardEditor extends LitElement {
+
+
+  static get properties() {
+    return {
+      hass: {},
+      _config: {},
+    };
+  }
+
+  _valueChanged(ev) {
+    if (!this._config || !this.hass) {
+      return;
+    }
+    const _config = Object.assign({}, this._config);
+    _config.title = ev.detail.value.title;
+    _config.entity = ev.detail.value.entity;
+    _config.chart = ev.detail.value.chart;
+    _config.aggr = ev.detail.value.aggr;
+    _config.records = ev.detail.value.records;
+
+    this._config = _config;
+
+    const event = new CustomEvent("config-changed", {
+      detail: { config: _config },
+      bubbles: true,
+      composed: true,
+    });
+    this.dispatchEvent(event);
+  }
+
+
+  setConfig(config) {
+    this._config = config;
+  }
+
+  render() {
+    if (!this.hass || !this._config) {
+      return html``;
+    }
+
+    return html`<ha-form
+      .hass=${this.hass}
+      .data=${this._config}
+      .schema=${[
+      { name: "title", selector: { text: {} } },
+      { name: "entity", selector: { select: { options: Object.keys(this.hass.states).filter(entity => entity.startsWith('sensor.edata_')), mode: "dropdown" } } },
+      { name: "chart", selector: { select: { options: VALID_CHART_TEMPLATES, mode: "dropdown"  } } },
+      { name: "aggr", selector: { select: { options: VALID_AGGR_PERIODS, mode: "dropdown" } } },
+      { name: "records", selector: { number: { min: 1, max: 365  } } },
+      ]}
+      .computeLabel=${this._computeLabel}
+      @value-changed=${this._valueChanged}
+      ></ha-form>
+    `;
+  }
+
+  _computeLabel(schema) {
+    var labelMap = {
+      title: "Título",
+      entity: "Entidad",
+      chart: "Gráfica",
+      aggr: "Agregación",
+      records: "Registros",
+    }
+    return labelMap[schema.name];
+  }
+
+
+}
+
+customElements.define("edata-card-editor", EdataCardEditor);

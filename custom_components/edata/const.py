@@ -1,4 +1,5 @@
 """Constants definition."""
+
 from edata.definitions import (
     DEFAULT_BILLING_ENERGY_FORMULA,
     DEFAULT_BILLING_OTHERS_FORMULA,
@@ -56,6 +57,13 @@ BILLING_ENERGY_FORMULA = "energy_formula"
 BILLING_POWER_FORMULA = "power_formula"
 BILLING_OTHERS_FORMULA = "others_formula"
 BILLING_SURPLUS_FORMULA = "surplus_formula"
+
+DEFAULT_CUSTOM_BILLING_FORMULAS = {
+    BILLING_ENERGY_FORMULA: "electricity_tax * iva_tax * kwh_eur * kwh",
+    BILLING_POWER_FORMULA: "electricity_tax * iva_tax * (p1_kw * p1_kw_year_eur + p2_kw * p2_kw_year_eur) / 365 / 24",
+    BILLING_OTHERS_FORMULA: "iva_tax * meter_month_eur / 30 / 24",
+    BILLING_SURPLUS_FORMULA: "electricity_tax * iva_tax * surplus_kwh * surplus_kwh_eur",
+}
 
 DATA_STATE = "state"
 DATA_ATTRIBUTES = "attributes"
