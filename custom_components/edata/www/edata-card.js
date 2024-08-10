@@ -6,8 +6,8 @@ import "https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.45.1/apexcharts.min.
 
 // Set program constants and definitions
 const PROG_NAME = "edata-card";
-const VALID_CHART_TEMPLATES = ["consumptions", "surplus", "maximeter", "costs", "consumption-summary"];
-const DEF_CHART_TEMPLATE = "consumptions";
+const VALID_CHART_TEMPLATES = ["consumptions", "surplus", "maximeter", "costs", "summary-last-day", "summary-last-month", "summary-month"];
+const DEF_CHART_TEMPLATE = "";
 const VALID_AGGR_PERIODS = ["year", "month", "week", "day", "hour"];
 const DEF_AGGR_PERIOD = "month";
 const DEF_RECORDS_FOR_METHOD = {
@@ -86,12 +86,18 @@ class EdataCard extends LitElement {
     return {
       hass: {},
       config: {},
-      _left_title: "",
-      _left_value: "",
-      _left_unit: "",
-      _right_title: "",
-      _right_value: "",
-      _right_unit: ""
+      _top_left_title: "",
+      _top_left_value: "",
+      _top_left_unit: "",
+      _bottom_left_title: "",
+      _bottom_left_value: "",
+      _bottom_left_unit: "",
+      _top_right_title: "",
+      _top_right_value: "",
+      _top_right_unit: "",
+      _bottom_right_title: "",
+      _bottom_right_value: "",
+      _bottom_right_unit: ""
     };
   }
 
@@ -103,10 +109,8 @@ class EdataCard extends LitElement {
   static getStubConfig() {
     return {
       entity: undefined,
-      chart: "consumption",
-      aggr: "month",
-      records: 12,
-      title: "edata",
+      chart: "summary-last-month",
+      title: "",
     };
   }
 
@@ -130,24 +134,30 @@ class EdataCard extends LitElement {
 
         <div style="position: relative; width: 100%; height: 100%; margin: 0 auto;">
 
-        <div id="left" style="position: absolute; width: 20%; height: 20%; top: 0; left: 0; display: flex; align-items: top; justify-content: center; padding-top: 10px">
-          <div id="left-box" style="padding-left: 10px; padding-top: 10px">
-            <span style="font-size: 20px; font-weight: bold;">${this._left_value}</span><span style="font-size: 14px; color: var(--secondary-text-color);"> ${this._left_unit}</span>
-            <br><span style="color: var(--secondary-text-color); font-size: 14px;">${this._left_title}</span>
+        <div id="left" style="position: absolute; width: 25%; height: 90%; top: 0; left: 10px; display: flex; align-items: top; justify-content: left; padding-top: 10px">
+          <div id="top-left-box" style="padding-left: 10px; padding-top: 10px">
+            <span style="font-size: 20px; font-weight: bold;">${this._top_left_value}</span><span style="font-size: 14px; color: var(--secondary-text-color);"> ${this._top_left_unit}</span>
+            <br><span style="color: var(--secondary-text-color); font-size: 14px;">${this._top_left_title}</span>
+          </div>
+          <div id="bottom-left-box" style="position:absolute; padding-left: 10px; bottom: 10px;">
+            <span style="color: var(--secondary-text-color); font-size: 14px;">${this._bottom_left_title}</span>
+            <br><span style="font-size: 20px; font-weight: bold;">${this._bottom_left_value}</span><span style="font-size: 14px; color: var(--secondary-text-color);"> ${this._bottom_left_unit}</span>
+          </div>
+        </div>
+
+        <div id="right" style="position: absolute; width: 25%; height: 90%; top: 0; right: 10px; display: flex; align-items: top; justify-content: right; padding-top: 10px">
+          <div id="top-right-box" style="padding-right: 10px; padding-top: 10px; text-align: right">
+            <span style="font-size: 20px; font-weight: bold;">${this._top_right_value}</span><span style="font-size: 14px; color: var(--secondary-text-color);"> ${this._top_right_unit}</span>
+            <br><span style="color: var(--secondary-text-color); font-size: 14px;">${this._top_right_title}</span>
+          </div>
+          <div id="bottom-right-box" style="position:absolute; padding-right: 10px; bottom: 10px; text-align: right;">
+            <span style="color: var(--secondary-text-color); font-size: 14px;">${this._bottom_right_title}</span>
+            <br><span style="font-size: 20px; font-weight: bold;">${this._bottom_right_value}</span><span style="font-size: 14px; color: var(--secondary-text-color);"> ${this._bottom_right_unit}</span>
           </div>
         </div>
 
         <div style="position: relative; width: 100%; height: 100%; margin: 0 auto">
           <div id="chart" style="display: flex; justify-content: center; align-items: center;"></div>
-        </div>
-
-        <div id="right" style="position: absolute; width: 20%; height: 20%; top: 0; right: 10px; display: flex; align-items: top; justify-content: center; padding-top: 10px">
-
-        <div id="right-box" style="padding-right: 10px; padding-top: 10px; text-align: right">
-          <span style="font-size: 20px; font-weight: bold;">${this._right_value}</span><span style="font-size: 14px; color: var(--secondary-text-color);"> ${this._right_unit}</span>
-          <br><span style="color: var(--secondary-text-color); font-size: 14px;">${this._right_title}</span>
-        </div>
-
         </div>
       </div>
       </ha-card>
@@ -173,7 +183,7 @@ class EdataCard extends LitElement {
     this._records = Number.isInteger(config.records)
       ? config.records
       : DEF_RECORDS_FOR_METHOD[this._aggr];
-    this._title = config.title || PROG_NAME;
+    this._title = config.title;
 
     this._colors = config.colors || Apex.colors;
     // store original config
@@ -399,51 +409,64 @@ class EdataCard extends LitElement {
     };
   }
 
-  async getConsumptionSummaryOptions() {
+  async getConsumptionSummaryOptions(preset) {
 
-    const [p1, p2, p3] = this.normalizeX(
-      await this._hass.callWS({
-        type: "edata/ws/consumptions",
-        scups: this._scups,
-        aggr: this._aggr,
-        tariff: "p1",
-        records: this._records,
-      }), await this._hass.callWS({
-        type: "edata/ws/consumptions",
-        scups: this._scups,
-        aggr: this._aggr,
-        tariff: "p2",
-        records: this._records,
-      }), await this._hass.callWS({
-        type: "edata/ws/consumptions",
-        scups: this._scups,
-        aggr: this._aggr,
-        tariff: "p3",
-        records: this._records,
-      })
-    )
+    const summary = await this._hass.callWS({
+      type: "edata/ws/summary",
+      scups: this._scups,
+    });
 
-    const item_p1 = p1.slice(-this._records)[0]
-    const item_p2 = p2.slice(-this._records)[0]
-    const item_p3 = p3.slice(-this._records)[0]
+    var p1 = undefined;
+    var p2 = undefined;
+    var p3 = undefined;
+    var surplus = undefined;
+    var cost = undefined;
+    var date = new Date(summary["last_registered_date"])
 
-    const date = new Date(item_p1[0])
-    this._left_value = Math.round(item_p1[1] + item_p2[1] + item_p3[1])
-    this._left_unit = DEF_ENERGY_UNIT
-    this._left_title = "Total"
-    this._right_value = date.getDate() + "/" + date.getMonth()
-    this._right_unit = ""
-    this._right_title = "Fecha"
-    if (this._aggr === "day") {
-      this._right_value = date.getDate() + "/" + date.getMonth()
-    } else if (this._aggr === "month"){
-      this._right_value = date.getMonth() + "/" + date.getFullYear()
-    } else if (this._aggr === "year"){
-      this._right_value = date.getFullYear()
-    } else if (this._aggr === "hour"){
-      this._right_value = date.getDate() + "/" + date.getMonth() + " " + date.getHours() + "h"
-    } else {
-      this._right_title = ""
+    switch (preset)
+    {
+      case "last-day":
+        p1 = summary["last_registered_day_p1_kWh"]
+        p2 = summary["last_registered_day_p2_kWh"]
+        p3 = summary["last_registered_day_p3_kWh"]
+        surplus = summary["last_registered_day_surplus_kWh"]
+        this._bottom_right_value = date.getDate() + "/" + date.getMonth() + "/" + date.getFullYear()
+        break;
+      case "last-month":
+        p1 = summary["last_month_p1_kWh"]
+        p2 = summary["last_month_p2_kWh"]
+        p3 = summary["last_month_p3_kWh"]
+        surplus = summary["last_month_surplus_kWh"]
+        cost = summary["last_month_€"]
+        date.setDate(0)
+        this._bottom_right_value = date.getMonth() + "/" + date.getFullYear()
+        break;
+      case "month":
+        p1 = summary["month_p1_kWh"]
+        p2 = summary["month_p2_kWh"]
+        p3 = summary["month_p3_kWh"]
+        surplus = summary["month_surplus_kWh"]
+        cost = summary["month_€"]
+        this._bottom_right_value = date.getMonth() + "/" + date.getFullYear()
+        break;
+    }
+
+    this._top_left_value = p1 + p2 + p3
+    this._top_left_unit = DEF_ENERGY_UNIT
+    this._top_left_title = "Total"
+    this._bottom_right_unit = ""
+    this._bottom_right_title = "Fecha"
+
+    if (surplus){
+      this._bottom_left_title = "Retorno"
+      this._bottom_left_value = surplus
+      this._bottom_left_unit = DEF_ENERGY_UNIT
+    }
+
+    if (cost){
+      this._top_right_title = "Coste"
+      this._top_right_value = cost
+      this._top_right_unit = DEF_COST_UNIT
     }
 
     var config = {
@@ -453,7 +476,7 @@ class EdataCard extends LitElement {
         width: 300,
       },
       colors: this._colors,
-      series: [item_p1[1] , item_p2[1] , item_p3[1] ],
+      series: [p1 , p2 , p3 ],
       labels: [LABELS_BY_LOCALE["es"]["p1"], LABELS_BY_LOCALE["es"]["p2"], LABELS_BY_LOCALE["es"]["p3"]],
       legend: {
         position: "bottom"
@@ -518,8 +541,14 @@ class EdataCard extends LitElement {
         case "maximeter":
           chartOptions = await this.getMaximeterChartOptions();
           break;
-        case "consumption-summary":
-          chartOptions = await this.getConsumptionSummaryOptions();
+        case "summary-last-day":
+          chartOptions = await this.getConsumptionSummaryOptions("last-day");
+          break;
+        case "summary-month":
+          chartOptions = await this.getConsumptionSummaryOptions("month");
+          break;
+        case "summary-last-month":
+          chartOptions = await this.getConsumptionSummaryOptions("last-month");
           break;
       }
 
@@ -596,7 +625,7 @@ class EdataCardEditor extends LitElement {
       .schema=${[
       { name: "title", selector: { text: {} } },
       { name: "entity", selector: { select: { options: Object.keys(this.hass.states).filter(entity => entity.startsWith('sensor.edata_')), mode: "dropdown" } } },
-      { name: "chart", selector: { select: { options: VALID_CHART_TEMPLATES, mode: "dropdown"  } } },
+      { name: "chart", selector: { select: { options: VALID_CHART_TEMPLATES, mode: "dropdown" } } },
       { name: "aggr", selector: { select: { options: VALID_AGGR_PERIODS, mode: "dropdown" } } },
       { name: "records", selector: { number: { min: 1, max: 365  } } },
       ]}
@@ -611,8 +640,8 @@ class EdataCardEditor extends LitElement {
       title: "Título",
       entity: "Entidad",
       chart: "Gráfica",
-      aggr: "Agregación",
-      records: "Registros",
+      aggr: "Agregación (no aplica en resúmenes)",
+      records: "Registros (no aplica en resúmenes)",
     }
     return labelMap[schema.name];
   }

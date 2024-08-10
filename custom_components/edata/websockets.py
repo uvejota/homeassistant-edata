@@ -4,19 +4,21 @@ import logging
 
 import voluptuous as vol
 
-from homeassistant.core import HomeAssistant, callback
 from homeassistant.components.websocket_api import (
-    async_register_command,
-    websocket_command,
-    async_response,
     BASE_COMMAND_MESSAGE_SCHEMA,
+    async_register_command,
+    async_response,
+    websocket_command,
 )
+from homeassistant.core import HomeAssistant, callback
+
 from . import const
 from .utils import (
     get_consumptions_history,
     get_costs_history,
     get_maximeter_history,
     get_surplus_history,
+    get_attributes,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -85,18 +87,23 @@ def websocket_get_maximeter(hass: HomeAssistant, connection, msg):
         ),
         vol.Optional("records", default=30): int,
         vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
+        vol.Optional("from_now"): bool,
     }
 )
 @async_response
 async def ws_get_consumptions(hass: HomeAssistant, connection, msg):
     """Fetch consumptions history."""
+
     _scups = msg["scups"].lower()
     _aggr = msg["aggr"]
     _records = msg["records"]
-    _tariff = None if "tariff" not in msg else msg["tariff"]
+    _tariff = msg.get("tariff", None)
+    _now_as_ref = msg.get("from_now", False)
 
     try:
-        data = await get_consumptions_history(hass, _scups, _tariff, _aggr, _records)
+        data = await get_consumptions_history(
+            hass, _scups, _tariff, _aggr, _records, now_as_ref=_now_as_ref
+        )
     except KeyError:
         data = []
         _LOGGER.info("Stats not found for CUPS %s", _scups)
@@ -111,7 +118,7 @@ async def ws_get_consumptions(hass: HomeAssistant, connection, msg):
             "day", "hour", "week", "month", "year"
         ),
         vol.Optional("records", default=30): int,
-        # vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
+        vol.Optional("from_now"): bool,
     }
 )
 @async_response
@@ -120,10 +127,10 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
     _scups = msg["scups"].lower()
     _aggr = msg["aggr"]
     _records = msg["records"]
-    # _tariff = None if "tariff" not in msg else msg["tariff"]
+    _now_as_ref = msg.get("from_now", False)
 
     try:
-        data = await get_surplus_history(hass, _scups, _aggr, _records)
+        data = await get_surplus_history(hass, _scups, _aggr, _records, _now_as_ref)
     except KeyError:
         data = []
         _LOGGER.info("Stats not found for CUPS %s", _scups)
@@ -139,6 +146,7 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
         ),
         vol.Optional("records", default=30): int,
         vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
+        vol.Optional("from_now"): bool,
     }
 )
 @async_response
@@ -148,6 +156,7 @@ async def ws_get_cost(hass: HomeAssistant, connection, msg):
     _aggr = msg["aggr"]
     _records = msg["records"]
     _tariff = None if "tariff" not in msg else msg["tariff"]
+    _now_as_ref = msg.get("from_now", False)
 
     try:
         data = await get_costs_history(hass, _scups, _tariff, _aggr, _records)
@@ -172,6 +181,25 @@ async def ws_get_maximeter(hass: HomeAssistant, connection, msg):
 
     try:
         data = await get_maximeter_history(hass, _scups, _tariff)
+    except KeyError:
+        data = []
+        _LOGGER.info("Stats not found for CUPS %s", _scups)
+    connection.send_result(msg["id"], data)
+
+
+@websocket_command(
+    {
+        vol.Required("type"): f"{const.DOMAIN}/ws/summary",
+        vol.Required("scups"): str,
+    }
+)
+@async_response
+async def ws_get_summary(hass: HomeAssistant, connection, msg):
+    """Fetch consumptions history."""
+    _scups = msg["scups"].lower()
+
+    try:
+        data = await get_attributes(hass, _scups)
     except KeyError:
         data = []
         _LOGGER.info("Stats not found for CUPS %s", _scups)
@@ -228,3 +256,4 @@ def async_register_websockets(hass: HomeAssistant):
     async_register_command(hass, ws_get_surplus)
     async_register_command(hass, ws_get_cost)
     async_register_command(hass, ws_get_maximeter)
+    async_register_command(hass, ws_get_summary)

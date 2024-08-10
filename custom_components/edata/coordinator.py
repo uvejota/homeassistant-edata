@@ -1,4 +1,5 @@
 """Data update coordinator definitions."""
+
 from __future__ import annotations
 
 import asyncio
@@ -157,6 +158,8 @@ class EdataCoordinator(DataUpdateCoordinator):
         # We also track last stats sum and datetime
         self._last_stats_sum = None
         self._last_stats_dt = None
+
+        hass.data[const.DOMAIN][self.id]["dt_last"] = self._last_stats_dt
 
         # Just the preamble of the statistics
         self._stat_id_preamble = f"{const.DOMAIN}:{self.id}"
@@ -351,9 +354,9 @@ class EdataCoordinator(DataUpdateCoordinator):
                     StatisticData(
                         start=dt_util.utc_from_timestamp(x["start"]),
                         state=x["state"],
-                        sum=x["sum"] if "sum" in x else None,
-                        mean=x["mean"] if "mean" in x else None,
-                        max=x["max"] if "max" in x else None,
+                        sum=x.get("sum", None),
+                        mean=x.get("mean", None),
+                        max=x.get("max", None),
                     )
                     for x in old_data[stat_id]
                 ],

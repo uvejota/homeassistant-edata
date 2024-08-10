@@ -22,19 +22,12 @@ Para la visualización de los datos, existen varias alternativas:
 5. [Integración con panel Energía (Long Term Statistics)](#Integración-con-panel-Energía-Long-Term-Statistics)<br>
 6. [Configurar la tarificación](#Configurar-la-tarificación)<br>
 7. [Gráficas con tarjeta nativa](#Gráficas-con-tarjeta-nativa)<br>
-8. [Gráficas basadas en apexcharts-card](#Gráficas-basadas-en-apexcharts-card)<br>
-9. [Acceso a datos descargados](#Acceso-a-datos-descargados)<br>
-10. [FAQ](#FAQ)
+8. [Acceso a datos descargados](#Acceso-a-datos-descargados)<br>
+9. [FAQ](#FAQ)
 
 ## Ejemplo de Dashboard
 
-### Ejemplo con tarjeta nativa:
-
 ![Dashboard](assets/dashboard.png)
-
-### Ejemplo con apexcharts-card:
-
-![Dashboard](https://i.imgur.com/P4TcGLH.png)
 
 ## Limitaciones
 
@@ -123,7 +116,6 @@ Las variables disponibles son las configuradas en el paso anterior y los consumo
 * `kwh`: energía consumida en kWh
 * `p1_kw` y `p2_kw`: potencia contratada en P1 y P2 (en kW)
 * `p1_kw_year_eur` y `p2_kw_year_eur`: Coste de la potencia por kW en P1 y P2 (en euros y anual)
-* `market_kw_year_eur`: Coste anual por mercado de kW
 * `meter_month_eur`: Coste del alquiler del contador en euros al mes
 
 Las variables anteriores pueden usarse para formar expresiones para los siguientes términos: energía, potencia y otros. No olvides contemplar el IVA. Puedes utilizar la que viene por defecto como base.
@@ -152,32 +144,36 @@ Una vez configuradas y calculadas (tendrá que esperar un poco), las estadístic
 
 ## Gráficas con tarjeta nativa
 
-Se ofrecen una serie de tarjetas nativas que simplifican significativamente la configuración. Por ejemplo:
+Se ofrecen una serie de tarjetas nativas que facilitan la representación de los datos y pueden configurarse desde la UI de Home Assistant, seleccionando la configuración que desee en el editor.
 
-![Tarjeta](assets/card.png)
+![Editor](assets/card-editor.png)
 
-Cuya configuración en YAML es la siguiente.
+Las tarjetas disponibles son:
+- Gráfica de consumos (`consumptions`), excedente (`surplus`), o facturas (`costs`); agrupados por hora/mes/día/año.
+- Gráfica de potencias máximas registradas (`maximeter`)
+- Resumen del último día registrado (`summary-last-day`), mes en curso (`summary-month`), o mes pasado (`summary-last-month`).
+
+Adicionalmente, puedes cambiar los colores añadiendo el atributo `colors` al YAML resultante:
 
 ```yaml
-title: Consumo mensual # título de tu tarjeta
 type: custom:edata-card
-chart: consumptions # opciones: consumptions, costs, maximeter
-entity: sensor.edata_xxxx # el id de tu sensor principal
-aggr: month # opciones: hour, day, month
-records: 12 # número de registros
+...
 colors: # opcional, para cambiar los colores
   - '#e54304'
   - '#ff9e22'
-  - '#9CCC65'
+  - '#9ccc65'
 ```
 
-> **NOTA:** en futuras versiones se contempla ampliar y mejorar las funcionalidades de la tarjeta.
+> **NOTA:** en futuras versiones se contempla ampliar y mejorar las funcionalidades de la tarjeta, así como proporcionar traducciones.
 
-## Gráficas basadas en apexcharts-card
 
-A continuación se ofrecen una serie de tarjetas (en yaml) que permiten **visualizar los datos obtenidos mediante gráficas interactivas generadas con un componente llamado apexcharts-card**, que también debe instalarse manualmente o mediante HACS. Siga las instrucciones de <https://github.com/RomRider/apexcharts-card> y recuerde tener el repositorio a mano para personalizar las gráficas a continuación.
+## Gráficas sobre ApexCharts-card
+
+A continuación se ofrece la configuración orientativa para **visualizar los datos obtenidos mediante apexcharts-card**, que también debe instalarse manualmente o mediante HACS. Siga las instrucciones de <https://github.com/RomRider/apexcharts-card> y recuerde tener el repositorio a mano para personalizar las gráficas a continuación.
 
 > **IMPORTANTE:** en las siguientes tarjetas deberá reemplazar TODAS las ocurrencias de `xxxx` por sus últimos cuatro caracteres de su CUPS.
+>
+> **El nombre de las entidades puede ser distinto en su instalación. Revíselo.**
 
 ### Consumo diario
 
@@ -389,57 +385,7 @@ series:
 
 </details>
 
-### Detalle: último día registrado
-
-![Captura ayer](https://i.imgur.com/tfYnVn3.png)
-
-<details>
-<summary>He leído las instrucciones y quiero ver el contenido</summary>
-
-```yaml
-type: custom:apexcharts-card
-chart_type: pie
-header:
-  show: true
-  title: Último día registrado
-  show_states: true
-  colorize_states: true
-  floating: true
-all_series_config:
-  unit: kWh
-  show:
-    legend_value: true
-    in_header: false
-apex_config:
-  chart:
-    height: 250px
-series:
-  - entity: sensor.xxxx_ultimo_consumo_registrado
-    attribute: last_registered_day_kWh
-    show:
-      in_chart: false
-      in_header: true
-    name: Total
-  - entity: sensor.xxxx_ultimo_consumo_registrado
-    attribute: last_registered_day_p1_kWh
-    name: Punta
-  - entity: sensor.xxxx_ultimo_consumo_registrado
-    attribute: last_registered_day_p2_kWh
-    name: Llano
-  - entity: sensor.xxxx_ultimo_consumo_registrado
-    attribute: last_registered_day_p3_kWh
-    name: Valle
-  - entity: sensor.xxxx_ultimo_consumo_registrado
-    name: Día del mes
-    unit: ''
-    show:
-      in_chart: false
-      in_header: true
-```
-
-</details>
-
-### Detalle: mes en curso
+### Detalle de un día/mes concreto
 
 ![Captura mes en curso](https://i.imgur.com/1MOF0jk.png)
 
@@ -488,55 +434,6 @@ series:
 
 </details>
 
-### Detalle: mes anterior
-
-![Captura mes pasado](https://i.imgur.com/UcXkbXB.png)
-
-<details>
-<summary>He leído las instrucciones y quiero ver el contenido</summary>
-
-``` yaml
-type: custom:apexcharts-card
-chart_type: pie
-header:
-  show: true
-  title: Mes pasado
-  show_states: true
-  colorize_states: true
-  floating: true
-all_series_config:
-  show:
-    legend_value: true
-    in_header: false
-  unit: kWh
-apex_config:
-  chart:
-    height: 250px
-series:
-  - entity: sensor.xxxx_consumo_durante_ultimo_mes
-    show:
-      in_chart: false
-      in_header: true
-    name: Total
-  - entity: sensor.xxxx_consumo_durante_ultimo_mes
-    attribute: last_month_p1_kWh
-    name: Punta
-  - entity: sensor.xxxx_consumo_durante_ultimo_mes
-    attribute: last_month_p2_kWh
-    name: Llano
-  - entity: sensor.xxxx_consumo_durante_ultimo_mes
-    attribute: last_month_p3_kWh
-    name: Valle
-  - entity: sensor.xxxx_factura_del_ultimo_mes
-    name: Facturación
-    show:
-      in_chart: false
-      in_header: true
-    unit: €
-```
-
-</details>
-
 ## Acceso a datos descargados
 
 Los datos descargados se almacenan en:
@@ -547,10 +444,11 @@ Para acceder a los mismos, puede consumir la propia API de websockets que utiliz
 
 | **Nombre del WebSocket** | **Descripción**                       | **Endpoint**                           | **Parámetros**                                                                                                                  |
 |--------------------------|---------------------------------------|------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
-| `ws_get_consumptions`    | Obtiene el historial de consumos.     | `/ws/consumptions`   | `type` (requerido): Tipo de comando. <br> `scups` (requerido): Identificador SCUPS (CUPS abreviado). <br> `aggr` (opcional, por defecto: "day"): Nivel de agregación ("day", "hour", "week", "month"). <br> `records` (opcional, por defecto: 30): Número de registros a obtener. <br> `tariff` (opcional): Tramo ("p1", "p2", "p3"). |
-| `ws_get_surplus`         | Obtiene el historial de excedentes.   | `/ws/surplus`        | `type` (requerido): Tipo de comando. <br> `scups` (requerido): Identificador SCUPS. <br> `aggr` (opcional, por defecto: "day"): Nivel de agregación ("day", "hour", "week", "month"). <br> `records` (opcional, por defecto: 30): Número de registros a obtener. <br> `tariff` (opcional): Tramo ("p1", "p2", "p3"). |
-| `ws_get_cost`            | Obtiene el historial de costes.       | `/ws/costs`          | `type` (requerido): Tipo de comando. <br> `scups` (requerido): Identificador SCUPS. <br> `aggr` (opcional, por defecto: "day"): Nivel de agregación ("day", "hour", "week", "month"). <br> `records` (opcional, por defecto: 30): Número de registros a obtener. <br> `tariff` (opcional): Tramo ("p1", "p2", "p3"). |
-| `ws_get_maximeter`       | Obtiene el historial del maximetro.   | `/ws/maximeter`      | `type` (requerido): Tipo de comando. <br> `scups` (requerido): Identificador SCUPS. <br> `tariff` (opcional): Tramo ("p1", "p2").   |
+| `ws_get_consumptions`    | Obtiene el historial de consumos.     | `/ws/consumptions`   | `scups` (requerido): Identificador SCUPS (CUPS abreviado). <br> `aggr` (opcional, por defecto: "day"): Nivel de agregación ("day", "hour", "week", "month"). <br> `records` (opcional, por defecto: 30): Número de registros a obtener. <br> `tariff` (opcional): Tramo ("p1", "p2", "p3"). |
+| `ws_get_surplus`         | Obtiene el historial de excedentes.   | `/ws/surplus`        | `scups` (requerido): Identificador SCUPS. <br> `aggr` (opcional, por defecto: "day"): Nivel de agregación ("day", "hour", "week", "month"). <br> `records` (opcional, por defecto: 30): Número de registros a obtener. <br> `tariff` (opcional): Tramo ("p1", "p2", "p3"). |
+| `ws_get_cost`            | Obtiene el historial de costes.       | `/ws/costs`          | `scups` (requerido): Identificador SCUPS. <br> `aggr` (opcional, por defecto: "day"): Nivel de agregación ("day", "hour", "week", "month"). <br> `records` (opcional, por defecto: 30): Número de registros a obtener. <br> `tariff` (opcional): Tramo ("p1", "p2", "p3"). |
+| `ws_get_maximeter`       | Obtiene el historial del maximetro.   | `/ws/maximeter`      | `scups` (requerido): Identificador SCUPS. <br> `tariff` (opcional): Tramo ("p1", "p2").   |
+| `ws_get_summary`       | Obtiene un resumen (atributos).   | `/ws/summary`      | `scups` (requerido): Identificador SCUPS. |
 
 ## FAQ
 
