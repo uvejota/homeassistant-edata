@@ -99,6 +99,7 @@ async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
 
 def group_by_year(data: list[tuple[datetime, float]]) -> list[tuple[datetime, float]]:
     """Aggregate data by year."""
+
     yearly_data = {}
     for date, value in data:
         year = date.year
@@ -113,14 +114,85 @@ def group_by_year(data: list[tuple[datetime, float]]) -> list[tuple[datetime, fl
     return result
 
 
-async def get_consumptions_history(
+def fetch_changes_from_mem(
     hass: HomeAssistant,
+    stat_id: str,
     scups: str,
-    tariff: None | str,
     aggr: str,
     records: int = 30,
     now_as_ref: bool = True,
-) -> list[tuple[datetime, float]]:
+):
+    "Fetch last N records from memory."
+
+    data = hass.data[const.DOMAIN][scups.lower()]["edata"].data
+    group = None
+    key = None
+
+    if aggr == "hour":
+        dt_unit = timedelta(hours=1)
+    elif aggr == "day":
+        dt_unit = timedelta(days=1)
+    elif aggr == "month":
+        dt_unit = relativedelta.relativedelta(months=1)
+    else:
+        _LOGGER.warning("Not a valid aggr method '%s'", aggr)
+
+    ref = datetime.now().replace(hour=0, minute=0, second=0)
+    try:
+        if not now_as_ref:
+            ref = dt_util.as_local(
+                data["consumptions"][-1]["datetime"].replace(hour=0, minute=0, second=0)
+            )
+        if dt_util.as_local(data["consumptions"][0]["datetime"]) > (
+            ref - records * dt_unit
+        ):
+            return None
+    except Exception:
+        return None
+
+    if aggr not in ["hour", "day", "month"]:
+        return None
+
+    if stat_id == const.STAT_ID_KWH(scups):
+        key = "value_kWh"
+        group = "consumptions"
+    elif stat_id == const.STAT_ID_P1_KWH(scups):
+        key = "value_p1_kWh"
+        group = "consumptions"
+    elif stat_id == const.STAT_ID_P2_KWH(scups):
+        key = "value_p2_kWh"
+        group = "consumptions"
+    elif stat_id == const.STAT_ID_P3_KWH(scups):
+        key = "value_p3_kWh"
+        group = "consumptions"
+    elif stat_id == const.STAT_ID_SURP_KWH(scups):
+        key = "surplus_kWh"
+        group = "consumptions"
+    else:
+        return None
+
+    if aggr == "day":
+        group += "_daily_sum"
+    elif aggr == "month":
+        group += "_monthly_sum"
+    elif aggr == "hour" and group == "cost":
+        group += "_hourly_sum"
+
+    return [
+        (dt_util.as_local(x["datetime"]), x[key])
+        for x in data[group][-records:]
+        if dt_util.as_local(x["datetime"]) >= ref - records * dt_unit
+    ]
+
+
+async def fetch_changes_from_stats(
+    hass: HomeAssistant,
+    stat_id: str,
+    scups: str,
+    aggr: str,
+    records: int = 30,
+    now_as_ref: bool = True,
+):
     "Fetch last N statistics records."
 
     ref = datetime.now().replace(hour=0, minute=0, second=0)
@@ -133,15 +205,6 @@ async def get_consumptions_history(
             )
     except Exception:
         pass
-
-    if tariff is None:
-        _stat_id = const.STAT_ID_KWH(scups)
-    elif tariff == "p1":
-        _stat_id = const.STAT_ID_P1_KWH(scups)
-    elif tariff == "p2":
-        _stat_id = const.STAT_ID_P2_KWH(scups)
-    elif tariff == "p3":
-        _stat_id = const.STAT_ID_P3_KWH(scups)
 
     _aggr = aggr
     if aggr == "hour":
@@ -163,17 +226,59 @@ async def get_consumptions_history(
         hass,
         ref - records * _dt_unit,
         None,
-        {_stat_id},
+        {stat_id},
         _aggr,
         None,
         {"change"},
     )
-    data = data[_stat_id]
+    data = data[stat_id]
     if aggr == "year":
         return group_by_year(
             [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
         )
     return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+
+
+async def fetch_changes(
+    hass: HomeAssistant,
+    stat_id: str,
+    scups: str,
+    aggr: str,
+    records: int = 30,
+    now_as_ref: bool = True,
+):
+    "Fetch last N statistics from the best source."
+
+    if (
+        data := fetch_changes_from_mem(hass, stat_id, scups, aggr, records, now_as_ref)
+    ) is None:
+        data = await fetch_changes_from_stats(
+            hass, stat_id, scups, aggr, records, now_as_ref
+        )
+
+    return data
+
+
+async def get_consumptions_history(
+    hass: HomeAssistant,
+    scups: str,
+    tariff: None | str,
+    aggr: str,
+    records: int = 30,
+    now_as_ref: bool = True,
+) -> list[tuple[datetime, float]]:
+    "Fetch last N consumptions records."
+
+    if tariff is None:
+        _stat_id = const.STAT_ID_KWH(scups)
+    elif tariff == "p1":
+        _stat_id = const.STAT_ID_P1_KWH(scups)
+    elif tariff == "p2":
+        _stat_id = const.STAT_ID_P2_KWH(scups)
+    elif tariff == "p3":
+        _stat_id = const.STAT_ID_P3_KWH(scups)
+
+    return await fetch_changes(hass, _stat_id, scups, aggr, records, now_as_ref)
 
 
 async def get_surplus_history(
@@ -183,56 +288,16 @@ async def get_surplus_history(
     records: int = 30,
     now_as_ref: bool = True,
 ) -> list[tuple[datetime, float]]:
-    "Fetch last N statistics records."
-
-    ref = datetime.now().replace(hour=0, minute=0, second=0)
-    try:
-        if not now_as_ref:
-            ref = dt_util.as_local(
-                hass.data[const.DOMAIN][scups.lower()]["edata"]
-                .data.get("consumptions", [])[-1]["datetime"]
-                .replace(hour=0, minute=0, second=0)
-            )
-    except Exception:
-        pass
+    "Fetch last N surplus records."
 
     _stat_id = const.STAT_ID_SURP_KWH(scups)
-
-    if aggr == "hour":
-        _dt_unit = timedelta(hours=1)
-    elif aggr == "day":
-        _dt_unit = timedelta(days=1)
-    elif aggr == "week":
-        _dt_unit = relativedelta.relativedelta(weeks=1)
-    elif aggr == "month":
-        _dt_unit = relativedelta.relativedelta(months=1)
-    elif aggr == "year":
-        _dt_unit = relativedelta.relativedelta(years=1)
-    else:
-        _LOGGER.warning("Not a valid aggr method '%s'", aggr)
-
-    data = await get_db_instance(hass).async_add_executor_job(
-        statistics_during_period,
-        hass,
-        ref - records * _dt_unit,
-        None,
-        {_stat_id},
-        aggr,
-        None,
-        {"change"},
-    )
-    data = data[_stat_id]
-    if aggr == "year":
-        return group_by_year(
-            [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
-        )
-    return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+    return await fetch_changes(hass, _stat_id, scups, aggr, records, now_as_ref)
 
 
 async def get_maximeter_history(
     hass: HomeAssistant, scups: str, tariff: None | str
 ) -> list[tuple[datetime, float]]:
-    "Fetch last N statistics records."
+    "Fetch last N max power records."
     if tariff is None:
         _stat_id = const.STAT_ID_KW(scups)
     elif tariff == "p1":
@@ -262,18 +327,7 @@ async def get_costs_history(
     records: int = 30,
     now_as_ref: bool = True,
 ) -> list[tuple[datetime, float]]:
-    "Fetch last N statistics records."
-
-    ref = datetime.now().replace(hour=0, minute=0, second=0)
-    try:
-        if not now_as_ref:
-            ref = dt_util.as_local(
-                hass.data[const.DOMAIN][scups.lower()]["edata"]
-                .data.get("consumptions", [])[-1]["datetime"]
-                .replace(hour=0, minute=0, second=0)
-            )
-    except Exception:
-        pass
+    "Fetch last N costs records."
 
     if tariff is None:
         _stat_id = const.STAT_ID_EUR(scups)
@@ -284,42 +338,14 @@ async def get_costs_history(
     elif tariff == "p3":
         _stat_id = const.STAT_ID_P3_EUR(scups)
 
-    if aggr == "hour":
-        _dt_unit = timedelta(hours=1)
-    elif aggr == "day":
-        _dt_unit = timedelta(days=1)
-    elif aggr == "week":
-        _dt_unit = relativedelta.relativedelta(weeks=1)
-    elif aggr == "month":
-        _dt_unit = relativedelta.relativedelta(months=1)
-    elif aggr == "year":
-        _dt_unit = relativedelta.relativedelta(years=1)
-    else:
-        _LOGGER.warning("Not a valid aggr method '%s'", aggr)
-
-    data = await get_db_instance(hass).async_add_executor_job(
-        statistics_during_period,
-        hass,
-        ref - records * _dt_unit,
-        None,
-        {_stat_id},
-        aggr,
-        None,
-        {"change"},
-    )
-    data = data[_stat_id]
-    if aggr == "year":
-        return group_by_year(
-            [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
-        )
-    return [(dt_util.utc_from_timestamp(x["start"]), x["change"]) for x in data]
+    return await fetch_changes(hass, _stat_id, scups, aggr, records, now_as_ref)
 
 
 async def get_attributes(
     hass: HomeAssistant,
     scups: str,
 ) -> list[tuple[datetime, float]]:
-    "Fetch all attributes from edata helper"
+    "Fetch all attributes from edata helper."
 
     try:
         return hass.data[const.DOMAIN][scups.lower()]["edata"].attributes
