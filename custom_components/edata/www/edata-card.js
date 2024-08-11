@@ -481,7 +481,7 @@ class EdataCard extends LitElement {
         p2 = summary["last_registered_day_p2_kWh"]
         p3 = summary["last_registered_day_p3_kWh"]
         surplus = summary["last_registered_day_surplus_kWh"]
-        this._bottom_right_value = date.getDate() + "/" + date.getMonth() + "/" + date.getFullYear()
+        this._bottom_right_value = date.getDate() + "/" + (date.getMonth() + 1) + "/" + date.getFullYear()
         break;
       case "last-month":
         p1 = summary["last_month_p1_kWh"]
@@ -490,7 +490,7 @@ class EdataCard extends LitElement {
         surplus = summary["last_month_surplus_kWh"]
         cost = summary["last_month_€"]
         date.setDate(0)
-        this._bottom_right_value = date.getMonth() + "/" + date.getFullYear()
+        this._bottom_right_value = (date.getMonth() + 1) + "/" + date.getFullYear()
         break;
       case "month":
         p1 = summary["month_p1_kWh"]
@@ -498,7 +498,7 @@ class EdataCard extends LitElement {
         p3 = summary["month_p3_kWh"]
         surplus = summary["month_surplus_kWh"]
         cost = summary["month_€"]
-        this._bottom_right_value = date.getMonth() + "/" + date.getFullYear()
+        this._bottom_right_value = (date.getMonth() + 1) + "/" + date.getFullYear()
         break;
     }
 
