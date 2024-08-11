@@ -243,7 +243,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
         if user_input is not None:
             if const.PRICE_MARKET_KW_YEAR not in user_input:
-                user_input[const.PRICE_MARKET_KW_YEAR] = 0
+                user_input[const.PRICE_MARKET_KW_YEAR] = (
+                    const.DEFAULT_PRICE_MARKET_KW_YEAR
+                )
             for key in user_input:
                 self.inputs[key] = user_input[key]
             return await self.async_step_formulas()
@@ -337,43 +339,69 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             )
             return await self.async_step_confirm()
 
-        formulas_schema = vol.Schema(
-            {
-                vol.Required(
-                    const.BILLING_ENERGY_FORMULA,
-                    default=J2_EXPR_TOKENS[0]
-                    + self.config_entry.options.get(
+        if self.inputs[const.CONF_PVPC]:
+            def_formulas = const.DEFAULT_PVPC_BILLING_FORMULAS
+        else:
+            def_formulas = const.DEFAULT_CUSTOM_BILLING_FORMULAS
+
+        if (
+            not self.config_entry.options.get(const.CONF_PVPC, False)
+            and self.inputs[const.CONF_PVPC]
+        ):
+            formulas_schema = vol.Schema(
+                {
+                    vol.Required(
                         const.BILLING_ENERGY_FORMULA,
-                        const.DEFAULT_CUSTOM_BILLING_FORMULAS[
-                            const.BILLING_ENERGY_FORMULA
-                        ],
-                    )
-                    + J2_EXPR_TOKENS[1],
-                ): sel.TemplateSelector(),
-                vol.Required(
-                    const.BILLING_POWER_FORMULA,
-                    default=J2_EXPR_TOKENS[0]
-                    + self.config_entry.options.get(
+                        default=J2_EXPR_TOKENS[0]
+                        + def_formulas[const.BILLING_ENERGY_FORMULA]
+                        + J2_EXPR_TOKENS[1],
+                    ): sel.TemplateSelector(),
+                    vol.Required(
                         const.BILLING_POWER_FORMULA,
-                        const.DEFAULT_CUSTOM_BILLING_FORMULAS[
-                            const.BILLING_POWER_FORMULA
-                        ],
-                    )
-                    + J2_EXPR_TOKENS[1],
-                ): sel.TemplateSelector(),
-                vol.Required(
-                    const.BILLING_OTHERS_FORMULA,
-                    default=J2_EXPR_TOKENS[0]
-                    + self.config_entry.options.get(
+                        default=J2_EXPR_TOKENS[0]
+                        + def_formulas[const.BILLING_POWER_FORMULA]
+                        + J2_EXPR_TOKENS[1],
+                    ): sel.TemplateSelector(),
+                    vol.Required(
                         const.BILLING_OTHERS_FORMULA,
-                        const.DEFAULT_CUSTOM_BILLING_FORMULAS[
-                            const.BILLING_OTHERS_FORMULA
-                        ],
-                    )
-                    + J2_EXPR_TOKENS[1],
-                ): sel.TemplateSelector(),
-            }
-        )
+                        default=J2_EXPR_TOKENS[0]
+                        + def_formulas[const.BILLING_OTHERS_FORMULA]
+                        + J2_EXPR_TOKENS[1],
+                    ): sel.TemplateSelector(),
+                }
+            )
+        else:
+            formulas_schema = vol.Schema(
+                {
+                    vol.Required(
+                        const.BILLING_ENERGY_FORMULA,
+                        default=J2_EXPR_TOKENS[0]
+                        + self.config_entry.options.get(
+                            const.BILLING_ENERGY_FORMULA,
+                            def_formulas[const.BILLING_ENERGY_FORMULA],
+                        )
+                        + J2_EXPR_TOKENS[1],
+                    ): sel.TemplateSelector(),
+                    vol.Required(
+                        const.BILLING_POWER_FORMULA,
+                        default=J2_EXPR_TOKENS[0]
+                        + self.config_entry.options.get(
+                            const.BILLING_POWER_FORMULA,
+                            def_formulas[const.BILLING_POWER_FORMULA],
+                        )
+                        + J2_EXPR_TOKENS[1],
+                    ): sel.TemplateSelector(),
+                    vol.Required(
+                        const.BILLING_OTHERS_FORMULA,
+                        default=J2_EXPR_TOKENS[0]
+                        + self.config_entry.options.get(
+                            const.BILLING_OTHERS_FORMULA,
+                            def_formulas[const.BILLING_OTHERS_FORMULA],
+                        )
+                        + J2_EXPR_TOKENS[1],
+                    ): sel.TemplateSelector(),
+                }
+            )
 
         return self.async_show_form(
             step_id="formulas",

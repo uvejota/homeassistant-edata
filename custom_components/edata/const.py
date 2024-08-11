@@ -65,6 +65,13 @@ DEFAULT_CUSTOM_BILLING_FORMULAS = {
     BILLING_SURPLUS_FORMULA: "electricity_tax * iva_tax * surplus_kwh * surplus_kwh_eur",
 }
 
+DEFAULT_PVPC_BILLING_FORMULAS = {
+    BILLING_ENERGY_FORMULA: "electricity_tax * iva_tax * kwh_eur * kwh",
+    BILLING_POWER_FORMULA: "electricity_tax * iva_tax * (p1_kw * (p1_kw_year_eur + market_kw_year_eur) + p2_kw * p2_kw_year_eur) / 365 / 24",
+    BILLING_OTHERS_FORMULA: "iva_tax * meter_month_eur / 30 / 24",
+    BILLING_SURPLUS_FORMULA: "electricity_tax * iva_tax * surplus_kwh * surplus_kwh_eur",
+}
+
 DATA_STATE = "state"
 DATA_ATTRIBUTES = "attributes"
 DATA_SUPPLIES = "supplies"
