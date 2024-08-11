@@ -27,9 +27,60 @@ const LABELS_BY_LOCALE = {
     p2: "Llano",
     p3: "Valle",
     p2_3: "Llano y Valle",
-    surplus: "Retorno"
+    surplus: "Retorno",
+    title: "Título",
+    entity: "Entidad",
+    chart: "Gráfica",
+    aggr: "Agregación (no aplica en resúmenes)",
+    records: "Registros (no aplica en resúmenes)",
+  },
+  ca: {
+    p1: "Punta",
+    p2: "Pla",
+    p3: "Vall",
+    p2_3: "Pla i Vall",
+    surplus: "Retorn",
+    title: "Títol",
+    entity: "Entitat",
+    chart: "Gràfica",
+    aggr: "Agrupació (no aplica en resums)",
+    records: "Registres (no aplica en resums)",
+  },
+  gl: {
+    p1: "Punta",
+    p2: "Chan",
+    p3: "Val",
+    p2_3: "Chan e Val",
+    surplus: "Retorno",
+    title: "Título",
+    entity: "Entidade",
+    chart: "Gráfica",
+    aggr: "Agrupación (non aplica en resumos)",
+    records: "Rexistros (non aplica en resumos)",
+  },
+  en: {
+    p1: "Peak",
+    p2: "Flat",
+    p3: "Valley",
+    p2_3: "Flat and Valley",
+    surplus: "Return",
+    title: "Title",
+    entity: "Entity",
+    chart: "Chart",
+    aggr: "Aggregation (not applicable in summaries)",
+    records: "Records (not applicable in summaries)",
   },
 };
+
+
+const locale = navigator.languages ? navigator.languages[0] : (navigator.language || navigator.userLanguage)
+
+function getLabel(key) {
+  if (locale in LABELS_BY_LOCALE)
+    return LABELS_BY_LOCALE[locale][key];
+  else
+    return LABELS_BY_LOCALE["en"][key];
+}
 
 // Set apexcharts defaults:
 Apex.xaxis = {
@@ -242,15 +293,15 @@ class EdataCard extends LitElement {
       },
       series: [
         {
-          name: LABELS_BY_LOCALE["es"]["p1"],
+          name: getLabel("p1"),
           data: p1,
         },
         {
-          name: LABELS_BY_LOCALE["es"]["p2"],
+          name: getLabel("p2"),
           data: p2,
         },
         {
-          name: LABELS_BY_LOCALE["es"]["p3"],
+          name: getLabel("p3"),
           data: p3,
         },
       ],
@@ -285,7 +336,7 @@ class EdataCard extends LitElement {
       },
       series: [
         {
-          name: LABELS_BY_LOCALE["es"]["surplus"],
+          name: getLabel("surplus"),
           data: await this._hass.callWS({
             type: "edata/ws/surplus",
             scups: this._scups,
@@ -347,15 +398,15 @@ class EdataCard extends LitElement {
       },
       series: [
         {
-          name: LABELS_BY_LOCALE["es"]["p1"],
+          name: getLabel("p1"),
           data: p1,
         },
         {
-          name: LABELS_BY_LOCALE["es"]["p2"],
+          name: getLabel("p2"),
           data: p2,
         },
         {
-          name: LABELS_BY_LOCALE["es"]["p3"],
+          name: getLabel("p3"),
           data: p3,
         },
       ],
@@ -390,7 +441,7 @@ class EdataCard extends LitElement {
       },
       series: [
         {
-          name: LABELS_BY_LOCALE["es"]["p1"],
+          name: getLabel("p1"),
           data: await this._hass.callWS({
             type: "edata/ws/maximeter",
             scups: this._scups,
@@ -398,7 +449,7 @@ class EdataCard extends LitElement {
           }),
         },
         {
-          name: LABELS_BY_LOCALE["es"]["p2_3"],
+          name: getLabel("p2_3"),
           data: await this._hass.callWS({
             type: "edata/ws/maximeter",
             scups: this._scups,
@@ -477,7 +528,7 @@ class EdataCard extends LitElement {
       },
       colors: this._colors,
       series: [p1 , p2 , p3 ],
-      labels: [LABELS_BY_LOCALE["es"]["p1"], LABELS_BY_LOCALE["es"]["p2"], LABELS_BY_LOCALE["es"]["p3"]],
+      labels: [getLabel("p1"), getLabel("p2"), getLabel("p3")],
       legend: {
         position: "bottom"
       },
@@ -523,6 +574,8 @@ class EdataCard extends LitElement {
 
   async renderChart() {
     await this.updateComplete;
+
+    console.log()
 
     if (!this._loaded && !this._chart) {
       this._loaded = true;
@@ -636,14 +689,7 @@ class EdataCardEditor extends LitElement {
   }
 
   _computeLabel(schema) {
-    var labelMap = {
-      title: "Título",
-      entity: "Entidad",
-      chart: "Gráfica",
-      aggr: "Agregación (no aplica en resúmenes)",
-      records: "Registros (no aplica en resúmenes)",
-    }
-    return labelMap[schema.name];
+    return getLabel(schema.name);
   }
 
 
