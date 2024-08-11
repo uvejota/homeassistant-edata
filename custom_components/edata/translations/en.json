@@ -55,12 +55,17 @@
     "step": {
       "user": {
         "data": {
-          "cups": "CUPS",
           "password": "Password",
           "username": "Username",
           "authorized_nif": "Authorized NIF"
         },
         "title": "Set up integration"
+      },
+      "choosecups": {
+        "title": "Select the CUPS",
+        "data": {
+          "cups": "CUPS"
+        }
       }
     }
   },

@@ -59,8 +59,13 @@
         "data": {
           "username": "Nombre de usuario",
           "password": "Contraseña",
-          "cups": "CUPS",
           "authorized_nif": "NIF autorizado"
+        }
+      },
+      "choosecups": {
+        "title": "Seleccione el CUPS",
+        "data": {
+          "cups": "CUPS"
         }
       }
     }

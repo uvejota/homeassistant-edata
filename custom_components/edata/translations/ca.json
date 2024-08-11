@@ -1,5 +1,45 @@
 {
     "title": "edata",
+    "entity": {
+        "sensor": {
+            "month_kwh": {
+                "name": "Consum mensual"
+            },
+            "last_month_kwh": {
+                "name": "Consum del mes passat"
+            },
+            "yesterday_kwh": {
+                "name": "Consum d'ahir"
+            },
+            "last_registered_day_kwh": {
+                "name": "Últim consum registrat"
+            },
+            "month_surplus_kwh": {
+                "name": "Excés mensual"
+            },
+            "last_month_surplus_kwh": {
+                "name": "Excés del mes passat"
+            },
+            "yesterday_surplus_kwh": {
+                "name": "Excés d'ahir"
+            },
+            "last_registered_day_surplus_kwh": {
+                "name": "Últim excés registrat"
+            },
+            "max_power_kw": {
+                "name": "Potència màxima registrada"
+            },
+            "month_eur": {
+                "name": "Cost mensual"
+            },
+            "last_month_eur": {
+                "name": "Cost del mes passat"
+            },
+            "info": {
+                "name": "Informació del subministrament"
+            }
+        }
+    },
     "config": {
         "abort": {
             "already_configured": "CUPS ja configurat",
@@ -16,13 +56,17 @@
         "step": {
             "user": {
                 "data": {
-                    "cups": "CUPS",
-                    "experimental": "Experimental",
                     "password": "Contrasenya",
                     "username": "Nom d'usuari",
                     "authorized_nif": "NIF autoritzat"
                 },
                 "title": "Configuració de la integració"
+            },
+            "choosecups": {
+              "title": "Seleccioneu el CUPS",
+              "data": {
+                "cups": "CUPS"
+              }
             }
         }
     },

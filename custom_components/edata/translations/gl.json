@@ -1,5 +1,45 @@
 {
     "title": "edata",
+    "entity": {
+        "sensor": {
+        "month_kwh": {
+            "name": "Consumo mensual"
+        },
+        "last_month_kwh": {
+            "name": "Consumo do mes pasado"
+        },
+        "yesterday_kwh": {
+            "name": "Consumo de onte"
+        },
+        "last_registered_day_kwh": {
+            "name": "Último consumo rexistrado"
+        },
+        "month_surplus_kwh": {
+            "name": "Excedente mensual"
+        },
+        "last_month_surplus_kwh": {
+            "name": "Excedente do mes pasado"
+        },
+        "yesterday_surplus_kwh": {
+            "name": "Excedente de onte"
+        },
+        "last_registered_day_surplus_kwh": {
+            "name": "Último excedente rexistrado"
+        },
+        "max_power_kw": {
+            "name": "Potencia máxima rexistrada"
+        },
+        "month_eur": {
+            "name": "Custo mensual"
+        },
+        "last_month_eur": {
+            "name": "Custo do mes pasado"
+        },
+        "info": {
+            "name": "Información do subministración"
+        }
+        }
+    },
     "config": {
         "step": {
             "user": {
@@ -10,6 +50,12 @@
                     "cups": "CUPS",
                     "authorized_nif": "NIF autorizado"
                 }
+            },
+            "choosecups": {
+              "title": "Seleccione os CUPS",
+              "data": {
+                "cups": "CUPS"
+              }
             }
         },
         "error": {
