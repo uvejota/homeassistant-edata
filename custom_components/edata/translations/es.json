@@ -45,13 +45,15 @@
       "unknown": "Error desconocido",
       "already_configured": "Este CUPS ya está configurado",
       "invalid_credentials": "Credenciales incorrectas",
-      "invalid_cups": "CUPS inválido"
+      "invalid_cups": "CUPS inválido",
+      "no_supplies_found": "No se encontraron suministros en la cuenta proporcionada"
     },
     "error": {
       "unknown": "Error desconocido",
       "already_configured": "Este CUPS ya está configurado",
       "invalid_credentials": "Credenciales incorrectas",
-      "invalid_cups": "CUPS inválido"
+      "invalid_cups": "CUPS inválido",
+      "no_supplies_found": "No se encontraron suministros en la cuenta proporcionada"
     },
     "step": {
       "user": {

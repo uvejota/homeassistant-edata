@@ -45,13 +45,15 @@
             "already_configured": "CUPS ja configurat",
             "unknown": "S'ha produït un error desconegut",
             "invalid_credentials": "Credencials incorrectes",
-            "invalid_cups": "CUPS incorrecte"
+            "invalid_cups": "CUPS incorrecte",
+            "no_supplies_found": "No es van trobar subministraments en el compte proporcionat"
         },
         "error": {
             "already_configured": "Aquest CUPS ja ha estat configurat",
             "unknown": "S'ha produït un error desconegut",
             "invalid_credentials": "Credencials incorrectes",
-            "invalid_cups": "CUPS incorrecte"
+            "invalid_cups": "CUPS incorrecte",
+            "no_supplies_found": "No es van trobar subministraments en el compte proporcionat"
         },
         "step": {
             "user": {

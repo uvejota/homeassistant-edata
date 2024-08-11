@@ -70,7 +70,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         migrate_pre2024_storage_if_needed(hass, self.cups, self.id)
 
         # Init shared data
-        hass.data[const.DOMAIN][self.id] = {}
+        hass.data[const.DOMAIN][self.id] = {const.CONF_CUPS: self.cups}
 
         # Instantiate the api helper
         self._edata = EdataHelper(

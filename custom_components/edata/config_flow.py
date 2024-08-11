@@ -31,6 +31,10 @@ class InvalidCredentials(HomeAssistantError):
     """Error to indicate credentials are invalid."""
 
 
+class NoSuppliesFound(HomeAssistantError):
+    """Error to indicate no supplies were found."""
+
+
 class InvalidCups(HomeAssistantError):
     """Error to indicate cups is invalid."""
 
@@ -39,8 +43,12 @@ def test_login(username, password, authorized_nif=None):
     """Test login synchronously."""
 
     api = DatadisConnector(username, password)
-    if (res := api.login()) is False:
-        return res
+
+    api._recent_queries = {}  # noqa: SLF001
+    api._recent_cache = {}  # noqa: SLF001
+
+    if api.login() is False:
+        return None
 
     return api.get_supplies(authorized_nif=authorized_nif)
 
@@ -49,9 +57,13 @@ def get_scups(hass: HomeAssistant, cups: str) -> str:
     """Calculate a non-colliding scups."""
 
     for i in range(4, len(cups)):
-        scups = cups[-i:].upper()
-        if hass.data.get(const.DOMAIN, {}).get(scups) is None:
+        scups = cups[-i:].lower()
+        found = hass.data.get(const.DOMAIN, {}).get(scups)
+        if found is None:
             break
+        elif found[const.CONF_CUPS] == cups.upper():  # noqa: RET508
+            raise AlreadyConfigured
+
     return scups
 
 
@@ -60,17 +72,25 @@ async def validate_step_user(
 ) -> dict[str, Any]:
     """Validate the user input from the 'step user'."""
 
+    if data.get(const.CONF_AUTHORIZEDNIF, None) == data[CONF_USERNAME]:
+        _LOGGER.warning(
+            "Ignoring authorized NIF since it is equal to the provided username"
+        )
+        data[const.CONF_AUTHORIZEDNIF] = None
+
     result = await hass.async_add_executor_job(
         test_login,
         data[CONF_USERNAME],
         data[CONF_PASSWORD],
-        data[const.CONF_AUTHORIZEDNIF],
+        data.get(const.CONF_AUTHORIZEDNIF, None),
     )
 
-    if not result:
+    if result is None:
         raise InvalidCredentials
 
-    # Return info that you want to store in the config entry.
+    if not result:
+        raise NoSuppliesFound
+
     return [x["cups"] for x in result]
 
 
@@ -119,11 +139,11 @@ async def simulate_last_month_billing(
     elements = len(proc.output["monthly"])
     if elements > 1:
         return proc.output["monthly"][-2]
-    elif elements == 1:
+    elif elements == 1:  # noqa: RET505
         return proc.output["monthly"][-1]
     else:
         _LOGGER.warning(
-            "Skipping simulation. This is the normal if you just changed billing to PVPC."
+            "Skipping simulation. This is the normal if you just changed billing to PVPC"
         )
         return None
 
@@ -153,6 +173,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
             self.inputs["cups_list"] = await validate_step_user(self.hass, user_input)
         except InvalidCredentials:
             errors["base"] = "invalid_credentials"
+        except NoSuppliesFound:
+            errors["base"] = "no_supplies_found"
         else:
             self.inputs.update(user_input)
             return await self.async_step_choosecups()
@@ -162,13 +184,23 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
         )
 
     async def async_step_choosecups(self, user_input=None) -> FlowResult:
-        """Manage the options."""
+        """Handle the 'choose cups' step."""
 
         if user_input is not None:
             self.inputs.update(user_input)
-            self.inputs[const.CONF_SCUPS] = get_scups(
-                self.hass, self.inputs[const.CONF_CUPS]
-            )
+            try:
+                self.inputs[const.CONF_SCUPS] = get_scups(
+                    self.hass, self.inputs[const.CONF_CUPS]
+                )
+            except AlreadyConfigured:
+                return self.async_show_form(
+                    step_id="choosecups",
+                    data_schema=vol.Schema(
+                        sch.STEP_CHOOSECUPS(self.inputs["cups_list"])
+                    ),
+                    errors={"base": "already_configured"},
+                )
+
             return self.async_create_entry(
                 title=self.inputs[const.CONF_SCUPS],
                 data={**self.inputs},

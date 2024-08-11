@@ -62,13 +62,15 @@
             "unknown": "Erro descoñecido",
             "already_configured": "Este CUPS xa está configurado",
             "invalid_credentials": "Credenciais incorrectas",
-            "invalid_cups": "CUPS incorrectos"
+            "invalid_cups": "CUPS incorrectos",
+            "no_supplies_found": "Non se atoparon subministracións na conta proporcionada"
         },
         "abort": {
             "unknown": "Erro descoñecido",
             "already_configured": "Este CUPS xa está configurado",
             "invalid_credentials": "Credenciais incorrectas",
-            "invalid_cups": "CUPS incorrectos"
+            "invalid_cups": "CUPS incorrectos",
+            "no_supplies_found": "Non se atoparon subministracións na conta proporcionada"
         }
     },
     "options": {
