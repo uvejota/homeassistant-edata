@@ -200,7 +200,7 @@ async def fetch_changes_from_stats(
         if not now_as_ref:
             ref = dt_util.as_local(
                 hass.data[const.DOMAIN][scups.lower()]["edata"]
-                .data.get("consumptions", [])[-1]["datetime"]
+                .data["consumptions"][-1]["datetime"]
                 .replace(hour=0, minute=0, second=0)
             )
     except Exception:

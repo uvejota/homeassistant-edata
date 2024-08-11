@@ -17,7 +17,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector as sel
 
-from . import const, utils
+from . import const
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +25,6 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_USERNAME): str,
         vol.Required(CONF_PASSWORD): str,
-        vol.Required(const.CONF_CUPS): str,
         vol.Optional(const.CONF_AUTHORIZEDNIF): str,
     }
 )
@@ -45,11 +44,24 @@ class InvalidCups(HomeAssistantError):
     """Error to indicate cups is invalid."""
 
 
-def test_login(username, password):
+def test_login(username, password, authorized_nif=None):
     """Test login synchronously."""
 
     api = DatadisConnector(username, password)
-    return api.login()
+    if (res := api.login()) is False:
+        return res
+
+    return api.get_supplies(authorized_nif=authorized_nif)
+
+
+def get_scups(hass: HomeAssistant, cups: str) -> str:
+    """Calculate a non-colliding scups."""
+
+    for i in range(4, len(cups)):
+        scups = cups[-i:].upper()
+        if hass.data.get(const.DOMAIN, {}).get(scups) is None:
+            break
+    return scups
 
 
 async def validate_step_user(
@@ -57,22 +69,18 @@ async def validate_step_user(
 ) -> dict[str, Any]:
     """Validate the user input from the 'step user'."""
 
-    if not utils.check_cups_integrity(data[const.CONF_CUPS]):
-        raise InvalidCups
-
-    for i in range(4, len(data[const.CONF_CUPS])):
-        scups = data[const.CONF_CUPS][-i:].upper()
-        if hass.data.get(const.DOMAIN, {}).get(scups) is None:
-            break
-
     result = await hass.async_add_executor_job(
-        test_login, data[CONF_USERNAME], data[CONF_PASSWORD]
+        test_login,
+        data[CONF_USERNAME],
+        data[CONF_PASSWORD],
+        data[const.CONF_AUTHORIZEDNIF],
     )
+
     if not result:
         raise InvalidCredentials
 
     # Return info that you want to store in the config entry.
-    return {"title": scups, "scups": scups}
+    return [x["cups"] for x in result]
 
 
 async def simulate_last_month_billing(
@@ -128,6 +136,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.inputs = {}
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -140,30 +152,40 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
         errors = {}
 
         try:
-            info = await validate_step_user(self.hass, user_input)
-            await self.async_set_unique_id(user_input[const.CONF_CUPS])
-            self._abort_if_unique_id_configured()
+            self.inputs["cups_list"] = await validate_step_user(self.hass, user_input)
         except InvalidCredentials:
             errors["base"] = "invalid_credentials"
-        except InvalidCups:
-            errors["base"] = "invalid_cups"
         else:
-            extra_data = {"scups": info["scups"]}
-            return self.async_create_entry(
-                title=info["title"], data={**user_input, **extra_data}
-            )
+            self.inputs.update(user_input)
+            return await self.async_step_choosecups()
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
 
-    async def async_step_import(self, import_data: dict[str, Any]) -> FlowResult:
-        """Import data from yaml config."""
-        await self.async_set_unique_id(import_data[const.CONF_CUPS])
-        self._abort_if_unique_id_configured()
-        scups = import_data[const.CONF_CUPS][-4:]
-        extra_data = {"scups": scups}
-        return self.async_create_entry(title=scups, data={**import_data, **extra_data})
+    async def async_step_choosecups(self, user_input=None) -> FlowResult:
+        """Manage the options."""
+
+        if user_input is not None:
+            self.inputs.update(user_input)
+            self.inputs[const.CONF_SCUPS] = get_scups(
+                self.hass, self.inputs[const.CONF_CUPS]
+            )
+            return self.async_create_entry(
+                title=self.inputs[const.CONF_SCUPS],
+                data={**self.inputs},
+            )
+
+        return self.async_show_form(
+            step_id="choosecups",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        const.CONF_CUPS,
+                    ): sel.SelectSelector({"options": self.inputs["cups_list"]}),
+                }
+            ),
+        )
 
     @staticmethod
     @callback
