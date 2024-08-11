@@ -53,13 +53,11 @@ Una vez satisfecho lo anterior, los pasos a seguir para la instalación son:
 
 ![Selección de edata](assets/install.png)
 
-4. Configurar sus credenciales de Datadis, indicando el NIF autorizado únicamente si no es el titular del suministro indicado. **Copie y pegue el CUPS** directamente desde la web de Datadis, en mayúscula. Algunas distribuidoras adhieren algunos caracteres adicionales.
+4. Configurar sus credenciales de Datadis, indicando el NIF autorizado _únicamente si no es el titular del suministro indicado_. A continuación se listará los suministros encontrados para las credenciales introducidas.
 
 ![Paso de configuración](assets/install-step1.png)
 
-> **IMPORTANTE:** El último campo (NIF autorizado) hay que dejarlo vacío si eres el titular del CUPS. Está pensado para poder ceder el acceso a tus datos a una tercera persona.
-
-5. Esperar unos minutos. Le aparecerá un nuevo sensor dispositivo, que consta de un sensor principal llamado `sensor.edata_xxxx` donde `xxxx` dependerá de los últimos caracteres de su CUPS, y de otros sensores con los datos.
+5. Esperar unos minutos. Le aparecerá un nuevo dispositivo, que consta de un sensor principal llamado `sensor.edata_xxxx` donde `xxxx` dependerá de los últimos caracteres de su CUPS, y de otros sensores con los datos.
 
 > **NOTA:** La instalación puede tardar bastante en su primera ejecución, ya que la integración "rescata" el último año de consumos desde Datadis, y ésta a veces puede tomarse su tiempo. Periódicamente, la integración solicitará únicamente lo que le falta, en intervalos de 24h.
 
