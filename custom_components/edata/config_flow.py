@@ -15,19 +15,10 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import selector as sel
 
-from . import const
+from . import const, schemas as sch
 
 _LOGGER = logging.getLogger(__name__)
-
-STEP_USER_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_USERNAME): str,
-        vol.Required(CONF_PASSWORD): str,
-        vol.Optional(const.CONF_AUTHORIZEDNIF): str,
-    }
-)
 
 J2_EXPR_TOKENS = ("{{ ", " }}")
 
@@ -125,10 +116,16 @@ async def simulate_last_month_billing(
         }
     )
 
-    try:
+    elements = len(proc.output["monthly"])
+    if elements > 1:
         return proc.output["monthly"][-2]
-    except Exception:
+    elif elements == 1:
         return proc.output["monthly"][-1]
+    else:
+        _LOGGER.warning(
+            "Skipping simulation. This is the normal if you just changed billing to PVPC."
+        )
+        return None
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
@@ -137,6 +134,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
     VERSION = 1
 
     def __init__(self) -> None:
+        """Initialize config flow."""
         super().__init__()
         self.inputs = {}
 
@@ -146,7 +144,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
         """Handle the initial step."""
         if user_input is None:
             return self.async_show_form(
-                step_id="user", data_schema=STEP_USER_DATA_SCHEMA
+                step_id="user", data_schema=vol.Schema(sch.STEP_USER)
             )
 
         errors = {}
@@ -160,7 +158,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
             return await self.async_step_choosecups()
 
         return self.async_show_form(
-            step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
+            step_id="user", data_schema=vol.Schema(sch.STEP_USER), errors=errors
         )
 
     async def async_step_choosecups(self, user_input=None) -> FlowResult:
@@ -178,13 +176,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
 
         return self.async_show_form(
             step_id="choosecups",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        const.CONF_CUPS,
-                    ): sel.SelectSelector({"options": self.inputs["cups_list"]}),
-                }
-            ),
+            data_schema=vol.Schema(sch.STEP_CHOOSECUPS(self.inputs["cups_list"])),
         )
 
     @staticmethod
@@ -218,24 +210,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        const.CONF_DEBUG,
-                        default=self.config_entry.options.get(const.CONF_DEBUG, False),
-                    ): bool,
-                    vol.Required(
-                        const.CONF_BILLING,
-                        default=self.config_entry.options.get(
-                            const.CONF_BILLING, False
-                        ),
-                    ): bool,
-                    vol.Required(
-                        const.CONF_PVPC,
-                        default=self.config_entry.options.get(const.CONF_PVPC, False),
-                    ): bool,
-                }
-            ),
+            data_schema=vol.Schema(sch.OPTIONS_STEP_INIT(self.config_entry.options)),
         )
 
     async def async_step_costs(self, user_input=None) -> FlowResult:
@@ -250,74 +225,13 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 self.inputs[key] = user_input[key]
             return await self.async_step_formulas()
 
-        base_schema = {
-            vol.Required(
-                const.PRICE_P1_KW_YEAR,
-                default=self.config_entry.options.get(
-                    const.PRICE_P1_KW_YEAR, const.DEFAULT_PRICE_P1_KW_YEAR
-                ),
-            ): vol.Coerce(float),
-            vol.Required(
-                const.PRICE_P2_KW_YEAR,
-                default=self.config_entry.options.get(
-                    const.PRICE_P2_KW_YEAR, const.DEFAULT_PRICE_P2_KW_YEAR
-                ),
-            ): vol.Coerce(float),
-            vol.Required(
-                const.PRICE_METER_MONTH,
-                default=self.config_entry.options.get(
-                    const.PRICE_METER_MONTH, const.DEFAULT_PRICE_METER_MONTH
-                ),
-            ): vol.Coerce(float),
-            vol.Required(
-                const.PRICE_ELECTRICITY_TAX,
-                default=self.config_entry.options.get(
-                    const.PRICE_ELECTRICITY_TAX,
-                    const.DEFAULT_PRICE_ELECTRICITY_TAX,
-                ),
-            ): vol.Coerce(float),
-            vol.Required(
-                const.PRICE_IVA_TAX,
-                default=self.config_entry.options.get(
-                    const.PRICE_IVA_TAX,
-                    const.DEFAULT_PRICE_IVA,
-                ),
-            ): vol.Coerce(float),
-        }
-
-        pvpc_schema = {
-            vol.Required(
-                const.PRICE_MARKET_KW_YEAR,
-                default=self.config_entry.options.get(
-                    const.PRICE_MARKET_KW_YEAR,
-                    const.DEFAULT_PRICE_MARKET_KW_YEAR,
-                ),
-            ): vol.Coerce(float),
-        }
-
-        nonpvpc_schema = {
-            vol.Required(
-                const.PRICE_P1_KWH,
-                default=self.config_entry.options.get(const.PRICE_P1_KWH, 0),
-            ): vol.Coerce(float),
-            vol.Required(
-                const.PRICE_P2_KWH,
-                default=self.config_entry.options.get(const.PRICE_P2_KWH, 0),
-            ): vol.Coerce(float),
-            vol.Required(
-                const.PRICE_P3_KWH,
-                default=self.config_entry.options.get(const.PRICE_P3_KWH, 0),
-            ): vol.Coerce(float),
-        }
-
-        if self.inputs[const.CONF_PVPC]:
-            schema = vol.Schema(base_schema).extend(pvpc_schema)
-        else:
-            schema = vol.Schema(base_schema).extend(nonpvpc_schema)
-
         return self.async_show_form(
             step_id="costs",
-            data_schema=schema,
+            data_schema=vol.Schema(
+                sch.OPTIONS_STEP_COSTS(
+                    self.inputs[const.CONF_PVPC], self.config_entry.options
+                )
+            ),
         )
 
     async def async_step_formulas(self, user_input=None) -> FlowResult:
@@ -339,73 +253,13 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             )
             return await self.async_step_confirm()
 
-        if self.inputs[const.CONF_PVPC]:
-            def_formulas = const.DEFAULT_PVPC_BILLING_FORMULAS
-        else:
-            def_formulas = const.DEFAULT_CUSTOM_BILLING_FORMULAS
-
-        if (
-            not self.config_entry.options.get(const.CONF_PVPC, False)
-            and self.inputs[const.CONF_PVPC]
-        ):
-            formulas_schema = vol.Schema(
-                {
-                    vol.Required(
-                        const.BILLING_ENERGY_FORMULA,
-                        default=J2_EXPR_TOKENS[0]
-                        + def_formulas[const.BILLING_ENERGY_FORMULA]
-                        + J2_EXPR_TOKENS[1],
-                    ): sel.TemplateSelector(),
-                    vol.Required(
-                        const.BILLING_POWER_FORMULA,
-                        default=J2_EXPR_TOKENS[0]
-                        + def_formulas[const.BILLING_POWER_FORMULA]
-                        + J2_EXPR_TOKENS[1],
-                    ): sel.TemplateSelector(),
-                    vol.Required(
-                        const.BILLING_OTHERS_FORMULA,
-                        default=J2_EXPR_TOKENS[0]
-                        + def_formulas[const.BILLING_OTHERS_FORMULA]
-                        + J2_EXPR_TOKENS[1],
-                    ): sel.TemplateSelector(),
-                }
-            )
-        else:
-            formulas_schema = vol.Schema(
-                {
-                    vol.Required(
-                        const.BILLING_ENERGY_FORMULA,
-                        default=J2_EXPR_TOKENS[0]
-                        + self.config_entry.options.get(
-                            const.BILLING_ENERGY_FORMULA,
-                            def_formulas[const.BILLING_ENERGY_FORMULA],
-                        )
-                        + J2_EXPR_TOKENS[1],
-                    ): sel.TemplateSelector(),
-                    vol.Required(
-                        const.BILLING_POWER_FORMULA,
-                        default=J2_EXPR_TOKENS[0]
-                        + self.config_entry.options.get(
-                            const.BILLING_POWER_FORMULA,
-                            def_formulas[const.BILLING_POWER_FORMULA],
-                        )
-                        + J2_EXPR_TOKENS[1],
-                    ): sel.TemplateSelector(),
-                    vol.Required(
-                        const.BILLING_OTHERS_FORMULA,
-                        default=J2_EXPR_TOKENS[0]
-                        + self.config_entry.options.get(
-                            const.BILLING_OTHERS_FORMULA,
-                            def_formulas[const.BILLING_OTHERS_FORMULA],
-                        )
-                        + J2_EXPR_TOKENS[1],
-                    ): sel.TemplateSelector(),
-                }
-            )
-
         return self.async_show_form(
             step_id="formulas",
-            data_schema=formulas_schema,
+            data_schema=vol.Schema(
+                sch.OPTIONS_STEP_FORMULAS(
+                    self.inputs[const.CONF_PVPC], self.config_entry.options
+                )
+            ),
         )
 
     async def async_step_confirm(self, user_input=None) -> FlowResult:
@@ -415,39 +269,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             self.inputs["update_billing_since"] = user_input["apply_from"]
             return self.async_create_entry(title="", data=self.inputs)
 
-        confirm_schema = vol.Schema(
-            {
-                vol.Required(
-                    "month",
-                    default=self.sim["datetime"].strftime("%m/%Y"),
-                ): str,
-                vol.Required(
-                    "value_eur",
-                    default=self.sim["value_eur"],
-                ): vol.Coerce(float),
-                vol.Required(
-                    "energy_term",
-                    default=self.sim["energy_term"],
-                ): vol.Coerce(float),
-                vol.Required(
-                    "power_term",
-                    default=self.sim["power_term"],
-                ): vol.Coerce(float),
-                vol.Required(
-                    "others_term",
-                    default=self.sim["others_term"],
-                ): vol.Coerce(float),
-                vol.Required(
-                    "apply_from",
-                ): sel.DateTimeSelector(),
-                vol.Required(
-                    "confirm",
-                    default=False,
-                ): bool,
-            }
-        )
-
         return self.async_show_form(
             step_id="confirm",
-            data_schema=confirm_schema,
+            data_schema=vol.Schema(sch.OPTIONS_STEP_CONFIRM(self.sim)),
         )

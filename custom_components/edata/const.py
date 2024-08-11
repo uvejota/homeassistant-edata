@@ -1,16 +1,7 @@
 """Constants definition."""
 
-from edata.definitions import (
-    DEFAULT_BILLING_ENERGY_FORMULA,
-    DEFAULT_BILLING_OTHERS_FORMULA,
-    DEFAULT_BILLING_POWER_FORMULA,
-    DEFAULT_BILLING_SURPLUS_FORMULA,
-)
-
 DOMAIN = "edata"
 STORAGE_KEY_PREAMBLE = f"{DOMAIN}.storage"
-STORAGE_VERSION = 1
-STORAGE_ELEMENTS = ["supplies", "contracts"]
 
 STATE_LOADING = "loading"
 STATE_ERROR = "error"
@@ -19,8 +10,6 @@ STATE_READY = "ready"
 # Custom configuration entries
 CONF_CUPS = "cups"
 CONF_SCUPS = "scups"
-CONF_PROVIDER = "provider"
-CONF_EXPERIMENTAL = "experimental"
 CONF_DEBUG = "debug"
 CONF_BILLING = "billing"
 CONF_PVPC = "pvpc"
@@ -28,6 +17,13 @@ CONF_SURPLUS = "surplus"
 CONF_CYCLE_START_DAY = "cycle_start_day"
 CONF_WIPE = "wipe_data"
 CONF_AUTHORIZEDNIF = "authorized_nif"
+CONF_APPLYFROM = "apply_from"
+CONF_CONFIRM = "confirm"
+CONF_MONTH = "month"
+CONF_VALUE_EUR = "value_eur"
+CONF_ENERGY_TERM = "energy_term"
+CONF_POWER_TERM = "power_term"
+CONF_OTHERS_TERM = "others_term"
 
 # pricing settings
 PRICE_P1_KW_YEAR = "p1_kw_year_eur"
