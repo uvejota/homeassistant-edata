@@ -42,6 +42,8 @@ const LABELS_BY_LOCALE = {
     aggr: "Agregación (no aplica en resúmenes)",
     records: "Registros (no aplica en resúmenes)",
     total: "Total",
+    date: "Fecha",
+    cost: "Coste",
   },
   ca: {
     p1: "Punta",
@@ -55,6 +57,8 @@ const LABELS_BY_LOCALE = {
     aggr: "Agrupació (no aplica en resums)",
     records: "Registres (no aplica en resums)",
     total: "Total",
+    date: "Data",
+    cost: "Cost",
   },
   gl: {
     p1: "Punta",
@@ -68,6 +72,8 @@ const LABELS_BY_LOCALE = {
     aggr: "Agrupación (non aplica en resumos)",
     records: "Rexistros (non aplica en resumos)",
     total: "Total",
+    date: "Data",
+    cost: "Custo",
   },
   en: {
     p1: "Peak",
@@ -81,10 +87,12 @@ const LABELS_BY_LOCALE = {
     aggr: "Aggregation (not applicable in summaries)",
     records: "Records (not applicable in summaries)",
     total: "Total",
+    date: "Date",
+    cost: "Cost",
   },
 };
 
-const locale = navigator.languages
+let locale = navigator.languages
   ? navigator.languages[0]
   : navigator.language || navigator.userLanguage;
 
@@ -185,6 +193,9 @@ class EdataCard extends LitElement {
         mode: "dark",
       };
     }
+
+    // Override locale
+    locale = hass.locale["language"];
   }
 
   render() {
@@ -476,18 +487,18 @@ class EdataCard extends LitElement {
 
     this._top_left_value = p1 + p2 + p3;
     this._top_left_unit = DEF_ENERGY_UNIT;
-    this._top_left_title = "Total";
+    this._top_left_title = getLabel("total");
     this._bottom_right_unit = "";
-    this._bottom_right_title = "Fecha";
+    this._bottom_right_title = getLabel("date");
 
     if (surplus) {
-      this._bottom_left_title = "Retorno";
+      this._bottom_left_title = getLabel("surplus");
       this._bottom_left_value = surplus;
       this._bottom_left_unit = DEF_ENERGY_UNIT;
     }
 
     if (cost) {
-      this._top_right_title = "Coste";
+      this._top_right_title = getLabel("cost");
       this._top_right_value = cost;
       this._top_right_unit = DEF_COST_UNIT;
     }
