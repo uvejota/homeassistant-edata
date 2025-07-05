@@ -65,7 +65,7 @@ async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
 
     Original author: AlexxIT/go2rtc HA integration.
     """
-    resources: ResourceStorageCollection = hass.data["lovelace"]["resources"]
+    resources: ResourceStorageCollection = hass.data["lovelace"].resources
     # force load storage
     await resources.async_get_info()
 
