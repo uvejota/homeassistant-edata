@@ -2,7 +2,7 @@ import {
   LitElement,
   html,
 } from "https://cdn.jsdelivr.net/npm/lit-element@4.1.1/+esm";
-import "https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.45.1/apexcharts.min.js?module";
+import "https://cdnjs.cloudflare.com/ajax/libs/apexcharts/5.3.3/apexcharts.min.js?module";
 import tinycolor from "https://esm.sh/tinycolor2";
 // Set program constants and definitions
 const PROG_NAME = "edata-card";
