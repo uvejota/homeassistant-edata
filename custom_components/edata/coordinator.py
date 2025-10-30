@@ -433,7 +433,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             to_clear = [x for x in to_clear if x in self._corrupt_stats]
 
         if len(to_clear) == 0:
-            _LOGGER.warning("%s: there are no corrupt statistics")
+            _LOGGER.warning("%s: there are no corrupt statistics", to_clear)
             return
 
         if include_only is not None:
