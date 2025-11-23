@@ -3,6 +3,9 @@ name: Release
 on:
   release:
     types: [published]
+  push:
+    branches:
+      - dev
 
 jobs:
   release:
@@ -25,3 +28,26 @@ jobs:
           asset_name: homeassistant-edata.zip
           tag: ${{ github.ref }}
           overwrite: true
+
+  rolling-release:
+    if: github.ref == 'refs/heads/dev'
+    name: Rolling Release (dev)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Create zip
+        run: |
+          cd custom_components/edata
+          zip ../../homeassistant-edata.zip -r ./
+
+      - name: Create/Update dev release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev
+          name: Rolling Release (dev)
+          files: homeassistant-edata.zip
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
