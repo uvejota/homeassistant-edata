@@ -19,7 +19,7 @@
       "yesterday_kwh": {
         "name": "Consum d'ahir"
       },
-      "last_registered_day_kwh": {
+      "last_day_kwh": {
         "name": "Últim consum registrat"
       },
       "month_surplus_kwh": {
@@ -31,7 +31,7 @@
       "yesterday_surplus_kwh": {
         "name": "Excés d'ahir"
       },
-      "last_registered_day_surplus_kwh": {
+      "last_day_surplus_kwh": {
         "name": "Últim excés registrat"
       },
       "max_power_kw": {

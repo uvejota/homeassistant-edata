@@ -5,14 +5,25 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, EVENT_HOMEASSISTANT_START
-from homeassistant.core import CoreState, HomeAssistant, callback
-from homeassistant.helpers.typing import ConfigType
-from homeassistant.util import dt as dt_util
+from edata.models.bill import BillingRules, PVPCBillingRules
 
-from . import const, utils
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EVENT_HOMEASSISTANT_START
+from homeassistant.core import CoreState, HomeAssistant
+from homeassistant.helpers.typing import ConfigType
+
+from . import const
 from .coordinator import EdataCoordinator
+from .core.config import (
+    CONF_AUTHORIZED_NIF,
+    CONF_CUPS,
+    CONF_PASSWORD,
+    CONF_SCUPS,
+    CONF_USERNAME,
+)
+from .core.lovelace import init_resource, register_static_path
+from .core.options import CONF_BILLING, CONF_DEBUG, CONF_PVPC
+from .core.utils import get_shared_memory
 from .websockets import async_register_websockets
 
 PLATFORMS: list[str] = ["button", "sensor"]
@@ -24,9 +35,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType):
 
     path = Path(__file__).parent / "www"
     name = "edata-card.js"
-    utils.register_static_path(hass.http.app, "/edata/" + name, path / name)
+    register_static_path(hass.http.app, "/edata/" + name, path / name)
     version = getattr(hass.data["integrations"][const.DOMAIN], "version", 0)
-    await utils.init_resource(hass, "/edata/edata-card.js", str(version))
+    await init_resource(hass, "/edata/edata-card.js", str(version))
     return True
 
 
@@ -41,63 +52,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(const.DOMAIN, {})
 
     # get configured parameters
-    usr = entry.data[CONF_USERNAME]
-    pwd = entry.data[CONF_PASSWORD]
-    cups = entry.data[const.CONF_CUPS]
-    authorized_nif = entry.data.get(const.CONF_AUTHORIZEDNIF, None)
-    scups = entry.data[const.CONF_SCUPS]
-    billing_enabled = entry.options.get(const.CONF_BILLING, False)
+    is_pvpc = entry.options.get(CONF_PVPC, False)
+    is_billing = entry.options.get(CONF_BILLING, False)
 
-    if entry.options.get(const.CONF_DEBUG, False):
+    if entry.options.get(CONF_DEBUG, False):
         logging.getLogger("edata").setLevel(logging.INFO)
         # _LOGGER.setLevel(logging.DEBUG)
     else:
         logging.getLogger("edata").setLevel(logging.WARNING)
 
-    if billing_enabled:
-        pricing_rules = {
-            const.PRICE_ELECTRICITY_TAX: const.DEFAULT_PRICE_ELECTRICITY_TAX,
-            const.PRICE_IVA_TAX: const.DEFAULT_PRICE_IVA,
-        }
-        pricing_rules.update(
-            {
-                x: entry.options[x]
-                for x in entry.options
-                if x
-                in (
-                    const.CONF_CYCLE_START_DAY,
-                    const.PRICE_P1_KW_YEAR,
-                    const.PRICE_P2_KW_YEAR,
-                    const.PRICE_P1_KWH,
-                    const.PRICE_P2_KWH,
-                    const.PRICE_P3_KWH,
-                    const.PRICE_METER_MONTH,
-                    const.PRICE_MARKET_KW_YEAR,
-                    const.PRICE_ELECTRICITY_TAX,
-                    const.PRICE_IVA_TAX,
-                    const.BILLING_ENERGY_FORMULA,
-                    const.BILLING_POWER_FORMULA,
-                    const.BILLING_OTHERS_FORMULA,
-                    const.BILLING_SURPLUS_FORMULA,
-                )
-            }
-        )
-    else:
-        pricing_rules = None
+    billing_rules = None
+    if is_billing and is_pvpc:
+        billing_rules = PVPCBillingRules(**entry.options.copy())
+    elif is_billing:
+        billing_rules = BillingRules(**entry.options.copy())
 
-    coordinator = await EdataCoordinator.async_setup(
+    coordinator = EdataCoordinator(
         hass,
-        usr,
-        pwd,
-        cups,
-        scups,
-        authorized_nif,
-        pricing_rules,
+        entry.data[CONF_USERNAME],
+        entry.data[CONF_PASSWORD],
+        entry.data[CONF_CUPS],
+        entry.data[CONF_SCUPS],
+        entry.data.get(CONF_AUTHORIZED_NIF),
+        billing_rules,
     )
-    hass.data[const.DOMAIN][scups.lower()]["coordinator"] = coordinator
+    shared = get_shared_memory(hass, entry.data[CONF_SCUPS])
+    shared["coordinator"] = coordinator
 
     # postpone first refresh to speed up startup
-    @callback
     async def async_first_refresh(*args):
         """Force the component to assess the first refresh."""
         hass.async_create_task(coordinator.async_refresh())
@@ -134,12 +116,22 @@ async def async_remove_entry(hass: HomeAssistant, entry) -> None:
 async def options_update_listener(hass: HomeAssistant, entry: ConfigEntry):
     """Handle options update."""
 
-    scups = entry.data[const.CONF_SCUPS]
+    scups = entry.data[CONF_SCUPS]
     _LOGGER.debug("%s: options changed", scups)
+    # TODO reload entry
+    """
     data = hass.data[const.DOMAIN][scups.lower()]
     coor: EdataCoordinator = data["coordinator"]
 
-    await coor.update_billing(
-        entry.options,
-        dt_util.as_local(dt_util.parse_datetime(entry.options["update_billing_since"])),
-    )
+    # Convertir MappingProxyType a dict regular
+    options_dict = dict(entry.options)
+
+    # Parsear fecha si existe
+    since = None
+    if "update_billing_since" in options_dict:
+        parsed_dt = dt_util.parse_datetime(options_dict["update_billing_since"])
+        if parsed_dt:
+            since = dt_util.as_local(parsed_dt)
+
+    await coor.update_billing(options_dict, since)
+    """

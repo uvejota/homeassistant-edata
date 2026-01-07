@@ -1,59 +1,32 @@
 """Configuration Flow (GUI)."""
 
-from __future__ import annotations
-
 import logging
+import tempfile
 from typing import Any
 
-import voluptuous as vol
+from edata.providers.datadis import DatadisConnector
 
-from edata.connectors.datadis import DatadisConnector
-from edata.definitions import PricingRules
-from edata.processors.billing import BillingProcessor
 from homeassistant import config_entries
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.data_entry_flow import FlowResult
-from homeassistant.exceptions import HomeAssistantError
 
-from . import const, schemas as sch
+from . import const
+from .core.config import (
+    CONF_AUTHORIZED_NIF,
+    CONF_CUPS,
+    CONF_PASSWORD,
+    CONF_SCUPS,
+    CONF_USERNAME,
+    step_choose_cups,
+    step_user,
+)
+from .core.options import CONF_BILLING, CONF_PVPC, step_costs, step_formulas, step_init
 
 _LOGGER = logging.getLogger(__name__)
 
 J2_EXPR_TOKENS = ("{{ ", " }}")
 
 
-class AlreadyConfigured(HomeAssistantError):
-    """Error to indicate CUPS is already configured."""
-
-
-class InvalidCredentials(HomeAssistantError):
-    """Error to indicate credentials are invalid."""
-
-
-class NoSuppliesFound(HomeAssistantError):
-    """Error to indicate no supplies were found."""
-
-
-class InvalidCups(HomeAssistantError):
-    """Error to indicate cups is invalid."""
-
-
-async def test_login(username, password, authorized_nif=None):
-    """Test login asynchronously."""
-
-    api = DatadisConnector(username, password)
-
-    api._recent_queries = {}  # noqa: SLF001
-    api._recent_cache = {}  # noqa: SLF001
-
-    if await api._async_get_token() is False:
-        return None
-
-    return await api.async_get_supplies(authorized_nif=authorized_nif)
-
-
-def get_scups(hass: HomeAssistant, cups: str) -> str:
+def get_scups(hass: HomeAssistant, cups: str) -> None | str:
     """Calculate a non-colliding scups."""
 
     for i in range(4, len(cups)):
@@ -61,90 +34,23 @@ def get_scups(hass: HomeAssistant, cups: str) -> str:
         found = hass.data.get(const.DOMAIN, {}).get(scups)
         if found is None:
             break
-        elif found[const.CONF_CUPS] == cups.upper():  # noqa: RET508
-            raise AlreadyConfigured
+        elif found[CONF_CUPS] == cups.upper():  # noqa: RET508
+            return None
 
     return scups
 
 
-async def validate_step_user(
-    hass: HomeAssistant, data: dict[str, Any]
-) -> dict[str, Any]:
-    """Validate the user input from the 'step user'."""
-
-    if data.get(const.CONF_AUTHORIZEDNIF, None) == data[CONF_USERNAME]:
-        _LOGGER.warning(
-            "Ignoring authorized NIF since it is equal to the provided username"
-        )
-        data[const.CONF_AUTHORIZEDNIF] = None
-
-    result = await test_login(
-        data[CONF_USERNAME],
-        data[CONF_PASSWORD],
-        data.get(const.CONF_AUTHORIZEDNIF, None),
-    )
-
-    if result is None:
-        raise InvalidCredentials
-
-    if not result:
-        raise NoSuppliesFound
-
-    return [x["cups"] for x in result]
-
-
 async def simulate_last_month_billing(
     hass: HomeAssistant, config_entry: config_entries.ConfigEntry, data: dict[str, Any]
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
     """Validate the user input from the 'step formulas'."""
 
-    coordinator_id = config_entry.data["scups"].lower()
-    pricing_rules = PricingRules(
-        {
-            x: data[x]
-            for x in data
-            if x
-            in (
-                const.CONF_CYCLE_START_DAY,
-                const.PRICE_P1_KW_YEAR,
-                const.PRICE_P2_KW_YEAR,
-                const.PRICE_P1_KWH,
-                const.PRICE_P2_KWH,
-                const.PRICE_P3_KWH,
-                const.PRICE_METER_MONTH,
-                const.PRICE_MARKET_KW_YEAR,
-                const.PRICE_ELECTRICITY_TAX,
-                const.PRICE_IVA_TAX,
-                const.BILLING_ENERGY_FORMULA,
-                const.BILLING_POWER_FORMULA,
-                const.BILLING_OTHERS_FORMULA,
-                const.BILLING_SURPLUS_FORMULA,
-            )
-        }
+    # TODO: Implement simulation once edata package supports it
+    # For now, skip simulation and continue with configuration
+    _LOGGER.warning(
+        "Billing simulation not yet implemented with new API, skipping simulation"
     )
-    proc = BillingProcessor(
-        {
-            "consumptions": hass.data[const.DOMAIN][coordinator_id]["edata"].data[
-                "consumptions"
-            ],
-            "contracts": hass.data[const.DOMAIN][coordinator_id]["edata"].data[
-                "contracts"
-            ],
-            "prices": hass.data[const.DOMAIN][coordinator_id]["edata"].data["pvpc"],
-            "rules": pricing_rules,
-        }
-    )
-
-    elements = len(proc.output["monthly"])
-    if elements > 1:
-        return proc.output["monthly"][-2]
-    elif elements == 1:  # noqa: RET505
-        return proc.output["monthly"][-1]
-    else:
-        _LOGGER.warning(
-            "Skipping simulation. This is the normal if you just changed billing to PVPC"
-        )
-        return None
+    return None
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
@@ -155,68 +61,75 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
     def __init__(self) -> None:
         """Initialize config flow."""
         super().__init__()
-        self.inputs = {}
+        self.user_input = {}
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Handle the initial step."""
-        if user_input is None:
-            return self.async_show_form(
-                step_id="user", data_schema=vol.Schema(sch.STEP_USER)
-            )
-
+    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+        """Handle the credentials check step."""
         errors = {}
 
-        try:
-            self.inputs["cups_list"] = await validate_step_user(self.hass, user_input)
-        except InvalidCredentials:
+        if user_input is None:
+            return self.async_show_form(step_id="user", data_schema=step_user())
+
+        if user_input.get(CONF_AUTHORIZED_NIF, None) == user_input[CONF_USERNAME]:
+            _LOGGER.warning(
+                "Ignoring authorized NIF since it is equal to the provided username"
+            )
+            user_input[CONF_AUTHORIZED_NIF] = None
+
+        api = DatadisConnector(
+            user_input[CONF_USERNAME],
+            user_input[CONF_PASSWORD],
+            storage_path=tempfile.gettempdir(),
+        )
+        supplies = await api.async_get_supplies(
+            authorized_nif=user_input.get(CONF_AUTHORIZED_NIF)
+        )
+        if supplies is None:
             errors["base"] = "invalid_credentials"
-        except NoSuppliesFound:
+        if not supplies:
             errors["base"] = "no_supplies_found"
-        except Exception as e:
-            _LOGGER.exception(e)
-        else:
-            self.inputs.update(user_input)
+        self.user_input["cups_list"] = [x.cups for x in supplies]
+
+        if not errors:
+            self.user_input.update(user_input)
             return await self.async_step_choosecups()
 
         return self.async_show_form(
-            step_id="user", data_schema=vol.Schema(sch.STEP_USER), errors=errors
+            step_id="user", data_schema=step_user(), errors=errors
         )
 
-    async def async_step_choosecups(self, user_input=None) -> FlowResult:
+    async def async_step_choosecups(self, user_input=None):
         """Handle the 'choose cups' step."""
+        errors = {}
 
-        if user_input is not None:
-            self.inputs.update(user_input)
-            try:
-                self.inputs[const.CONF_SCUPS] = get_scups(
-                    self.hass, self.inputs[const.CONF_CUPS]
-                )
-            except AlreadyConfigured:
-                return self.async_show_form(
-                    step_id="choosecups",
-                    data_schema=vol.Schema(
-                        sch.STEP_CHOOSECUPS(self.inputs["cups_list"])
-                    ),
-                    errors={"base": "already_configured"},
-                )
-            except Exception as e:
-                _LOGGER.exception(e)
+        if user_input is None:
+            return self.async_show_form(
+                step_id="choosecups",
+                data_schema=step_choose_cups(self.user_input["cups_list"]),
+            )
 
+        self.user_input.update(user_input)
+        scups = get_scups(self.hass, self.user_input[CONF_CUPS])
+
+        if scups is None:
+            errors.update({"base": "already_configured"})
+
+        if not errors:
+            self.user_input[CONF_SCUPS] = scups
             return self.async_create_entry(
-                title=self.inputs[const.CONF_SCUPS],
-                data={**self.inputs},
+                title=self.user_input[CONF_SCUPS],
+                data={**self.user_input},
             )
 
         return self.async_show_form(
             step_id="choosecups",
-            data_schema=vol.Schema(sch.STEP_CHOOSECUPS(self.inputs["cups_list"])),
+            data_schema=step_choose_cups(self.user_input["cups_list"]),
+            errors=errors,
         )
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry) -> OptionsFlowHandler:
+    def async_get_options_flow(config_entry):
         """Return the options flow handler."""
         return OptionsFlowHandler()
 
@@ -227,96 +140,58 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self) -> None:
         """Initialize options flow."""
         super().__init__()
-        self.inputs = {}
-        self.sim = {}
+        self.user_input = {}
 
-    async def async_step_init(self, user_input=None) -> FlowResult:
+    async def async_step_init(self, user_input=None):
         """Manage the options."""
 
-        if user_input is not None:
-            user_input[const.CONF_SURPLUS] = False
-            if not user_input[const.CONF_BILLING]:
-                return self.async_create_entry(
-                    title="",
-                    data=user_input,
-                )
-            self.inputs = user_input
-            try:
-                return await self.async_step_costs()
-            except Exception as e:
-                _LOGGER.exception(e)
-
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema(sch.OPTIONS_STEP_INIT(self.config_entry.options)),
-        )
-
-    async def async_step_costs(self, user_input=None) -> FlowResult:
-        """Manage the options."""
-
-        if user_input is not None:
-            if const.PRICE_MARKET_KW_YEAR not in user_input:
-                user_input[const.PRICE_MARKET_KW_YEAR] = (
-                    const.DEFAULT_PRICE_MARKET_KW_YEAR
-                )
-            for key in user_input:
-                self.inputs[key] = user_input[key]
-
-            try:
-                return await self.async_step_formulas()
-            except Exception as e:
-                _LOGGER.exception(e)
-
-        return self.async_show_form(
-            step_id="costs",
-            data_schema=vol.Schema(
-                sch.OPTIONS_STEP_COSTS(
-                    self.inputs[const.CONF_PVPC], self.config_entry.options
-                )
-            ),
-        )
-
-    async def async_step_formulas(self, user_input=None) -> FlowResult:
-        """Manage the options."""
-
-        if user_input is not None:
-            if const.BILLING_SURPLUS_FORMULA not in user_input:
-                user_input[const.BILLING_SURPLUS_FORMULA] = "0"
-
-            for key in user_input:
-                self.inputs[key] = (
-                    user_input[key]
-                    .replace(J2_EXPR_TOKENS[0].strip(), "")
-                    .replace(J2_EXPR_TOKENS[1].strip(), "")
-                    .strip()
-                )
-            self.sim = await simulate_last_month_billing(
-                self.hass, self.config_entry, self.inputs
-            )
-            try:
-                return await self.async_step_confirm()
-            except Exception as e:
-                _LOGGER.exception(e)
-
-        return self.async_show_form(
-            step_id="formulas",
-            data_schema=vol.Schema(
-                sch.OPTIONS_STEP_FORMULAS(
-                    self.inputs[const.CONF_PVPC], self.config_entry.options
-                )
-            ),
-        )
-
-    async def async_step_confirm(self, user_input=None) -> FlowResult:
-        """Manage the options."""
-
-        if user_input is not None and user_input["confirm"]:
-            self.inputs["update_billing_since"] = user_input["apply_from"]
-            return self.async_create_entry(title="", data=self.inputs)
-        try:
+        if user_input is None:
             return self.async_show_form(
-                step_id="confirm",
-                data_schema=vol.Schema(sch.OPTIONS_STEP_CONFIRM(self.sim)),
+                step_id="init",
+                data_schema=step_init(prev_options=self.config_entry.options.copy()),
             )
-        except Exception as e:
-            _LOGGER.exception(e)
+
+        if not user_input[CONF_BILLING]:
+            return self.async_create_entry(
+                data=user_input,
+            )
+
+        self.user_input = user_input
+        return await self.async_step_costs()
+
+    async def async_step_costs(self, user_input=None):
+        """Manage the options."""
+
+        if user_input is None:
+            return self.async_show_form(
+                step_id="costs",
+                data_schema=step_costs(
+                    self.user_input[CONF_PVPC], self.config_entry.options.copy()
+                ),
+            )
+
+        for key in user_input:
+            self.user_input[key] = user_input[key]
+
+        return await self.async_step_formulas()
+
+    async def async_step_formulas(self, user_input=None):
+        """Manage the options."""
+
+        if user_input is None:
+            return self.async_show_form(
+                step_id="formulas",
+                data_schema=step_formulas(
+                    self.user_input[CONF_PVPC], self.config_entry.options.copy()
+                ),
+            )
+
+        for key in user_input:
+            self.user_input[key] = (
+                user_input[key]
+                .replace(J2_EXPR_TOKENS[0].strip(), "")
+                .replace(J2_EXPR_TOKENS[1].strip(), "")
+                .strip()
+            )
+
+        return self.async_create_entry(data=self.user_input)

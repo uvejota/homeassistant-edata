@@ -19,7 +19,7 @@
       "yesterday_kwh": {
         "name": "Consumo de onte"
       },
-      "last_registered_day_kwh": {
+      "last_day_kwh": {
         "name": "Último consumo rexistrado"
       },
       "month_surplus_kwh": {
@@ -31,7 +31,7 @@
       "yesterday_surplus_kwh": {
         "name": "Excedente de onte"
       },
-      "last_registered_day_surplus_kwh": {
+      "last_day_surplus_kwh": {
         "name": "Último excedente rexistrado"
       },
       "max_power_kw": {

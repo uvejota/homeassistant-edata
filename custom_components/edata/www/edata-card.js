@@ -16,7 +16,7 @@ const VALID_CHART_TEMPLATES = [
   "summary-month",
 ];
 const DEF_CHART_TEMPLATE = "";
-const VALID_AGGR_PERIODS = ["year", "month", "week", "day", "hour"];
+const VALID_AGGR_PERIODS = ["month", "day", "hour"];
 const DEF_AGGR_PERIOD = "month";
 const DEF_RECORDS_FOR_METHOD = {
   year: 3,
@@ -452,14 +452,14 @@ class EdataCard extends LitElement {
     var p3 = undefined;
     var surplus = undefined;
     var cost = undefined;
-    var date = new Date(summary["last_registered_date"]);
+    var date = new Date(summary["last_datetime"]);
 
     switch (preset) {
       case "last-day":
-        p1 = summary["last_registered_day_p1_kWh"];
-        p2 = summary["last_registered_day_p2_kWh"];
-        p3 = summary["last_registered_day_p3_kWh"];
-        surplus = summary["last_registered_day_surplus_kWh"];
+        p1 = summary["last_day_value_p1_kWh"];
+        p2 = summary["last_day_value_p2_kWh"];
+        p3 = summary["last_day_value_p3_kWh"];
+        surplus = summary["last_day_surplus_kWh"];
         this._bottom_right_value =
           date.getDate() +
           "/" +
@@ -468,9 +468,9 @@ class EdataCard extends LitElement {
           date.getFullYear();
         break;
       case "last-month":
-        p1 = summary["last_month_p1_kWh"];
-        p2 = summary["last_month_p2_kWh"];
-        p3 = summary["last_month_p3_kWh"];
+        p1 = summary["last_month_value_p1_kWh"];
+        p2 = summary["last_month_value_p2_kWh"];
+        p3 = summary["last_month_value_p3_kWh"];
         surplus = summary["last_month_surplus_kWh"];
         cost = summary["last_month_€"];
         date.setDate(0);
@@ -478,9 +478,9 @@ class EdataCard extends LitElement {
           date.getMonth() + 1 + "/" + date.getFullYear();
         break;
       case "month":
-        p1 = summary["month_p1_kWh"];
-        p2 = summary["month_p2_kWh"];
-        p3 = summary["month_p3_kWh"];
+        p1 = summary["month_value_p1_kWh"];
+        p2 = summary["month_value_p2_kWh"];
+        p3 = summary["month_value_p3_kWh"];
         surplus = summary["month_surplus_kWh"];
         cost = summary["month_€"];
         this._bottom_right_value =
