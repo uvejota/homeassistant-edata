@@ -66,7 +66,7 @@ async def get_recent_consumptions(
     if aggr == "hour":
         energy_data = await data_manager.get_energy(start=start_date, end=ref_date)
         result = [
-            (energy.datetime.timestamp(), energy.consumption_kwh)
+            (energy.datetime.timestamp() * 1000, energy.consumption_kwh)
             for energy in energy_data
             if tariff is None or get_tariff(energy.datetime) == tariff
         ]
@@ -81,7 +81,7 @@ async def get_recent_consumptions(
 
     result = []
     for stat in stats:
-        timestamp = stat.datetime.timestamp()
+        timestamp = stat.datetime.timestamp() * 1000
         # Extract value based on tariff period
         if tariff == 1:
             value = stat.consumption_p1_kwh
@@ -118,7 +118,7 @@ async def get_recent_surplus(
     if aggr == "hour":
         energy_data = await data_manager.get_energy(start=start_date, end=ref_date)
         result = [
-            (energy.datetime.timestamp(), energy.surplus_kwh)
+            (energy.datetime.timestamp() * 1000, energy.surplus_kwh)
             for energy in energy_data
             if tariff is None or get_tariff(energy.datetime) == tariff
         ]
@@ -133,7 +133,7 @@ async def get_recent_surplus(
 
     result = []
     for stat in stats:
-        timestamp = stat.datetime.timestamp()
+        timestamp = stat.datetime.timestamp() * 1000
         # Extract surplus value based on tariff period
         if tariff == 1:
             value = stat.surplus_p1_kwh
@@ -176,7 +176,7 @@ async def get_recent_bills(
             end=ref_date,
         )
 
-    result = [(bill.datetime.timestamp(), bill.value_eur) for bill in bills]
+    result = [(bill.datetime.timestamp() * 1000, bill.value_eur) for bill in bills]
 
     return _sort_and_limit_results(result, records)
 
@@ -201,7 +201,7 @@ async def get_recent_maximeter(
     power_data = await data_manager.get_power(start=start_date, end=ref_date)
 
     result = [
-        (power.datetime.timestamp(), power.value_kw)
+        (power.datetime.timestamp() * 1000, power.value_kw)
         for power in power_data
         if tariff is None or get_tariff(power.datetime) == tariff
     ]
