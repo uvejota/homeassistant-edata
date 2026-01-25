@@ -146,9 +146,15 @@ class EdataCoordinator(DataUpdateCoordinator):
         power = await self._data_manager.get_power(start=a_year_ago)
         attrs.update(
             {
-                "max_power_kw": max(power, key=lambda x: x.value_kw).value_kw,
-                "max_power_datetime": max(power, key=lambda x: x.value_kw).datetime,
-                "max_power_mean_kw": sum(p.value_kw for p in power) / len(power),
+                "max_power_kw": max(power, key=lambda x: x.value_kw).value_kw
+                if power
+                else None,
+                "max_power_datetime": max(power, key=lambda x: x.value_kw).datetime
+                if power
+                else None,
+                "max_power_mean_kw": sum(p.value_kw for p in power) / len(power)
+                if power
+                else None,
             }
         )
 
