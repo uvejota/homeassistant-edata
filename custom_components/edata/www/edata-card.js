@@ -451,12 +451,13 @@ class EdataCard extends LitElement {
     var surplus = undefined;
     var cost = undefined;
     var date = new Date(summary["last_datetime"]);
+    console.log(summary);
 
     switch (preset) {
       case "last-day":
-        p1 = summary["last_day_consumption_p1_kwh"];
-        p2 = summary["last_day_consumption_p2_kwh"];
-        p3 = summary["last_day_consumption_p3_kwh"];
+        p1 = summary["last_day_consumption_by_tariff"][0];
+        p2 = summary["last_day_consumption_by_tariff"][1];
+        p3 = summary["last_day_consumption_by_tariff"][2];
         surplus = summary["last_day_surplus_kwh"];
         this._bottom_right_value =
           date.getDate() +
@@ -466,21 +467,21 @@ class EdataCard extends LitElement {
           date.getFullYear();
         break;
       case "last-month":
-        p1 = summary["last_month_consumption_p1_kwh"];
-        p2 = summary["last_month_consumption_p2_kwh"];
-        p3 = summary["last_month_consumption_p3_kwh"];
+        p1 = summary["last_month_consumption_by_tariff"][0];
+        p2 = summary["last_month_consumption_by_tariff"][1];
+        p3 = summary["last_month_consumption_by_tariff"][2];
         surplus = summary["last_month_surplus_kwh"];
-        cost = summary["last_month_€"];
+        cost = summary["last_month_bill_value_eur"];
         date.setDate(0);
         this._bottom_right_value =
           date.getMonth() + 1 + "/" + date.getFullYear();
         break;
       case "month":
-        p1 = summary["month_consumption_p1_kwh"];
-        p2 = summary["month_consumption_p2_kwh"];
-        p3 = summary["month_consumption_p3_kwh"];
+        p1 = summary["month_consumption_by_tariff"][0];
+        p2 = summary["month_consumption_by_tariff"][1];
+        p3 = summary["month_consumption_by_tariff"][2];
         surplus = summary["month_surplus_kwh"];
-        cost = summary["month_€"];
+        cost = summary["month_bill_value_eur"];
         this._bottom_right_value =
           date.getMonth() + 1 + "/" + date.getFullYear();
         break;
