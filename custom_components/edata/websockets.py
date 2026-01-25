@@ -24,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
         vol.Required("scups"): str,
         vol.Optional("aggr", default="day"): vol.Union("day", "hour", "month"),
         vol.Optional("records", default=30): int,
-        vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
+        vol.Optional("tariff"): vol.Union(1, 2, 3),
         vol.Optional("from_now"): bool,
     }
 )
@@ -98,7 +98,7 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
         vol.Required("scups"): str,
         vol.Optional("aggr", default="day"): vol.Union("day", "hour", "month"),
         vol.Optional("records", default=30): int,
-        vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
+        vol.Optional("tariff"): vol.Union(1, 2, 3),
         vol.Optional("from_now"): bool,
     }
 )
@@ -133,7 +133,7 @@ async def ws_get_cost(hass: HomeAssistant, connection, msg):
     {
         vol.Required("type"): f"{const.DOMAIN}/ws/maximeter",
         vol.Required("scups"): str,
-        vol.Optional("tariff"): vol.Union("p1", "p2"),
+        vol.Optional("tariff"): vol.Union(1, 2),
     }
 )
 @async_response

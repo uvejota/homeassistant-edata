@@ -19,9 +19,7 @@ const DEF_CHART_TEMPLATE = "";
 const VALID_AGGR_PERIODS = ["month", "day", "hour"];
 const DEF_AGGR_PERIOD = "month";
 const DEF_RECORDS_FOR_METHOD = {
-  year: 3,
   month: 13,
-  week: 4,
   day: 60,
   hour: 48,
 };
@@ -368,15 +366,15 @@ class EdataCard extends LitElement {
 
     const series = tariffs?.length
       ? tariffs.map((tariff, index) => ({
-          name: getLabel(tariff),
-          data: this.normalizeX(...results)[index],
-        }))
+        name: getLabel("p" + tariff),
+        data: this.normalizeX(...results)[index],
+      }))
       : [
-          {
-            name: getLabel("total"),
-            data: results[0],
-          },
-        ];
+        {
+          name: getLabel("total"),
+          data: results[0],
+        },
+      ];
 
     var config = {
       chart: {
@@ -426,7 +424,7 @@ class EdataCard extends LitElement {
           data: await this._hass.callWS({
             type: "edata/ws/maximeter",
             scups: this._scups,
-            tariff: "p1",
+            tariff: 1,
           }),
         },
         {
@@ -434,7 +432,7 @@ class EdataCard extends LitElement {
           data: await this._hass.callWS({
             type: "edata/ws/maximeter",
             scups: this._scups,
-            tariff: "p2",
+            tariff: 2,
           }),
         },
       ],
@@ -570,7 +568,7 @@ class EdataCard extends LitElement {
           chartOptions = await this.getBarChartOptions(
             "edata/ws/consumptions",
             DEF_ENERGY_UNIT,
-            ["p1", "p2", "p3"]
+            [1, 2, 3]
           );
           break;
         case "surplus":
@@ -583,7 +581,7 @@ class EdataCard extends LitElement {
           chartOptions = await this.getBarChartOptions(
             "edata/ws/costs",
             DEF_COST_UNIT,
-            ["p1", "p2", "p3"]
+            [1, 2, 3]
           );
           break;
         case "maximeter":
