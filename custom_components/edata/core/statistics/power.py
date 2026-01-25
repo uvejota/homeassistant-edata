@@ -67,8 +67,8 @@ async def update_power_statistics(
             stats_data["maximeter"].append(
                 StatisticData(
                     start=dt_found.replace(minute=0),
-                    state=power_point.value_kW,
-                    max=power_point.value_kW,
+                    state=power_point.value_kw,
+                    max=power_point.value_kw,
                 )
             )
 
@@ -79,8 +79,8 @@ async def update_power_statistics(
                 stats_data[tariff_key].append(
                     StatisticData(
                         start=dt_found.replace(minute=0),
-                        state=power_point.value_kW,
-                        max=power_point.value_kW,
+                        state=power_point.value_kw,
+                        max=power_point.value_kw,
                     )
                 )
 

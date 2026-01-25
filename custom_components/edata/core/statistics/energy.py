@@ -65,11 +65,11 @@ async def update_energy_statistics(
         tariff = await async_get_tariff(energy_point.datetime)
 
         # Add consumption
-        if energy_point.value_kWh is not None:
+        if energy_point.consumption_kwh is not None:
             # Total consumption
             if should_add_statistic(last_stat_dts["consumption"], dt_found):
                 stats_data["consumption"].append(
-                    StatisticData(start=dt_found, state=energy_point.value_kWh)
+                    StatisticData(start=dt_found, state=energy_point.consumption_kwh)
                 )
 
             # Tariff-specific consumption
@@ -78,14 +78,14 @@ async def update_energy_statistics(
                 last_stat_dts[tariff_key], dt_found
             ):
                 stats_data[tariff_key].append(
-                    StatisticData(start=dt_found, state=energy_point.value_kWh)
+                    StatisticData(start=dt_found, state=energy_point.consumption_kwh)
                 )
 
         # Add surplus
-        if energy_point.surplus_kWh is not None:
+        if energy_point.surplus_kwh is not None:
             if should_add_statistic(last_stat_dts["surplus"], dt_found):
                 stats_data["surplus"].append(
-                    StatisticData(start=dt_found, state=energy_point.surplus_kWh)
+                    StatisticData(start=dt_found, state=energy_point.surplus_kwh)
                 )
 
     # Calculate cumulative sums and add to recorder

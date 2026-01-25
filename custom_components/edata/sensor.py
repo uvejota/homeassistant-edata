@@ -12,72 +12,72 @@ INFO_SENSORS_DESC = [
     (
         "info",
         "last_datetime",
-        ["contract_p1_kW", "contract_p2_kW"],
+        ["contract_p1_kw", "contract_p2_kw"],
     ),
 ]
 
 ENERGY_SENSORS_DESC = [
     (
         "last_day_kwh",
-        "last_day_value_kWh",
+        "last_day_consumption_kwh",
         [
             "last_datetime",
             "last_day_delta_h",
-            "last_day_value_p1_kWh",
-            "last_day_value_p2_kWh",
-            "last_day_value_p3_kWh",
+            "last_day_consumption_p1_kwh",
+            "last_day_consumption_p2_kwh",
+            "last_day_consumption_p3_kwh",
         ],
     ),
     (
         "last_day_surplus_kwh",
-        "last_day_surplus_kWh",
+        "last_day_surplus_kwh",
         [
             "last_datetime",
             "last_day_delta_h",
-            "last_day_surplus_p1_kWh",
-            "last_day_surplus_p2_kWh",
-            "last_day_surplus_p3_kWh",
+            "last_day_surplus_p1_kwh",
+            "last_day_surplus_p2_kwh",
+            "last_day_surplus_p3_kwh",
         ],
     ),
     (
         "month_kwh",
-        "month_value_kWh",
+        "month_consumption_kwh",
         [
             "month_delta_h",
-            "month_daily_kWh",
-            "month_value_p1_kWh",
-            "month_value_p2_kWh",
-            "month_value_p3_kWh",
+            "month_daily_kwh",
+            "month_consumption_p1_kwh",
+            "month_consumption_p2_kwh",
+            "month_consumption_p3_kwh",
         ],
     ),
     (
         "month_surplus_kwh",
-        "month_surplus_kWh",
+        "month_surplus_kwh",
         [
             "month_delta_h",
-            "month_surplus_p1_kWh",
-            "month_surplus_p2_kWh",
-            "month_surplus_p3_kWh",
+            "month_surplus_p1_kwh",
+            "month_surplus_p2_kwh",
+            "month_surplus_p3_kwh",
         ],
     ),
     (
         "last_month_kwh",
-        "last_month_value_kWh",
+        "last_month_consumption_kwh",
         [
             "last_month_delta_h",
-            "last_month_value_p1_kWh",
-            "last_month_value_p2_kWh",
-            "last_month_value_p3_kWh",
+            "last_month_consumption_p1_kwh",
+            "last_month_consumption_p2_kwh",
+            "last_month_consumption_p3_kwh",
         ],
     ),
     (
         "last_month_surplus_kwh",
-        "last_month_surplus_kWh",
+        "last_month_surplus_kwh",
         [
             "last_month_delta_h",
-            "last_month_surplus_p1_kWh",
-            "last_month_surplus_p2_kWh",
-            "last_month_surplus_p3_kWh",
+            "last_month_surplus_p1_kwh",
+            "last_month_surplus_p2_kwh",
+            "last_month_surplus_p3_kwh",
         ],
     ),
 ]
@@ -85,10 +85,10 @@ ENERGY_SENSORS_DESC = [
 POWER_SENSORS_DESC = [
     (
         "max_power_kw",
-        "max_power_kW",
+        "max_power_kw",
         [
             "max_power_datetime",
-            "max_power_mean_kW",
+            "max_power_mean_kw",
         ],
     ),
 ]

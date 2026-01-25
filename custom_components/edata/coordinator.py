@@ -1,6 +1,5 @@
 """Data update coordinator definitions."""
 
-import contextlib
 from datetime import timedelta
 import logging
 
@@ -116,8 +115,8 @@ class EdataCoordinator(DataUpdateCoordinator):
         contracts = await self._data_manager.get_contracts()
         attrs.update(
             {
-                "contract_p1_kW": contracts[-1].power_p1 if contracts else None,
-                "contract_p2_kW": contracts[-1].power_p2 if contracts else None,
+                "contract_p1_kw": contracts[-1].power_p1 if contracts else None,
+                "contract_p2_kw": contracts[-1].power_p2 if contracts else None,
             }
         )
 
@@ -147,9 +146,9 @@ class EdataCoordinator(DataUpdateCoordinator):
         power = await self._data_manager.get_power(start=a_year_ago)
         attrs.update(
             {
-                "max_power_kW": max(power, key=lambda x: x.value_kW).value_kW,
-                "max_power_datetime": max(power, key=lambda x: x.value_kW).datetime,
-                "max_power_mean_kW": sum(p.value_kW for p in power) / len(power),
+                "max_power_kw": max(power, key=lambda x: x.value_kw).value_kw,
+                "max_power_datetime": max(power, key=lambda x: x.value_kw).datetime,
+                "max_power_mean_kw": sum(p.value_kw for p in power) / len(power),
             }
         )
 

@@ -52,7 +52,7 @@ async def get_recent_consumptions(
     tariff: int | None = None,
     now_as_ref: bool = False,
 ) -> list[tuple[float, float]]:
-    """Get recent consumption data as a list of tuples (timestamp, value_kWh)."""
+    """Get recent consumption data as a list of tuples (timestamp, consumption_kwh)."""
     # Get reference date
     most_recent = await data_manager.get_most_recent_energy_dt()
     ref_date = _get_reference_date(most_recent, now_as_ref)
@@ -66,7 +66,7 @@ async def get_recent_consumptions(
     if aggr == "hour":
         energy_data = await data_manager.get_energy(start=start_date, end=ref_date)
         result = [
-            (energy.datetime.timestamp(), energy.value_kWh)
+            (energy.datetime.timestamp(), energy.consumption_kwh)
             for energy in energy_data
             if tariff is None or get_tariff(energy.datetime) == tariff
         ]
@@ -84,14 +84,14 @@ async def get_recent_consumptions(
         timestamp = stat.datetime.timestamp()
         # Extract value based on tariff period
         if tariff == 1:
-            value = stat.value_p1_kWh
+            value = stat.consumption_p1_kwh
         elif tariff == 2:
-            value = stat.value_p2_kWh
+            value = stat.consumption_p2_kwh
         elif tariff == 3:
-            value = stat.value_p3_kWh
+            value = stat.consumption_p3_kwh
         else:
             # No tariff specified, use total value
-            value = stat.value_kWh
+            value = stat.consumption_kwh
         result.append((timestamp, value))
 
     return _sort_and_limit_results(result, records)
@@ -104,7 +104,7 @@ async def get_recent_surplus(
     tariff: int | None = None,
     now_as_ref: bool = False,
 ) -> list[tuple[float, float]]:
-    """Get recent surplus data as a list of tuples (timestamp, surplus_kWh)."""
+    """Get recent surplus data as a list of tuples (timestamp, surplus_kwh)."""
     # Get reference date
     most_recent = await data_manager.get_most_recent_energy_dt()
     ref_date = _get_reference_date(most_recent, now_as_ref)
@@ -118,7 +118,7 @@ async def get_recent_surplus(
     if aggr == "hour":
         energy_data = await data_manager.get_energy(start=start_date, end=ref_date)
         result = [
-            (energy.datetime.timestamp(), energy.surplus_kWh)
+            (energy.datetime.timestamp(), energy.surplus_kwh)
             for energy in energy_data
             if tariff is None or get_tariff(energy.datetime) == tariff
         ]
@@ -136,14 +136,14 @@ async def get_recent_surplus(
         timestamp = stat.datetime.timestamp()
         # Extract surplus value based on tariff period
         if tariff == 1:
-            value = stat.surplus_p1_kWh
+            value = stat.surplus_p1_kwh
         elif tariff == 2:
-            value = stat.surplus_p2_kWh
+            value = stat.surplus_p2_kwh
         elif tariff == 3:
-            value = stat.surplus_p3_kWh
+            value = stat.surplus_p3_kwh
         else:
             # No tariff specified, use total surplus
-            value = stat.surplus_kWh
+            value = stat.surplus_kwh
         result.append((timestamp, value))
 
     return _sort_and_limit_results(result, records)
@@ -187,7 +187,7 @@ async def get_recent_maximeter(
     tariff: int | None = None,
     now_as_ref: bool = False,
 ) -> list[tuple[float, float]]:
-    """Get recent maximeter data as a list of tuples (timestamp, max_power_kW)."""
+    """Get recent maximeter data as a list of tuples (timestamp, max_power_kw)."""
     # Get reference date
     most_recent = await data_manager.get_most_recent_energy_dt()
     ref_date = _get_reference_date(most_recent, now_as_ref)
@@ -201,7 +201,7 @@ async def get_recent_maximeter(
     power_data = await data_manager.get_power(start=start_date, end=ref_date)
 
     result = [
-        (power.datetime.timestamp(), power.value_kW)
+        (power.datetime.timestamp(), power.value_kw)
         for power in power_data
         if tariff is None or get_tariff(power.datetime) == tariff
     ]
