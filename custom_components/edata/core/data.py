@@ -3,8 +3,9 @@
 from datetime import datetime
 import typing
 
+from edata.core.utils import get_month
 from edata.models import Bill, Contract, Energy, Power, Statistics, Supply
-from edata.models.bill import BillingRules
+from edata.models.bill import BillingRules, PVPCBillingRules
 from edata.services.bill_service import BillService
 from edata.services.data_service import DataService
 
@@ -46,7 +47,10 @@ class DataManager:
         """Sync data from external service."""
         await self._data_service.update()
         if self.billing:
-            await self._bill_service.update()
+            await self._bill_service.update(
+                billing_rules=self.billing,
+                is_pvpc=isinstance(self.billing, PVPCBillingRules),
+            )
 
     async def get_supply(
         self,
@@ -75,7 +79,7 @@ class DataManager:
         self,
     ) -> datetime | None:
         """Get the most recent energy data."""
-        return await self._data_service._get_last_energy_dt()  # noqa: SLF001
+        return await self._data_service.get_last_energy_dt()
 
     async def get_power(
         self,
@@ -124,3 +128,37 @@ class DataManager:
             end=end,
             type_=aggregation,
         )
+
+    async def rebuild_billing(self, since: datetime | None = None) -> None:
+        """Clear and recompute bills, optionally only from a datetime onwards."""
+        await self._bill_service.clear_bills(since)
+        if self.billing:
+            await self._bill_service.update(
+                start=since,
+                billing_rules=self.billing,
+                is_pvpc=isinstance(self.billing, PVPCBillingRules),
+            )
+
+    async def simulate_last_month(
+        self, billing_rules: BillingRules, is_pvpc: bool
+    ) -> Bill | None:
+        """Preview the last complete month's bill under candidate rules."""
+        bills = await self._bill_service.simulate(
+            billing_rules=billing_rules, is_pvpc=is_pvpc
+        )
+        if not bills:
+            return None
+
+        monthly: dict[datetime, Bill] = {}
+        for item in bills:
+            key = get_month(item.datetime)
+            agg = monthly.setdefault(key, Bill(datetime=key, delta_h=0))
+            agg.delta_h += item.delta_h
+            agg.value_eur += item.value_eur
+            agg.energy_term += item.energy_term
+            agg.power_term += item.power_term
+            agg.others_term += item.others_term
+            agg.surplus_term += item.surplus_term
+
+        months = [monthly[key] for key in sorted(monthly)]
+        return months[-2] if len(months) > 1 else months[-1]
