@@ -1,6 +1,6 @@
 """Data update coordinator definitions."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 import logging
 
 from dateutil.relativedelta import relativedelta
@@ -111,7 +111,15 @@ class EdataCoordinator(DataUpdateCoordinator):
         a_year_ago = dt_util.now() - relativedelta(years=1)
 
         # Get supply and contract info
-        # supply = await self._data_manager.get_supply()
+        supply = await self._data_manager.get_supply()
+        if supply:
+            attrs.update(
+                {
+                    "cups": supply.cups,
+                    "supply_address": supply.address,
+                    "supply_point_type": supply.point_type,
+                }
+            )
         contracts = await self._data_manager.get_contracts()
         attrs.update(
             {
@@ -201,3 +209,34 @@ class EdataCoordinator(DataUpdateCoordinator):
             self.id,
             self.scups,
         )
+
+    async def async_full_import(self):
+        """Fetch all available data from Datadis and rebuild statistics."""
+
+        _LOGGER.warning("%s: importing all available data from Datadis", self.scups)
+        await self._data_manager.sync()
+        await self._load_data()
+        await self.async_soft_reset()
+
+    async def update_billing(
+        self, billing_rules: BillingRules | None, since: datetime | None
+    ) -> None:
+        """Apply new billing rules and recompute cost statistics from a date."""
+
+        _LOGGER.info("%s: updating billing since %s", self.scups, since)
+        self.billing_rules = billing_rules
+        self._data_manager.billing = billing_rules
+
+        await self._data_manager.rebuild_billing(since)
+
+        stat_ids = await get_integration_stat_ids(self.hass, const.DOMAIN, self.id)
+        cost_stat_ids = [stat_id for stat_id in stat_ids if "cost" in stat_id]
+        clear_statistics(self.hass, cost_stat_ids, self.scups)
+
+        await update_all_statistics(
+            self.hass,
+            self._data_manager,
+            self.id,
+            self.scups,
+        )
+        await self._load_data()
