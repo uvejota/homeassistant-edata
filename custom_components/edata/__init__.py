@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, time
 import logging
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_START
 from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.util import dt as dt_util
 
 from . import const
 from .coordinator import EdataCoordinator
@@ -22,12 +24,31 @@ from .core.config import (
     CONF_USERNAME,
 )
 from .core.lovelace import init_resource, register_static_path
-from .core.options import CONF_BILLING, CONF_DEBUG, CONF_PVPC
+from .core.options import CONF_BILLING, CONF_DEBUG, CONF_PVPC, CONF_UPDATE_SINCE
 from .core.utils import get_shared_memory
 from .websockets import async_register_websockets
 
 PLATFORMS: list[str] = ["button", "sensor"]
 _LOGGER = logging.getLogger(__name__)
+
+
+def _build_billing_rules(options: dict) -> BillingRules | None:
+    """Build billing rules from the config entry options."""
+
+    if not options.get(CONF_BILLING, False):
+        return None
+    if options.get(CONF_PVPC, False):
+        return PVPCBillingRules(**dict(options))
+    return BillingRules(**dict(options))
+
+
+def _apply_debug_level(options: dict) -> None:
+    """Set the edata logger level according to the debug option."""
+
+    if options.get(CONF_DEBUG, False):
+        logging.getLogger("edata").setLevel(logging.INFO)
+    else:
+        logging.getLogger("edata").setLevel(logging.WARNING)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType):
@@ -51,21 +72,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(const.DOMAIN, {})
 
-    # get configured parameters
-    is_pvpc = entry.options.get(CONF_PVPC, False)
-    is_billing = entry.options.get(CONF_BILLING, False)
-
-    if entry.options.get(CONF_DEBUG, False):
-        logging.getLogger("edata").setLevel(logging.INFO)
-        # _LOGGER.setLevel(logging.DEBUG)
-    else:
-        logging.getLogger("edata").setLevel(logging.WARNING)
-
-    billing_rules = None
-    if is_billing and is_pvpc:
-        billing_rules = PVPCBillingRules(**entry.options.copy())
-    elif is_billing:
-        billing_rules = BillingRules(**entry.options.copy())
+    _apply_debug_level(entry.options)
+    billing_rules = _build_billing_rules(entry.options)
 
     coordinator = EdataCoordinator(
         hass,
@@ -114,24 +122,22 @@ async def async_remove_entry(hass: HomeAssistant, entry) -> None:
 
 
 async def options_update_listener(hass: HomeAssistant, entry: ConfigEntry):
-    """Handle options update."""
+    """Handle options update by re-applying billing rules."""
 
     scups = entry.data[CONF_SCUPS]
     _LOGGER.debug("%s: options changed", scups)
-    # TODO reload entry
-    """
-    data = hass.data[const.DOMAIN][scups.lower()]
-    coor: EdataCoordinator = data["coordinator"]
 
-    # Convertir MappingProxyType a dict regular
-    options_dict = dict(entry.options)
+    _apply_debug_level(entry.options)
 
-    # Parsear fecha si existe
-    since = None
-    if "update_billing_since" in options_dict:
-        parsed_dt = dt_util.parse_datetime(options_dict["update_billing_since"])
-        if parsed_dt:
-            since = dt_util.as_local(parsed_dt)
+    coordinator: EdataCoordinator | None = get_shared_memory(hass, scups).get(
+        "coordinator"
+    )
+    if coordinator is None:
+        return
 
-    await coor.update_billing(options_dict, since)
-    """
+    since: datetime | None = None
+    if raw_since := entry.options.get(CONF_UPDATE_SINCE):
+        if parsed := dt_util.parse_date(raw_since):
+            since = datetime.combine(parsed, time.min)
+
+    await coordinator.update_billing(_build_billing_rules(entry.options), since)

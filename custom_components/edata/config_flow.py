@@ -4,6 +4,8 @@ import logging
 import tempfile
 from typing import Any
 
+from edata.models import Bill
+from edata.models.bill import BillingRules, PVPCBillingRules
 from edata.providers.datadis import DatadisConnector
 
 from homeassistant import config_entries
@@ -19,7 +21,18 @@ from .core.config import (
     step_choose_cups,
     step_user,
 )
-from .core.options import CONF_BILLING, CONF_PVPC, step_costs, step_formulas, step_init
+from .core.options import (
+    CONF_APPLYFROM,
+    CONF_BILLING,
+    CONF_CONFIRM,
+    CONF_PVPC,
+    CONF_UPDATE_SINCE,
+    step_confirm,
+    step_costs,
+    step_formulas,
+    step_init,
+)
+from .core.utils import get_shared_memory
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,15 +55,18 @@ def get_scups(hass: HomeAssistant, cups: str) -> None | str:
 
 async def simulate_last_month_billing(
     hass: HomeAssistant, config_entry: config_entries.ConfigEntry, data: dict[str, Any]
-) -> dict[str, Any] | None:
-    """Validate the user input from the 'step formulas'."""
+) -> Bill | None:
+    """Preview the last month's bill for the candidate billing options."""
 
-    # TODO: Implement simulation once edata package supports it
-    # For now, skip simulation and continue with configuration
-    _LOGGER.warning(
-        "Billing simulation not yet implemented with new API, skipping simulation"
+    data_manager = get_shared_memory(hass, config_entry.data[CONF_SCUPS]).get(
+        const.SHARED_DATAMANAGER
     )
-    return None
+    if data_manager is None:
+        return None
+
+    is_pvpc = data.get(CONF_PVPC, False)
+    rules_model = PVPCBillingRules if is_pvpc else BillingRules
+    return await data_manager.simulate_last_month(rules_model(**data), is_pvpc)
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
@@ -141,6 +157,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         """Initialize options flow."""
         super().__init__()
         self.user_input = {}
+        self.sim: Bill | None = None
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
@@ -194,4 +211,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 .strip()
             )
 
+        self.sim = await simulate_last_month_billing(
+            self.hass, self.config_entry, self.user_input
+        )
+        return await self.async_step_confirm()
+
+    async def async_step_confirm(self, user_input=None):
+        """Confirm the billing changes and the date to apply them from."""
+
+        if user_input is None or not user_input[CONF_CONFIRM]:
+            return self.async_show_form(
+                step_id="confirm",
+                data_schema=step_confirm(self.sim),
+            )
+
+        self.user_input[CONF_UPDATE_SINCE] = user_input[CONF_APPLYFROM]
         return self.async_create_entry(data=self.user_input)

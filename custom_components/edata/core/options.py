@@ -2,6 +2,7 @@
 
 import typing
 
+from edata.models import Bill
 from edata.models.bill import BillingRules, PVPCBillingRules
 import voluptuous as vol
 
@@ -10,6 +11,9 @@ from homeassistant.helpers import selector as sel
 CONF_DEBUG = "debug"
 CONF_BILLING = "billing"
 CONF_PVPC = "pvpc"
+CONF_APPLYFROM = "apply_from"
+CONF_CONFIRM = "confirm"
+CONF_UPDATE_SINCE = "update_billing_since"
 
 
 def step_init(prev_options: dict[str, typing.Any]) -> vol.Schema:
@@ -65,5 +69,32 @@ def step_formulas(is_pvpc: bool, prev_options: dict[str, typing.Any]) -> vol.Sch
             schema[
                 vol.Required(key, default=tokenize(prev_options.get(key, info.default)))
             ] = sel.TemplateSelector()
+
+    return vol.Schema(schema)
+
+
+def step_confirm(sim: Bill | None) -> vol.Schema:
+    """Build the options confirm step dict schema, previewing the last month."""
+
+    schema: dict[typing.Any, typing.Any] = {}
+    if sim is not None:
+        schema = {
+            vol.Optional("month", default=sim.datetime.strftime("%m/%Y")): str,
+            vol.Optional("value_eur", default=round(sim.value_eur, 2)): vol.Coerce(
+                float
+            ),
+            vol.Optional("energy_term", default=round(sim.energy_term, 2)): vol.Coerce(
+                float
+            ),
+            vol.Optional("power_term", default=round(sim.power_term, 2)): vol.Coerce(
+                float
+            ),
+            vol.Optional("others_term", default=round(sim.others_term, 2)): vol.Coerce(
+                float
+            ),
+        }
+
+    schema[vol.Required(CONF_APPLYFROM)] = sel.DateSelector()
+    schema[vol.Required(CONF_CONFIRM, default=False)] = bool
 
     return vol.Schema(schema)
