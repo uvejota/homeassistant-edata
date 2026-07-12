@@ -100,19 +100,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
         supplies = await api.async_get_supplies(
             authorized_nif=user_input.get(CONF_AUTHORIZED_NIF)
         )
-        if supplies is None:
-            errors["base"] = "invalid_credentials"
         if not supplies:
-            errors["base"] = "no_supplies_found"
+            errors["base"] = (
+                "invalid_credentials" if supplies is None else "no_supplies_found"
+            )
+            return self.async_show_form(
+                step_id="user", data_schema=step_user(), errors=errors
+            )
+
         self.user_input["cups_list"] = [x.cups for x in supplies]
-
-        if not errors:
-            self.user_input.update(user_input)
-            return await self.async_step_choosecups()
-
-        return self.async_show_form(
-            step_id="user", data_schema=step_user(), errors=errors
-        )
+        self.user_input.update(user_input)
+        return await self.async_step_choosecups()
 
     async def async_step_choosecups(self, user_input=None):
         """Handle the 'choose cups' step."""
