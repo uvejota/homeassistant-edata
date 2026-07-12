@@ -1,6 +1,5 @@
 """Tests for the edata websocket API."""
 
-from collections.abc import Callable
 from typing import Any
 
 import pytest
