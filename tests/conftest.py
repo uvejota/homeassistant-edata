@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.syrupy import HomeAssistantSnapshotExtension
+from syrupy.assertion import SnapshotAssertion
 
 from custom_components.edata.const import DOMAIN
 from custom_components.edata.core.config import (
@@ -18,6 +20,18 @@ from custom_components.edata.core.options import CONF_BILLING, CONF_PVPC
 from .fixtures import CUPS, PASSWORD, SCUPS, USERNAME, FakeDataManager
 
 pytest_plugins = "pytest_homeassistant_custom_component"
+
+
+@pytest.fixture
+def snapshot(snapshot: SnapshotAssertion) -> SnapshotAssertion:
+    """Force the Home Assistant snapshot extension (snapshots/ directory).
+
+    Pinning it here keeps precedence over syrupy's default ``snapshot`` fixture,
+    whose registration order relative to pytest-homeassistant-custom-component is
+    not guaranteed (in CI syrupy loads last and would otherwise look in
+    ``__snapshots__`` instead of ``snapshots``).
+    """
+    return snapshot.use_extension(HomeAssistantSnapshotExtension)
 
 
 @pytest.fixture(autouse=True)
