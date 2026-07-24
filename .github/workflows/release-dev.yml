@@ -42,6 +42,17 @@ jobs:
           tag_name: ${{ steps.version.outputs.version }}
           name: ${{ steps.version.outputs.version }}
           prerelease: true
+          body: |
+            ## ⚠️ Development build — install at your own risk
+
+            This is an **unstable development pre-release** built from the latest
+            code. It has not gone through release validation.
+
+            **Data loss and broken behaviour are highly possible**, including
+            corrupted or wiped statistics and configuration. Do **not** install it
+            on a setup you rely on, and back up Home Assistant first.
+
+            Only use this build if you intend to test and report issues.
           files: homeassistant-edata.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
