@@ -5,12 +5,15 @@ from __future__ import annotations
 from datetime import datetime, time
 import logging
 from pathlib import Path
+import shutil
 
 from edata.models.bill import BillingRules, PVPCBillingRules
+from pydantic import ValidationError
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_START
 from homeassistant.core import CoreState, HomeAssistant
+from homeassistant.helpers.storage import STORAGE_DIR
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
@@ -37,9 +40,14 @@ def _build_billing_rules(options: dict) -> BillingRules | None:
 
     if not options.get(CONF_BILLING, False):
         return None
-    if options.get(CONF_PVPC, False):
-        return PVPCBillingRules(**dict(options))
-    return BillingRules(**dict(options))
+    rules_model = PVPCBillingRules if options.get(CONF_PVPC, False) else BillingRules
+    try:
+        return rules_model(**dict(options))
+    except ValidationError:
+        _LOGGER.warning(
+            "Ignoring invalid billing options; please reconfigure billing"
+        )
+        return None
 
 
 def _apply_debug_level(options: dict) -> None:
@@ -49,6 +57,26 @@ def _apply_debug_level(options: dict) -> None:
         logging.getLogger("edata").setLevel(logging.INFO)
     else:
         logging.getLogger("edata").setLevel(logging.WARNING)
+
+
+def _remove_legacy_storage(hass: HomeAssistant) -> None:
+    """Remove orphaned pre-2.0 on-disk storage (2.0 uses an SQLite database)."""
+
+    storage = Path(hass.config.path(STORAGE_DIR))
+    shutil.rmtree(storage / "edata", ignore_errors=True)
+    for legacy in storage.glob("edata.storage_*"):
+        legacy.unlink(missing_ok=True)
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate an old config entry to the current version."""
+
+    if entry.version < 2:
+        # 1.x kept a JSON cache under .storage/edata/; 2.0 rebuilds .storage/edata.db
+        await hass.async_add_executor_job(_remove_legacy_storage, hass)
+        hass.config_entries.async_update_entry(entry, version=2)
+
+    return True
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType):

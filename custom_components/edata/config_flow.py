@@ -72,7 +72,7 @@ async def simulate_last_month_billing(
 class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
     """Handle a config flow for edata."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self) -> None:
         """Initialize config flow."""
