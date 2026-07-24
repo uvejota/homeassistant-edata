@@ -73,15 +73,16 @@ async def test_options_update_triggers_billing_recompute(
     assert since == datetime(2023, 2, 1, 0, 0)
 
 
-async def test_migrate_v1_entry_removes_legacy_storage(
+async def test_migrate_v1_entry_bumps_version_and_keeps_legacy_storage(
     setup_integration: None,
     hass: HomeAssistant,
     mock_data_manager: None,
 ) -> None:
-    """A v1 entry is migrated to v2 and the orphaned 1.x storage is removed."""
+    """A v1 entry is migrated to v2 while the 1.x storage is left in place for now."""
     legacy_dir = Path(hass.config.path(STORAGE_DIR)) / "edata"
     legacy_dir.mkdir(parents=True, exist_ok=True)
-    (legacy_dir / f"edata_{SCUPS}.json").write_text("{}", encoding="utf-8")
+    legacy_file = legacy_dir / f"edata_{SCUPS}.json"
+    legacy_file.write_text("{}", encoding="utf-8")
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -101,7 +102,7 @@ async def test_migrate_v1_entry_removes_legacy_storage(
     await hass.async_block_till_done()
 
     assert entry.version == 2
-    assert not legacy_dir.exists()
+    assert legacy_file.exists()
 
 
 def test_build_billing_rules_guards_invalid_options() -> None:
