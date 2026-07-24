@@ -1,0 +1,47 @@
+name: Release dev
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-dev:
+    name: dev prerelease
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute dev version
+        id: version
+        run: |
+          base=$(jq -r .version custom_components/edata/manifest.json)
+          dev="${base}.dev$(git rev-list --count HEAD)"
+          echo "version=$dev" >> "$GITHUB_OUTPUT"
+          echo "Dev version: $dev"
+
+      - name: Stamp manifest version
+        run: |
+          tmp=$(mktemp)
+          jq --arg v "${{ steps.version.outputs.version }}" '.version = $v' \
+            custom_components/edata/manifest.json > "$tmp"
+          mv "$tmp" custom_components/edata/manifest.json
+
+      - name: Create zip
+        run: |
+          cd custom_components/edata
+          zip ../../homeassistant-edata.zip -r ./
+
+      - name: Publish dev prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
+          prerelease: true
+          files: homeassistant-edata.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
