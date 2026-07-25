@@ -1,5 +1,6 @@
 """Data update coordinator definitions."""
 
+import asyncio
 from datetime import datetime, timedelta
 import logging
 
@@ -44,6 +45,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         self.scups = scups.upper()
         self.id = scups.lower()
         self.billing_rules = billing
+        self._sync_task: asyncio.Task | None = None
 
         # Init shared data
         hass.data[const.DOMAIN][self.id] = {CONF_CUPS: self.cups}
@@ -82,10 +84,14 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         await self._load_data()
 
-        self.hass.async_create_background_task(
-            self._sync_data(),
-            f"{const.DOMAIN}_{self.id}_update_data_task",
-        )
+        # Never let a slow full sync stack: skip if the previous one is still running.
+        if self._sync_task is None or self._sync_task.done():
+            self._sync_task = self.hass.async_create_background_task(
+                self._sync_data(),
+                f"{const.DOMAIN}_{self.id}_update_data_task",
+            )
+        else:
+            _LOGGER.debug("%s: previous sync still running, skipping", self.scups)
 
         return self._shared
 
