@@ -20,7 +20,7 @@ from ..utils import async_get_tariff
 from .utils import (
     add_statistics,
     calculate_cumulative_sum,
-    get_last_stat_datetime,
+    get_last_stat,
     make_stat_id,
     should_add_statistic,
 )
@@ -52,10 +52,10 @@ async def update_energy_statistics(
         "surplus": make_stat_id(DOMAIN, integration_id, "surplus"),
     }
 
-    # Get last recorded datetimes
-    last_stat_dts = {}
+    # Get last recorded (datetime, cumulative sum) per statistic
+    last_stats = {}
     for key, stat_id in stat_ids.items():
-        last_stat_dts[key] = await get_last_stat_datetime(hass, stat_id)
+        last_stats[key] = await get_last_stat(hass, stat_id)
 
     # Build statistics
     stats_data = {key: [] for key in stat_ids}
@@ -67,7 +67,7 @@ async def update_energy_statistics(
         # Add consumption
         if energy_point.consumption_kwh is not None:
             # Total consumption
-            if should_add_statistic(last_stat_dts["consumption"], dt_found):
+            if should_add_statistic(last_stats["consumption"][0], dt_found):
                 stats_data["consumption"].append(
                     StatisticData(start=dt_found, state=energy_point.consumption_kwh)
                 )
@@ -75,7 +75,7 @@ async def update_energy_statistics(
             # Tariff-specific consumption
             tariff_key = f"consumption_p{tariff}"
             if tariff_key in stats_data and should_add_statistic(
-                last_stat_dts[tariff_key], dt_found
+                last_stats[tariff_key][0], dt_found
             ):
                 stats_data[tariff_key].append(
                     StatisticData(start=dt_found, state=energy_point.consumption_kwh)
@@ -83,17 +83,17 @@ async def update_energy_statistics(
 
         # Add surplus
         if energy_point.surplus_kwh is not None:
-            if should_add_statistic(last_stat_dts["surplus"], dt_found):
+            if should_add_statistic(last_stats["surplus"][0], dt_found):
                 stats_data["surplus"].append(
                     StatisticData(start=dt_found, state=energy_point.surplus_kwh)
                 )
 
-    # Calculate cumulative sums and add to recorder
+    # Calculate cumulative sums (continuing from the last stored sum) and record
     for key, stat_id in stat_ids.items():
         if not stats_data[key]:
             continue
 
-        calculate_cumulative_sum(stats_data[key])
+        calculate_cumulative_sum(stats_data[key], initial_sum=last_stats[key][1])
         metadata = _create_energy_metadata(stat_id)
         add_statistics(hass, metadata, stats_data[key], scups)
 

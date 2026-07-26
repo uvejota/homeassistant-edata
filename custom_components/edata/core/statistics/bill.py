@@ -21,7 +21,7 @@ from ..utils import async_get_tariff
 from .utils import (
     add_statistics,
     calculate_cumulative_sum,
-    get_last_stat_datetime,
+    get_last_stat,
     make_stat_id,
     should_add_statistic,
 )
@@ -57,10 +57,10 @@ async def update_bill_statistics(
         "energy_cost_p3": make_stat_id(DOMAIN, integration_id, "p3_energy_cost"),
     }
 
-    # Get last recorded datetimes
-    last_stat_dts = {}
+    # Get last recorded (datetime, cumulative sum) per statistic
+    last_stats = {}
     for key, stat_id in stat_ids.items():
-        last_stat_dts[key] = await get_last_stat_datetime(hass, stat_id)
+        last_stats[key] = await get_last_stat(hass, stat_id)
 
     # Build statistics
     stats_data = {key: [] for key in stat_ids}
@@ -70,19 +70,19 @@ async def update_bill_statistics(
         tariff = await async_get_tariff(bill.datetime)
 
         # Power term cost
-        if should_add_statistic(last_stat_dts["power_cost"], dt_found):
+        if should_add_statistic(last_stats["power_cost"][0], dt_found):
             stats_data["power_cost"].append(
                 StatisticData(start=dt_found, state=bill.power_term)
             )
 
         # Energy term cost
-        if should_add_statistic(last_stat_dts["energy_cost"], dt_found):
+        if should_add_statistic(last_stats["energy_cost"][0], dt_found):
             stats_data["energy_cost"].append(
                 StatisticData(start=dt_found, state=bill.energy_term)
             )
 
         # Total cost
-        if should_add_statistic(last_stat_dts["cost"], dt_found):
+        if should_add_statistic(last_stats["cost"][0], dt_found):
             stats_data["cost"].append(
                 StatisticData(start=dt_found, state=bill.value_eur)
             )
@@ -92,22 +92,22 @@ async def update_bill_statistics(
             tariff_cost_key = f"cost_p{tariff}"
             tariff_energy_key = f"energy_cost_p{tariff}"
 
-            if should_add_statistic(last_stat_dts[tariff_cost_key], dt_found):
+            if should_add_statistic(last_stats[tariff_cost_key][0], dt_found):
                 stats_data[tariff_cost_key].append(
                     StatisticData(start=dt_found, state=bill.value_eur)
                 )
 
-            if should_add_statistic(last_stat_dts[tariff_energy_key], dt_found):
+            if should_add_statistic(last_stats[tariff_energy_key][0], dt_found):
                 stats_data[tariff_energy_key].append(
                     StatisticData(start=dt_found, state=bill.energy_term)
                 )
 
-    # Calculate cumulative sums and add to recorder
+    # Calculate cumulative sums (continuing from the last stored sum) and record
     for key, stat_id in stat_ids.items():
         if not stats_data[key]:
             continue
 
-        calculate_cumulative_sum(stats_data[key])
+        calculate_cumulative_sum(stats_data[key], initial_sum=last_stats[key][1])
         metadata = _create_bill_metadata(stat_id)
         add_statistics(hass, metadata, stats_data[key], scups)
 
