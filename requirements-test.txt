@@ -1,5 +1,5 @@
 # Pinned so CI reproduces the version combo the integration ships against.
 # Keep e-data in sync with custom_components/edata/manifest.json; bumping
 # pytest-homeassistant-custom-component pins the Home Assistant version tested.
-e-data==2.0.1.dev128
+e-data==2.0.1.dev131
 pytest-homeassistant-custom-component==0.13.346
