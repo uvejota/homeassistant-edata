@@ -117,6 +117,22 @@ def build_monthly_bills(months: int = 2) -> list[Bill]:
     ]
 
 
+def build_hourly_bills(hours: int = 48) -> list[Bill]:
+    """Build deterministic hourly bills with tiny per-hour values."""
+    return [
+        Bill(
+            datetime=BASE_DT + timedelta(hours=i),
+            delta_h=1.0,
+            value_eur=round(0.05 + 0.001 * i, 6),
+            energy_term=round(0.04 + 0.001 * i, 6),
+            power_term=0.01,
+            others_term=0.0,
+            surplus_term=0.0,
+        )
+        for i in range(hours)
+    ]
+
+
 def default_billing_rules() -> BillingRules:
     """Return custom (non-PVPC) billing rules for tests."""
     return BillingRules(
@@ -142,7 +158,8 @@ class FakeDataManager:
         self._power = build_power()
         self._daily = build_daily_stats()
         self._monthly = build_monthly_stats()
-        self._bills = build_monthly_bills()
+        self._bills = build_hourly_bills()
+        self._monthly_bills = build_monthly_bills()
 
     async def sync(self) -> None:
         """Record that a sync happened."""
@@ -154,7 +171,7 @@ class FakeDataManager:
 
     async def simulate_last_month(self, billing_rules, is_pvpc) -> Bill:
         """Return a deterministic preview bill."""
-        return self._bills[-1]
+        return self._monthly_bills[-1]
 
     async def get_supply(self) -> Supply:
         """Return the fake supply."""
@@ -177,7 +194,7 @@ class FakeDataManager:
         return [x for x in self._power if _in_range(x.datetime, start, end)]
 
     async def get_bills(self, start=None, end=None) -> list[Bill]:
-        """Return the fake bills within the range."""
+        """Return the fake hourly bills within the range."""
         return [x for x in self._bills if _in_range(x.datetime, start, end)]
 
     async def get_aggr_energy(self, aggregation, start=None, end=None):
@@ -186,8 +203,8 @@ class FakeDataManager:
         return [x for x in source if _in_range(x.datetime, start, end)]
 
     async def get_aggr_bills(self, aggregation, start=None, end=None) -> list[Bill]:
-        """Return the fake aggregated bills."""
-        return [x for x in self._bills if _in_range(x.datetime, start, end)]
+        """Return the fake aggregated (monthly) bills."""
+        return [x for x in self._monthly_bills if _in_range(x.datetime, start, end)]
 
 
 def _in_range(dt: datetime, start: datetime | None, end: datetime | None) -> bool:
