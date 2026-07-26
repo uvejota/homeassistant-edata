@@ -56,6 +56,7 @@ async def test_user_flow_success(
     setup_integration: None,
     hass: HomeAssistant,
     mock_supplies: AsyncMock,
+    mock_data_manager: None,
 ) -> None:
     """A valid user completes credentials and CUPS selection to create an entry."""
     result = await hass.config_entries.flow.async_init(

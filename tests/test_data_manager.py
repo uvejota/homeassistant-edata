@@ -28,7 +28,11 @@ from .fixtures import (
 
 @pytest.fixture(autouse=True)
 async def reset_edata_db(hass: HomeAssistant) -> AsyncGenerator[None]:
-    """Reset the EdataDB singleton and remove its database between tests."""
+    """Reset the EdataDB singleton and remove its database between tests.
+
+    Overrides the shared conftest fixture for this module (which has no recorder
+    ordering constraint) so each test also starts from a fresh on-disk database.
+    """
 
     def _reset() -> None:
         EdataDB._instance = None
