@@ -173,8 +173,9 @@ class EdataCoordinator(DataUpdateCoordinator):
         )
 
         if self.billing_rules:
-            bills = await self._data_manager.get_bills(
-                start=dt_util.now() - relativedelta(years=1)
+            bills = await self._data_manager.get_aggr_bills(
+                aggregation="month",
+                start=dt_util.now() - relativedelta(years=1),
             )
             if bills:
                 last_bill = bills[-1]
