@@ -1,6 +1,6 @@
 """Shared utilities for statistics management."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 from homeassistant.components.recorder import util as recorder_util
@@ -71,6 +71,26 @@ def should_add_statistic(
 ) -> bool:
     """Return True if new_dt is strictly newer than the last recorded value."""
     return new_dt > last_stat_dt
+
+
+def resolve_load_window(
+    earliest_stat_dt: datetime,
+    data_start: datetime | None,
+) -> tuple[datetime, datetime]:
+    """Return naive-local ``(start, end)`` bounds for a windowed statistics load.
+
+    Stored energy/bill datetimes are naive-local while statistic starts are UTC.
+    The window begins one day before the earliest already-recorded statistic --
+    a margin that absorbs that skew so no boundary row is ever missed;
+    ``should_add_statistic`` still guards the seam against re-adding rows -- and
+    is clamped to when data actually begins so a first run does not iterate
+    decades of empty months.
+    """
+    start = dt_util.as_local(earliest_stat_dt).replace(tzinfo=None) - timedelta(days=1)
+    if data_start is not None:
+        start = max(start, data_start)
+    end = dt_util.now().replace(tzinfo=None) + timedelta(days=1)
+    return start, end
 
 
 def add_statistics(

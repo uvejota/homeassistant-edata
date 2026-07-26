@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import logging
 
-from edata.core.utils import get_tariff
-
 from homeassistant.components.recorder.models import (
     StatisticData,
     StatisticMeanType,
@@ -17,12 +15,13 @@ from homeassistant.util import dt as dt_util
 
 from ...const import DOMAIN
 from ..data import DataManager
-from ..utils import async_get_tariff
+from ..utils import async_get_tariff, iter_month_windows
 from .utils import (
     add_statistics,
     calculate_cumulative_sum,
     get_last_stat,
     make_stat_id,
+    resolve_load_window,
     should_add_statistic,
 )
 
@@ -35,14 +34,8 @@ async def update_bill_statistics(
     integration_id: str,
     scups: str,
 ) -> None:
-    """Update billing/cost statistics."""
+    """Update billing/cost statistics one month at a time."""
     _LOGGER.debug("%s: updating bill statistics", scups)
-
-    # Fetch data
-    data = await service.get_bills()
-    if not data:
-        _LOGGER.debug("%s: no bill data available", scups)
-        return
 
     # Define stat IDs
     stat_ids = {
@@ -58,64 +51,70 @@ async def update_bill_statistics(
     }
 
     # Get last recorded (datetime, cumulative sum) per statistic
-    last_stats = {}
-    for key, stat_id in stat_ids.items():
-        last_stats[key] = await get_last_stat(hass, stat_id)
+    last_stats = {
+        key: await get_last_stat(hass, stat_id) for key, stat_id in stat_ids.items()
+    }
 
-    # Build statistics
-    stats_data = {key: [] for key in stat_ids}
+    # Load only from the earliest already-recorded stat onwards, month by month,
+    # carrying the cumulative sum across windows so totals stay continuous
+    supply = await service.get_supply()
+    earliest = min(last_stats[key][0] for key in stat_ids)
+    load_start, load_end = resolve_load_window(
+        earliest, supply.date_start if supply else None
+    )
+    running_sum = {key: last_stats[key][1] for key in stat_ids}
+    added = 0
 
-    for bill in data:
-        dt_found = dt_util.as_local(bill.datetime)
-        tariff = await async_get_tariff(bill.datetime)
+    for win_start, win_end in iter_month_windows(load_start, load_end):
+        data = await service.get_bills(start=win_start, end=win_end)
+        if not data:
+            continue
 
-        # Power term cost
-        if should_add_statistic(last_stats["power_cost"][0], dt_found):
-            stats_data["power_cost"].append(
-                StatisticData(start=dt_found, state=bill.power_term)
-            )
+        batch: dict[str, list[StatisticData]] = {key: [] for key in stat_ids}
 
-        # Energy term cost
-        if should_add_statistic(last_stats["energy_cost"][0], dt_found):
-            stats_data["energy_cost"].append(
-                StatisticData(start=dt_found, state=bill.energy_term)
-            )
+        for bill in data:
+            dt_found = dt_util.as_local(bill.datetime)
+            tariff = await async_get_tariff(bill.datetime)
 
-        # Total cost
-        if should_add_statistic(last_stats["cost"][0], dt_found):
-            stats_data["cost"].append(
-                StatisticData(start=dt_found, state=bill.value_eur)
-            )
-
-        # Tariff-specific costs
-        if tariff in (1, 2, 3):
-            tariff_cost_key = f"cost_p{tariff}"
-            tariff_energy_key = f"energy_cost_p{tariff}"
-
-            if should_add_statistic(last_stats[tariff_cost_key][0], dt_found):
-                stats_data[tariff_cost_key].append(
-                    StatisticData(start=dt_found, state=bill.value_eur)
+            if should_add_statistic(last_stats["power_cost"][0], dt_found):
+                batch["power_cost"].append(
+                    StatisticData(start=dt_found, state=bill.power_term)
                 )
 
-            if should_add_statistic(last_stats[tariff_energy_key][0], dt_found):
-                stats_data[tariff_energy_key].append(
+            if should_add_statistic(last_stats["energy_cost"][0], dt_found):
+                batch["energy_cost"].append(
                     StatisticData(start=dt_found, state=bill.energy_term)
                 )
 
-    # Calculate cumulative sums (continuing from the last stored sum) and record
-    for key, stat_id in stat_ids.items():
-        if not stats_data[key]:
-            continue
+            if should_add_statistic(last_stats["cost"][0], dt_found):
+                batch["cost"].append(
+                    StatisticData(start=dt_found, state=bill.value_eur)
+                )
 
-        calculate_cumulative_sum(stats_data[key], initial_sum=last_stats[key][1])
-        metadata = _create_bill_metadata(stat_id)
-        add_statistics(hass, metadata, stats_data[key], scups)
+            if tariff in (1, 2, 3):
+                tariff_cost_key = f"cost_p{tariff}"
+                tariff_energy_key = f"energy_cost_p{tariff}"
 
-    _LOGGER.debug(
-        "%s: added %d bill statistics",
-        scups,
-        sum(len(v) for v in stats_data.values()),
-    )
+                if should_add_statistic(last_stats[tariff_cost_key][0], dt_found):
+                    batch[tariff_cost_key].append(
+                        StatisticData(start=dt_found, state=bill.value_eur)
+                    )
+
+                if should_add_statistic(last_stats[tariff_energy_key][0], dt_found):
+                    batch[tariff_energy_key].append(
+                        StatisticData(start=dt_found, state=bill.energy_term)
+                    )
+
+        for key, stat_id in stat_ids.items():
+            if not batch[key]:
+                continue
+
+            calculate_cumulative_sum(batch[key], initial_sum=running_sum[key])
+            running_sum[key] = batch[key][-1]["sum"]
+            add_statistics(hass, _create_bill_metadata(stat_id), batch[key], scups)
+            added += len(batch[key])
+
+    _LOGGER.debug("%s: added %d bill statistics", scups, added)
 
 
 def _create_bill_metadata(stat_id: str) -> StatisticMetaData:

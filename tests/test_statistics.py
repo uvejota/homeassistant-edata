@@ -1,5 +1,6 @@
 """Tests for the edata recorder statistics generation."""
 
+from itertools import accumulate
 from typing import Any
 from unittest.mock import patch
 
@@ -103,3 +104,43 @@ async def test_energy_statistics_are_incremental(
     assert new_rows[-1]["sum"] == pytest.approx(
         sum(e.consumption_kwh for e in build_energy(72)), abs=1e-6
     )
+
+
+async def test_energy_statistics_carry_sum_across_month_windows(
+    setup_integration: None,
+    hass: HomeAssistant,
+) -> None:
+    """A multi-month build chunks by month yet keeps one continuous cumulative sum.
+
+    Guards the monthly windowing: batches from consecutive windows must not reset
+    the sum at the seam, so the concatenated sums equal a single running total.
+    """
+    hours = 24 * 70  # ~2.3 months -> at least three monthly windows carry data
+    data_manager = FakeDataManager()
+    data_manager._energy = build_energy(hours)
+    stat_id = make_stat_id(DOMAIN, SCUPS, "consumption")
+
+    # Accumulate the per-window batches in call order for the consumption stat.
+    rows: list[StatisticData] = []
+
+    def _capture(
+        _hass: HomeAssistant,
+        metadata: dict[str, Any],
+        statistics: list[StatisticData],
+        _scups: str,
+    ) -> None:
+        if metadata["statistic_id"] == stat_id:
+            rows.extend(statistics)
+
+    with patch.object(energy_stats, "add_statistics", side_effect=_capture):
+        await energy_stats.update_energy_statistics(
+            hass, data_manager, SCUPS, SCUPS.upper()
+        )
+
+    # Every hour is imported exactly once, in chronological order.
+    assert len(rows) == hours
+    assert [r["start"] for r in rows] == sorted(r["start"] for r in rows)
+
+    # Sums form a single continuous running total with no per-window reset.
+    expected = list(accumulate(r["state"] for r in rows))
+    assert [r["sum"] for r in rows] == pytest.approx(expected, abs=1e-6)
