@@ -1,12 +1,31 @@
 """History utilities for retrieving recent consumption and surplus data."""
 
+import asyncio
+from collections.abc import Callable
 from datetime import datetime, timedelta
 import typing
 
 from dateutil.relativedelta import relativedelta
+
 from edata.core.utils import get_tariff
 
 from .data import DataManager
+
+
+def _filter_by_tariff(
+    items: list,
+    value_getter: Callable[[typing.Any], float],
+    tariff: int | None,
+) -> list[tuple[float, float]]:
+    """Build (timestamp_ms, value) tuples, keeping only rows matching tariff.
+
+    Runs off the event loop: get_tariff resolves ES holidays synchronously.
+    """
+    return [
+        (item.datetime.timestamp() * 1000, value_getter(item))
+        for item in items
+        if tariff is None or get_tariff(item.datetime) == tariff
+    ]
 
 
 def _get_reference_date(
@@ -65,11 +84,9 @@ async def get_recent_consumptions(
     # For hourly data, use raw energy data
     if aggr == "hour":
         energy_data = await data_manager.get_energy(start=start_date, end=ref_date)
-        result = [
-            (energy.datetime.timestamp() * 1000, energy.consumption_kwh)
-            for energy in energy_data
-            if tariff is None or get_tariff(energy.datetime) == tariff
-        ]
+        result = await asyncio.to_thread(
+            _filter_by_tariff, energy_data, lambda e: e.consumption_kwh, tariff
+        )
         return _sort_and_limit_results(result, records)
 
     # For day or month aggregation, use statistics
@@ -117,11 +134,9 @@ async def get_recent_surplus(
     # For hourly data, use raw energy data
     if aggr == "hour":
         energy_data = await data_manager.get_energy(start=start_date, end=ref_date)
-        result = [
-            (energy.datetime.timestamp() * 1000, energy.surplus_kwh)
-            for energy in energy_data
-            if tariff is None or get_tariff(energy.datetime) == tariff
-        ]
+        result = await asyncio.to_thread(
+            _filter_by_tariff, energy_data, lambda e: e.surplus_kwh, tariff
+        )
         return _sort_and_limit_results(result, records)
 
     # For day or month aggregation, use statistics
@@ -200,12 +215,9 @@ async def get_recent_maximeter(
     # Get power data
     power_data = await data_manager.get_power(start=start_date, end=ref_date)
 
-    result = [
-        (power.datetime.timestamp() * 1000, power.value_kw)
-        for power in power_data
-        if tariff is None or get_tariff(power.datetime) == tariff
-    ]
+    result = await asyncio.to_thread(
+        _filter_by_tariff, power_data, lambda p: p.value_kw, tariff
+    )
 
-    # Sort by timestamp
     result.sort(key=lambda x: x[0])
     return result
