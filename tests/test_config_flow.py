@@ -24,6 +24,8 @@ from custom_components.edata.core.options import (
     CONF_DEBUG,
     CONF_PVPC,
     CONF_UPDATE_SINCE,
+    step_costs,
+    step_formulas,
 )
 
 from .fixtures import CUPS, PASSWORD, USERNAME
@@ -167,3 +169,13 @@ async def test_options_flow_billing_disabled(
         {CONF_DEBUG: False, CONF_BILLING: False, CONF_PVPC: False},
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+@pytest.mark.parametrize("is_pvpc", [False, True], ids=["custom", "pvpc"])
+@pytest.mark.parametrize(
+    "builder", [step_costs, step_formulas], ids=["costs", "formulas"]
+)
+def test_billing_schema_excludes_surplus(builder, is_pvpc: bool) -> None:
+    """Surplus discounts are no longer configurable (assumed zero)."""
+    keys = [str(key.schema) for key in builder(is_pvpc, {}).schema]
+    assert not any("surplus" in key for key in keys)

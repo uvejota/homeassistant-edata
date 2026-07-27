@@ -100,10 +100,7 @@
           "iva_tax": "IVA (ex: 1,10 per a un 10%)",
           "p1_kwh_eur": "Energia: Preu per kWh a la franja Punta - P1 (€)",
           "p2_kwh_eur": "Energia: Preu per kWh a la franja Pla - P2 (€)",
-          "p3_kwh_eur": "Energia: Preu per kWh a la franja Vall - P3 (€)",
-          "surplus_p1_kwh_eur": "Compensació per kWh generat en P1 (€)",
-          "surplus_p2_kwh_eur": "Compensació per kWh generat en P2 (€)",
-          "surplus_p3_kwh_eur": "Compensació per kWh generat en P3 (€)"
+          "p3_kwh_eur": "Energia: Preu per kWh a la franja Vall - P3 (€)"
         }
       },
       "formulas": {
@@ -111,8 +108,7 @@
         "data": {
           "energy_formula": "Terme d'energia (€)",
           "power_formula": "Terme de potència (€)",
-          "others_formula": "Altres despeses (p.e., comptador, €)",
-          "surplus_formula": "Retorn per generació (es resta del cost total, €)"
+          "others_formula": "Altres despeses (p.e., comptador, €)"
         }
       },
       "confirm": {
@@ -123,7 +119,6 @@
           "energy_term": "Terme d'energia (€)",
           "power_term": "Terme de potència (€)",
           "others_term": "Altres despeses (p.e., comptador, €)",
-          "surplus_term": "Retorn per generació (es resta del cost total, €)",
           "apply_from": "Recalcular factures des de...",
           "confirm": "Confirmar canvis"
         }

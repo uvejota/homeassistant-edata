@@ -101,10 +101,7 @@
           "iva_tax": "IVE (e.g., 1.10 para 10%)",
           "p1_kwh_eur": "Custo por kWh en P1 (€)",
           "p2_kwh_eur": "Custo por kWh en P2 (€)",
-          "p3_kwh_eur": "Custo por kWh en P3 (€)",
-          "surplus_p1_kwh_eur": "Compensación por kWh xenerado en P1 (€)",
-          "surplus_p2_kwh_eur": "Compensación por kWh xenerado en P2 (€)",
-          "surplus_p3_kwh_eur": "Compensación por kWh xenerado en P3 (€)"
+          "p3_kwh_eur": "Custo por kWh en P3 (€)"
         }
       },
       "formulas": {
@@ -112,8 +109,7 @@
         "data": {
           "energy_formula": "Termo de enerxía (€)",
           "power_formula": "Termo de potencia (€)",
-          "others_formula": "Outros gastos (p.ex., contador, €)",
-          "surplus_formula": "Retorno por xeración (réstase do custo total, €)"
+          "others_formula": "Outros gastos (p.ex., contador, €)"
         }
       },
       "confirm": {
@@ -124,7 +120,6 @@
           "energy_term": "Termo de enerxía (€)",
           "power_term": "Termo de potencia (€)",
           "others_term": "Outros gastos (p.ex., contador, €)",
-          "surplus_term": "Retorno por xeración (réstase do custo total, €)",
           "apply_from": "Recalcular facturas desde...",
           "confirm": "Confirmar cambios"
         }

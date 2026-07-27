@@ -61,7 +61,11 @@ def step_costs(is_pvpc: bool, prev_options: dict[str, typing.Any]) -> vol.Schema
 
     rules_model = PVPCBillingRules if is_pvpc else BillingRules
     for key, info in rules_model.model_fields.items():
-        if key.endswith("_formula") or not _is_numeric(info.annotation):
+        if (
+            key.endswith("_formula")
+            or key.startswith("surplus")
+            or not _is_numeric(info.annotation)
+        ):
             continue
         schema[
             vol.Required(key, default=_numeric_default(info, prev_options.get(key)))
@@ -83,7 +87,7 @@ def step_formulas(is_pvpc: bool, prev_options: dict[str, typing.Any]) -> vol.Sch
     schema = {}
     rules_model = PVPCBillingRules if is_pvpc else BillingRules
     for key, info in rules_model.model_fields.items():
-        if not key.endswith("_formula"):
+        if not key.endswith("_formula") or key.startswith("surplus"):
             continue
         default = prev_options.get(key, info.default) or "0"
         schema[vol.Required(key, default=tokenize(default))] = sel.TemplateSelector()
