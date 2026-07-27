@@ -313,9 +313,15 @@ class EdataCoordinator(DataUpdateCoordinator):
         await asyncio.to_thread(self._edata.process_data, False)
 
         # give from_dt a proper default value
-        from_dt = dt_util.as_utc(
-            self._edata.data["consumptions_daily_sum"][0]["datetime"]
-        )
+        daily_sum = self._edata.data.get("consumptions_daily_sum") or []
+        if not daily_sum:
+            _LOGGER.warning(
+                "%s: no consumption data available, skipping integrity check",
+                self.scups,
+            )
+            return False
+
+        from_dt = dt_util.as_utc(daily_sum[0]["datetime"])
 
         _LOGGER.debug(
             "%s: performing integrity check since %s",
