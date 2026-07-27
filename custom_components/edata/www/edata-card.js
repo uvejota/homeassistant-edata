@@ -495,13 +495,13 @@ class EdataCard extends LitElement {
 
     if (surplus) {
       this._bottom_left_title = getLabel("surplus");
-      this._bottom_left_value = surplus;
+      this._bottom_left_value = Math.round(surplus * 100) / 100;
       this._bottom_left_unit = DEF_ENERGY_UNIT;
     }
 
     if (cost) {
       this._top_right_title = getLabel("cost");
-      this._top_right_value = cost;
+      this._top_right_value = Math.round(cost * 100) / 100;
       this._top_right_unit = DEF_COST_UNIT;
     }
 
