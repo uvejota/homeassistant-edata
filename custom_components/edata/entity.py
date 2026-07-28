@@ -25,9 +25,9 @@ class EdataEntity(CoordinatorEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (const.DOMAIN, self.coordinator.cups)
+                (const.DOMAIN, self.coordinator.cups)  # pyright: ignore[reportAttributeAccessIssue]
             },
-            name=self.coordinator.id.upper(),
+            name=self.coordinator.id.upper(),  # pyright: ignore[reportAttributeAccessIssue]
             sw_version=f"edata v{getattr(self.coordinator.hass.data['integrations'][const.DOMAIN], 'version', 0)}",
         )
 

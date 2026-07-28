@@ -2,21 +2,143 @@
 
 from __future__ import annotations
 
+from datetime import datetime, time
 import logging
 from pathlib import Path
 
+from edata.models.bill import BillingRules, PVPCBillingRules
+from pydantic import ValidationError
+
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, EVENT_HOMEASSISTANT_START
-from homeassistant.core import CoreState, HomeAssistant, callback
+from homeassistant.const import EVENT_HOMEASSISTANT_START
+from homeassistant.core import CoreState, HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.storage import STORAGE_DIR
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
-from . import const, utils
+from . import const
 from .coordinator import EdataCoordinator
+from .core.config import (
+    CONF_AUTHORIZED_NIF,
+    CONF_CUPS,
+    CONF_PASSWORD,
+    CONF_SCUPS,
+    CONF_USERNAME,
+)
+from .core.data import DataManager
+from .core.lovelace import init_resource, register_static_path
+from .core.options import CONF_BILLING, CONF_DEBUG, CONF_PVPC, CONF_UPDATE_SINCE
+from .core.utils import get_shared_memory
 from .websockets import async_register_websockets
 
 PLATFORMS: list[str] = ["button", "sensor"]
 _LOGGER = logging.getLogger(__name__)
+
+
+def _build_billing_rules(options: dict) -> BillingRules | None:
+    """Build billing rules from the config entry options."""
+
+    if not options.get(CONF_BILLING, False):
+        return None
+    rules_model = PVPCBillingRules if options.get(CONF_PVPC, False) else BillingRules
+    try:
+        return rules_model(**dict(options))
+    except ValidationError:
+        _LOGGER.warning(
+            "Ignoring invalid billing options; please reconfigure billing"
+        )
+        return None
+
+
+def _apply_debug_level(options: dict) -> None:
+    """Set the edata logger level according to the debug option."""
+
+    if options.get(CONF_DEBUG, False):
+        logging.getLogger("edata").setLevel(logging.INFO)
+    else:
+        logging.getLogger("edata").setLevel(logging.WARNING)
+
+
+def _greenlet_ready() -> bool:
+    """Return whether SQLAlchemy sees greenlet (needed by the async DB engine).
+
+    SQLAlchemy resolves greenlet once, at import time, and caches it. On a fresh
+    install the dependency lands after SQLAlchemy is first imported (by the
+    recorder), so this stays False until Home Assistant is restarted -- even
+    though greenlet is already on disk by then.
+    """
+
+    try:
+        from sqlalchemy.util.concurrency import have_greenlet  # noqa: PLC0415
+    except Exception:  # noqa: BLE001
+        return True  # can't determine; don't block setup
+    return bool(have_greenlet)
+
+
+def _remove_legacy_file(path: Path) -> None:
+    """Delete the imported 1.x JSON cache file (best effort)."""
+    path.unlink(missing_ok=True)
+
+
+async def _migrate_legacy_storage(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Import the 1.x JSON cache into the 2.0 database, then remove it.
+
+    Best effort: a failure is logged and the entry is still migrated, since 2.0
+    can rebuild the database from Datadis.
+    """
+
+    cups = entry.data[CONF_CUPS]
+    scups = entry.data[CONF_SCUPS]
+    manager = DataManager(
+        hass,
+        entry.data[CONF_USERNAME],
+        entry.data[CONF_PASSWORD],
+        cups,
+        scups,
+        entry.data.get(CONF_AUTHORIZED_NIF),
+    )
+    try:
+        results = await manager.run_migrations()
+    except Exception:
+        _LOGGER.exception(
+            "%s: legacy storage migration failed; 2.0 will rebuild from Datadis",
+            scups,
+        )
+        return
+
+    if not results:
+        return
+
+    _LOGGER.info("%s: imported legacy 1.x storage (%s)", scups, results)
+    # 1.x wrote .storage/edata/edata_{cups}.json (full CUPS, lower-cased).
+    legacy_file = (
+        Path(hass.config.path(STORAGE_DIR)) / "edata" / f"edata_{cups.lower()}.json"
+    )
+    await hass.async_add_executor_job(_remove_legacy_file, legacy_file)
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate an old config entry to the current version."""
+
+    if entry.version < 2:
+        if not _greenlet_ready():
+            # The async DB engine can't run until HA is restarted (greenlet was
+            # installed after SQLAlchemy was imported). Do NOT bump the version, so
+            # the 1.x import re-runs after the restart instead of being lost.
+            _LOGGER.warning(
+                "%s: restart Home Assistant to finish setting up edata; the 1.x "
+                "data import will run after the restart",
+                entry.data[CONF_SCUPS],
+            )
+            return False
+        # 2.0 stores data in .storage/edata.db; import the orphaned 1.x JSON cache
+        # from .storage/edata/ so history (incl. data older than Datadis's window)
+        # is preserved, then bump the entry version.
+        await _migrate_legacy_storage(hass, entry)
+        hass.config_entries.async_update_entry(entry, version=2)
+
+    return True
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType):
@@ -24,9 +146,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType):
 
     path = Path(__file__).parent / "www"
     name = "edata-card.js"
-    utils.register_static_path(hass.http.app, "/edata/" + name, path / name)
+    register_static_path(hass.http.app, "/edata/" + name, path / name)
     version = getattr(hass.data["integrations"][const.DOMAIN], "version", 0)
-    await utils.init_resource(hass, "/edata/edata-card.js", str(version))
+    await init_resource(hass, "/edata/edata-card.js", str(version))
     return True
 
 
@@ -34,70 +156,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up edata from a config entry."""
     _LOGGER.debug("Setting up platform 'edata'")
 
+    if not _greenlet_ready():
+        raise ConfigEntryNotReady(
+            "Restart Home Assistant to finish installing edata's database driver "
+            "(greenlet)"
+        )
+
     # Registers update listener to update config entry when options are updated.
     unsub_options_update_listener = entry.add_update_listener(options_update_listener)
     entry.async_on_unload(unsub_options_update_listener)
 
     hass.data.setdefault(const.DOMAIN, {})
 
-    # get configured parameters
-    usr = entry.data[CONF_USERNAME]
-    pwd = entry.data[CONF_PASSWORD]
-    cups = entry.data[const.CONF_CUPS]
-    authorized_nif = entry.data.get(const.CONF_AUTHORIZEDNIF, None)
-    scups = entry.data[const.CONF_SCUPS]
-    billing_enabled = entry.options.get(const.CONF_BILLING, False)
+    _apply_debug_level(entry.options)
+    billing_rules = _build_billing_rules(entry.options)
 
-    if entry.options.get(const.CONF_DEBUG, False):
-        logging.getLogger("edata").setLevel(logging.INFO)
-        # _LOGGER.setLevel(logging.DEBUG)
-    else:
-        logging.getLogger("edata").setLevel(logging.WARNING)
-
-    if billing_enabled:
-        pricing_rules = {
-            const.PRICE_ELECTRICITY_TAX: const.DEFAULT_PRICE_ELECTRICITY_TAX,
-            const.PRICE_IVA_TAX: const.DEFAULT_PRICE_IVA,
-        }
-        pricing_rules.update(
-            {
-                x: entry.options[x]
-                for x in entry.options
-                if x
-                in (
-                    const.CONF_CYCLE_START_DAY,
-                    const.PRICE_P1_KW_YEAR,
-                    const.PRICE_P2_KW_YEAR,
-                    const.PRICE_P1_KWH,
-                    const.PRICE_P2_KWH,
-                    const.PRICE_P3_KWH,
-                    const.PRICE_METER_MONTH,
-                    const.PRICE_MARKET_KW_YEAR,
-                    const.PRICE_ELECTRICITY_TAX,
-                    const.PRICE_IVA_TAX,
-                    const.BILLING_ENERGY_FORMULA,
-                    const.BILLING_POWER_FORMULA,
-                    const.BILLING_OTHERS_FORMULA,
-                    const.BILLING_SURPLUS_FORMULA,
-                )
-            }
-        )
-    else:
-        pricing_rules = None
-
-    coordinator = await EdataCoordinator.async_setup(
+    coordinator = EdataCoordinator(
         hass,
-        usr,
-        pwd,
-        cups,
-        scups,
-        authorized_nif,
-        pricing_rules,
+        entry.data[CONF_USERNAME],
+        entry.data[CONF_PASSWORD],
+        entry.data[CONF_CUPS],
+        entry.data[CONF_SCUPS],
+        entry.data.get(CONF_AUTHORIZED_NIF),
+        billing_rules,
     )
-    hass.data[const.DOMAIN][scups.lower()]["coordinator"] = coordinator
+    shared = get_shared_memory(hass, entry.data[CONF_SCUPS])
+    shared["coordinator"] = coordinator
 
     # postpone first refresh to speed up startup
-    @callback
     async def async_first_refresh(*args):
         """Force the component to assess the first refresh."""
         hass.async_create_task(coordinator.async_refresh())
@@ -132,14 +218,22 @@ async def async_remove_entry(hass: HomeAssistant, entry) -> None:
 
 
 async def options_update_listener(hass: HomeAssistant, entry: ConfigEntry):
-    """Handle options update."""
+    """Handle options update by re-applying billing rules."""
 
-    scups = entry.data[const.CONF_SCUPS]
+    scups = entry.data[CONF_SCUPS]
     _LOGGER.debug("%s: options changed", scups)
-    data = hass.data[const.DOMAIN][scups.lower()]
-    coor: EdataCoordinator = data["coordinator"]
 
-    await coor.update_billing(
-        entry.options,
-        dt_util.as_local(dt_util.parse_datetime(entry.options["update_billing_since"])),
+    _apply_debug_level(entry.options)
+
+    coordinator: EdataCoordinator | None = get_shared_memory(hass, scups).get(
+        "coordinator"
     )
+    if coordinator is None:
+        return
+
+    since: datetime | None = None
+    if raw_since := entry.options.get(CONF_UPDATE_SINCE):
+        if parsed := dt_util.parse_date(raw_since):
+            since = datetime.combine(parsed, time.min)
+
+    await coordinator.update_billing(_build_billing_rules(entry.options), since)

@@ -1,7 +1,5 @@
 """Sensor platform for edata component."""
 
-import logging
-
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import CURRENCY_EURO, UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant
@@ -9,96 +7,65 @@ from homeassistant.core import HomeAssistant
 from . import const
 from .entity import EdataSensorEntity
 
-# HA variables
-_LOGGER = logging.getLogger(__name__)
-
 INFO_SENSORS_DESC = [
     # (name, state_key, [attributes_key])
     (
         "info",
-        "last_registered_date",
-        ["contract_p1_kW", "contract_p2_kW"],
+        "last_datetime",
+        ["contract_p1_kw", "contract_p2_kw"],
     ),
 ]
 
 ENERGY_SENSORS_DESC = [
     (
-        "yesterday_kwh",
-        "yesterday_kWh",
-        ["yesterday_hours", "yesterday_p1_kWh", "yesterday_p2_kWh", "yesterday_p3_kWh"],
-    ),
-    (
-        "yesterday_surplus_kwh",
-        "yesterday_surplus_kWh",
+        "last_day_kwh",
+        "last_day_consumption_kwh",
         [
-            "yesterday_hours",
-            "yesterday_surplus_p1_kWh",
-            "yesterday_surplus_p2_kWh",
-            "yesterday_surplus_p3_kWh",
+            "last_datetime",
+            "last_day_delta_h",
+            "last_day_consumption_by_tariff",
         ],
     ),
     (
-        "last_registered_day_kwh",
-        "last_registered_day_kWh",
+        "last_day_surplus_kwh",
+        "last_day_surplus_kwh",
         [
-            "last_registered_date",
-            "last_registered_day_hours",
-            "last_registered_day_p1_kWh",
-            "last_registered_day_p2_kWh",
-            "last_registered_day_p3_kWh",
-        ],
-    ),
-    (
-        "last_registered_day_surplus_kwh",
-        "last_registered_day_surplus_kWh",
-        [
-            "last_registered_date",
-            "last_registered_day_hours",
-            "last_registered_day_surplus_p1_kWh",
-            "last_registered_day_surplus_p2_kWh",
-            "last_registered_day_surplus_p3_kWh",
+            "last_datetime",
+            "last_day_delta_h",
+            "last_day_surplus_by_tariff",
         ],
     ),
     (
         "month_kwh",
-        "month_kWh",
+        "month_consumption_kwh",
         [
-            "month_days",
-            "month_daily_kWh",
-            "month_p1_kWh",
-            "month_p2_kWh",
-            "month_p3_kWh",
+            "month_delta_h",
+            "month_daily_kwh",
+            "month_consumption_by_tariff",
         ],
     ),
     (
         "month_surplus_kwh",
-        "month_surplus_kWh",
+        "month_surplus_kwh",
         [
-            "month_days",
-            "month_surplus_p1_kWh",
-            "month_surplus_p2_kWh",
-            "month_surplus_p3_kWh",
+            "month_delta_h",
+            "month_surplus_by_tariff",
         ],
     ),
     (
         "last_month_kwh",
-        "last_month_kWh",
+        "last_month_consumption_kwh",
         [
-            "last_month_days",
-            "last_month_daily_kWh",
-            "last_month_p1_kWh",
-            "last_month_p2_kWh",
-            "last_month_p3_kWh",
+            "last_month_delta_h",
+            "last_month_consumption_by_tariff",
         ],
     ),
     (
         "last_month_surplus_kwh",
-        "last_month_surplus_kWh",
+        "last_month_surplus_kwh",
         [
-            "last_month_days",
-            "last_month_surplus_p1_kWh",
-            "last_month_surplus_p2_kWh",
-            "last_month_surplus_p3_kWh",
+            "last_month_delta_h",
+            "last_month_surplus_by_tariff",
         ],
     ),
 ]
@@ -106,11 +73,10 @@ ENERGY_SENSORS_DESC = [
 POWER_SENSORS_DESC = [
     (
         "max_power_kw",
-        "max_power_kW",
+        "max_power_kw",
         [
-            "max_power_date",
-            "max_power_mean_kW",
-            "max_power_90perc_kW",
+            "max_power_datetime",
+            "max_power_mean_kw",
         ],
     ),
 ]
@@ -118,12 +84,12 @@ POWER_SENSORS_DESC = [
 COST_SENSORS_DESC = [
     (
         "month_eur",
-        "month_€",
+        "month_bill_value_eur",
         [],
     ),
     (
         "last_month_eur",
-        "last_month_€",
+        "last_month_bill_value_eur",
         [],
     ),
 ]
@@ -134,7 +100,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
     hass.data.setdefault(const.DOMAIN, {})
 
     # get configured parameters
-    scups = config_entry.data[const.CONF_SCUPS]
+    scups = config_entry.data["scups"]
     coordinator = hass.data[const.DOMAIN][scups.lower()]["coordinator"]
     # add sensor entities
     _entities = []

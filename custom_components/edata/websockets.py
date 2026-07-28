@@ -5,88 +5,26 @@ import logging
 import voluptuous as vol
 
 from homeassistant.components.websocket_api import (
-    BASE_COMMAND_MESSAGE_SCHEMA,
     async_register_command,
     async_response,
     websocket_command,
 )
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 
 from . import const
-from .utils import (
-    get_attributes,
-    get_consumptions_history,
-    get_costs_history,
-    get_maximeter_history,
-    get_surplus_history,
-)
+from .core import history as edata_history
+from .core.data import DataManager
 
 _LOGGER = logging.getLogger(__name__)
-
-
-@callback
-def websocket_get_daily_data(hass: HomeAssistant, connection, msg):
-    """Publish daily consumptions list data.."""
-    try:
-        data = hass.data[const.DOMAIN][msg["scups"].lower()].get(
-            "ws_consumptions_day", []
-        )
-        # served data is filtered so only last 'records' records are represented
-        connection.send_result(msg["id"], data[-msg.get("records", 30) :])
-    except KeyError as _:
-        _LOGGER.error(
-            "The provided scups parameter is not correct: %s", msg["scups"].lower()
-        )
-    except Exception as _:
-        _LOGGER.exception("Unhandled exception when processing websockets: %s", _)
-        connection.send_result(msg["id"], [])
-
-
-@callback
-def websocket_get_monthly_data(hass: HomeAssistant, connection, msg):
-    """Publish monthly consumptions list data.."""
-    try:
-        connection.send_result(
-            msg["id"],
-            hass.data[const.DOMAIN][msg["scups"].lower()].get(
-                "ws_consumptions_month", []
-            ),
-        )
-    except KeyError as _:
-        _LOGGER.error(
-            "The provided scups parameter is not correct: %s", msg["scups"].lower()
-        )
-    except Exception as _:
-        _LOGGER.exception("Unhandled exception when processing websockets: %s", _)
-        connection.send_result(msg["id"], [])
-
-
-@callback
-def websocket_get_maximeter(hass: HomeAssistant, connection, msg):
-    """Publish maximeter list data.."""
-    try:
-        data = hass.data[const.DOMAIN][msg["scups"].lower()].get("ws_maximeter", [])
-        if "tariff" in msg:
-            data = [x for x in data if x[f"value_p{msg['tariff']}_kW"] > 0]
-        connection.send_result(msg["id"], data)
-    except KeyError as _:
-        _LOGGER.error(
-            "The provided scups parameter is not correct: %s", msg["scups"].lower()
-        )
-    except Exception as _:
-        _LOGGER.exception("Unhandled exception when processing websockets: %s", _)
-        connection.send_result(msg["id"], [])
 
 
 @websocket_command(
     {
         vol.Required("type"): f"{const.DOMAIN}/ws/consumptions",
         vol.Required("scups"): str,
-        vol.Optional("aggr", default="day"): vol.Union(
-            "day", "hour", "week", "month", "year"
-        ),
+        vol.Optional("aggr", default="day"): vol.Union("day", "hour", "month"),
         vol.Optional("records", default=30): int,
-        vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
+        vol.Optional("tariff"): vol.Union(1, 2, 3),
         vol.Optional("from_now"): bool,
     }
 )
@@ -100,13 +38,21 @@ async def ws_get_consumptions(hass: HomeAssistant, connection, msg):
     _tariff = msg.get("tariff", None)
     _now_as_ref = msg.get("from_now", False)
 
-    try:
-        data = await get_consumptions_history(
-            hass, _scups, _tariff, _aggr, _records, now_as_ref=_now_as_ref
-        )
-    except KeyError:
-        data = []
-        _LOGGER.info("Stats not found for CUPS %s", _scups)
+    data_manager: DataManager | None = hass.data[const.DOMAIN][_scups].get(
+        const.SHARED_DATAMANAGER
+    )
+    if data_manager is None:
+        _LOGGER.info("No data manager found for CUPS %s", _scups)
+        connection.send_result(msg["id"], [])
+        return
+
+    data = await edata_history.get_recent_consumptions(
+        data_manager,
+        aggr=_aggr,
+        records=_records,
+        tariff=_tariff,
+        now_as_ref=_now_as_ref,
+    )
     connection.send_result(msg["id"], data)
 
 
@@ -114,9 +60,7 @@ async def ws_get_consumptions(hass: HomeAssistant, connection, msg):
     {
         vol.Required("type"): f"{const.DOMAIN}/ws/surplus",
         vol.Required("scups"): str,
-        vol.Optional("aggr", default="day"): vol.Union(
-            "day", "hour", "week", "month", "year"
-        ),
+        vol.Optional("aggr", default="day"): vol.Union("day", "hour", "month"),
         vol.Optional("records", default=30): int,
         vol.Optional("from_now"): bool,
     }
@@ -128,9 +72,20 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
     _aggr = msg["aggr"]
     _records = msg["records"]
     _now_as_ref = msg.get("from_now", False)
-
+    data_manager: DataManager | None = hass.data[const.DOMAIN][_scups].get(
+        const.SHARED_DATAMANAGER
+    )
+    if data_manager is None:
+        _LOGGER.info("No data manager found for CUPS %s", _scups)
+        connection.send_result(msg["id"], [])
+        return
     try:
-        data = await get_surplus_history(hass, _scups, _aggr, _records, _now_as_ref)
+        data = await edata_history.get_recent_surplus(
+            data_manager,
+            aggr=_aggr,
+            records=_records,
+            now_as_ref=_now_as_ref,
+        )
     except KeyError:
         data = []
         _LOGGER.info("Stats not found for CUPS %s", _scups)
@@ -141,11 +96,9 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
     {
         vol.Required("type"): f"{const.DOMAIN}/ws/costs",
         vol.Required("scups"): str,
-        vol.Optional("aggr", default="day"): vol.Union(
-            "day", "hour", "week", "month", "year"
-        ),
+        vol.Optional("aggr", default="day"): vol.Union("day", "hour", "month"),
         vol.Optional("records", default=30): int,
-        vol.Optional("tariff"): vol.Union("p1", "p2", "p3"),
+        vol.Optional("tariff"): vol.Union(1, 2, 3),
         vol.Optional("from_now"): bool,
     }
 )
@@ -155,11 +108,21 @@ async def ws_get_cost(hass: HomeAssistant, connection, msg):
     _scups = msg["scups"].lower()
     _aggr = msg["aggr"]
     _records = msg["records"]
-    _tariff = None if "tariff" not in msg else msg["tariff"]
     _now_as_ref = msg.get("from_now", False)
-
+    data_manager: DataManager | None = hass.data[const.DOMAIN][_scups].get(
+        const.SHARED_DATAMANAGER
+    )
+    if data_manager is None:
+        _LOGGER.info("No data manager found for CUPS %s", _scups)
+        connection.send_result(msg["id"], [])
+        return
     try:
-        data = await get_costs_history(hass, _scups, _tariff, _aggr, _records)
+        data = await edata_history.get_recent_bills(
+            data_manager,
+            aggr=_aggr,
+            records=_records,
+            now_as_ref=_now_as_ref,
+        )
     except KeyError:
         data = []
         _LOGGER.info("Stats not found for CUPS %s", _scups)
@@ -170,17 +133,26 @@ async def ws_get_cost(hass: HomeAssistant, connection, msg):
     {
         vol.Required("type"): f"{const.DOMAIN}/ws/maximeter",
         vol.Required("scups"): str,
-        vol.Optional("tariff"): vol.Union("p1", "p2"),
+        vol.Optional("tariff"): vol.Union(1, 2),
     }
 )
 @async_response
 async def ws_get_maximeter(hass: HomeAssistant, connection, msg):
     """Fetch consumptions history."""
     _scups = msg["scups"].lower()
-    _tariff = None if "tariff" not in msg else msg["tariff"]
-
+    _tariff = msg.get("tariff")
+    data_manager: DataManager | None = hass.data[const.DOMAIN][_scups].get(
+        const.SHARED_DATAMANAGER
+    )
+    if data_manager is None:
+        _LOGGER.info("No data manager found for CUPS %s", _scups)
+        connection.send_result(msg["id"], [])
+        return
     try:
-        data = await get_maximeter_history(hass, _scups, _tariff)
+        data = await edata_history.get_recent_maximeter(
+            data_manager,
+            tariff=_tariff,
+        )
     except KeyError:
         data = []
         _LOGGER.info("Stats not found for CUPS %s", _scups)
@@ -197,61 +169,17 @@ async def ws_get_maximeter(hass: HomeAssistant, connection, msg):
 async def ws_get_summary(hass: HomeAssistant, connection, msg):
     """Fetch consumptions history."""
     _scups = msg["scups"].lower()
-
-    try:
-        data = await get_attributes(hass, _scups)
-    except KeyError:
-        data = []
-        _LOGGER.info("Stats not found for CUPS %s", _scups)
-    connection.send_result(msg["id"], data)
+    _shared = hass.data[const.DOMAIN][_scups]
+    if _shared is None:
+        _LOGGER.info("No shared data found for CUPS %s", _scups)
+        connection.send_result(msg["id"], [])
+        return
+    connection.send_result(msg["id"], _shared[const.SHARED_ATTRIBUTES])
 
 
 def async_register_websockets(hass: HomeAssistant):
     """Register websockets into HA API."""
 
-    ## v1
-    # for daily consumptions
-    async_register_command(
-        hass,
-        f"{const.DOMAIN}/consumptions/daily",
-        websocket_get_daily_data,
-        BASE_COMMAND_MESSAGE_SCHEMA.extend(
-            {
-                vol.Required("type"): f"{const.DOMAIN}/consumptions/daily",
-                vol.Required("scups"): str,
-                vol.Optional("records"): int,
-            }
-        ),
-    )
-
-    # for monthly consumptions
-    async_register_command(
-        hass,
-        f"{const.DOMAIN}/consumptions/monthly",
-        websocket_get_monthly_data,
-        BASE_COMMAND_MESSAGE_SCHEMA.extend(
-            {
-                vol.Required("type"): f"{const.DOMAIN}/consumptions/monthly",
-                vol.Required("scups"): str,
-            }
-        ),
-    )
-
-    # for maximeter
-    async_register_command(
-        hass,
-        f"{const.DOMAIN}/maximeter",
-        websocket_get_maximeter,
-        BASE_COMMAND_MESSAGE_SCHEMA.extend(
-            {
-                vol.Required("type"): f"{const.DOMAIN}/maximeter",
-                vol.Required("scups"): str,
-                vol.Optional("tariff"): int,
-            }
-        ),
-    )
-
-    ## v2:
     async_register_command(hass, ws_get_consumptions)
     async_register_command(hass, ws_get_surplus)
     async_register_command(hass, ws_get_cost)

@@ -16,12 +16,10 @@ const VALID_CHART_TEMPLATES = [
   "summary-month",
 ];
 const DEF_CHART_TEMPLATE = "";
-const VALID_AGGR_PERIODS = ["year", "month", "week", "day", "hour"];
+const VALID_AGGR_PERIODS = ["month", "day", "hour"];
 const DEF_AGGR_PERIOD = "month";
 const DEF_RECORDS_FOR_METHOD = {
-  year: 3,
   month: 13,
-  week: 4,
   day: 60,
   hour: 48,
 };
@@ -368,15 +366,15 @@ class EdataCard extends LitElement {
 
     const series = tariffs?.length
       ? tariffs.map((tariff, index) => ({
-          name: getLabel(tariff),
-          data: this.normalizeX(...results)[index],
-        }))
+        name: getLabel("p" + tariff),
+        data: this.normalizeX(...results)[index],
+      }))
       : [
-          {
-            name: getLabel("total"),
-            data: results[0],
-          },
-        ];
+        {
+          name: getLabel("total"),
+          data: results[0],
+        },
+      ];
 
     var config = {
       chart: {
@@ -426,7 +424,7 @@ class EdataCard extends LitElement {
           data: await this._hass.callWS({
             type: "edata/ws/maximeter",
             scups: this._scups,
-            tariff: "p1",
+            tariff: 1,
           }),
         },
         {
@@ -434,7 +432,7 @@ class EdataCard extends LitElement {
           data: await this._hass.callWS({
             type: "edata/ws/maximeter",
             scups: this._scups,
-            tariff: "p2",
+            tariff: 2,
           }),
         },
       ],
@@ -452,14 +450,15 @@ class EdataCard extends LitElement {
     var p3 = undefined;
     var surplus = undefined;
     var cost = undefined;
-    var date = new Date(summary["last_registered_date"]);
+    var date = new Date(summary["last_datetime"]);
+    console.log(summary);
 
     switch (preset) {
       case "last-day":
-        p1 = summary["last_registered_day_p1_kWh"];
-        p2 = summary["last_registered_day_p2_kWh"];
-        p3 = summary["last_registered_day_p3_kWh"];
-        surplus = summary["last_registered_day_surplus_kWh"];
+        p1 = summary["last_day_consumption_by_tariff"][0];
+        p2 = summary["last_day_consumption_by_tariff"][1];
+        p3 = summary["last_day_consumption_by_tariff"][2];
+        surplus = summary["last_day_surplus_kwh"];
         this._bottom_right_value =
           date.getDate() +
           "/" +
@@ -468,21 +467,21 @@ class EdataCard extends LitElement {
           date.getFullYear();
         break;
       case "last-month":
-        p1 = summary["last_month_p1_kWh"];
-        p2 = summary["last_month_p2_kWh"];
-        p3 = summary["last_month_p3_kWh"];
-        surplus = summary["last_month_surplus_kWh"];
-        cost = summary["last_month_€"];
+        p1 = summary["last_month_consumption_by_tariff"][0];
+        p2 = summary["last_month_consumption_by_tariff"][1];
+        p3 = summary["last_month_consumption_by_tariff"][2];
+        surplus = summary["last_month_surplus_kwh"];
+        cost = summary["last_month_bill_value_eur"];
         date.setDate(0);
         this._bottom_right_value =
           date.getMonth() + 1 + "/" + date.getFullYear();
         break;
       case "month":
-        p1 = summary["month_p1_kWh"];
-        p2 = summary["month_p2_kWh"];
-        p3 = summary["month_p3_kWh"];
-        surplus = summary["month_surplus_kWh"];
-        cost = summary["month_€"];
+        p1 = summary["month_consumption_by_tariff"][0];
+        p2 = summary["month_consumption_by_tariff"][1];
+        p3 = summary["month_consumption_by_tariff"][2];
+        surplus = summary["month_surplus_kwh"];
+        cost = summary["month_bill_value_eur"];
         this._bottom_right_value =
           date.getMonth() + 1 + "/" + date.getFullYear();
         break;
@@ -496,13 +495,13 @@ class EdataCard extends LitElement {
 
     if (surplus) {
       this._bottom_left_title = getLabel("surplus");
-      this._bottom_left_value = surplus;
+      this._bottom_left_value = Math.round(surplus * 100) / 100;
       this._bottom_left_unit = DEF_ENERGY_UNIT;
     }
 
     if (cost) {
       this._top_right_title = getLabel("cost");
-      this._top_right_value = cost;
+      this._top_right_value = Math.round(cost * 100) / 100;
       this._top_right_unit = DEF_COST_UNIT;
     }
 
@@ -570,7 +569,7 @@ class EdataCard extends LitElement {
           chartOptions = await this.getBarChartOptions(
             "edata/ws/consumptions",
             DEF_ENERGY_UNIT,
-            ["p1", "p2", "p3"]
+            [1, 2, 3]
           );
           break;
         case "surplus":
@@ -583,7 +582,7 @@ class EdataCard extends LitElement {
           chartOptions = await this.getBarChartOptions(
             "edata/ws/costs",
             DEF_COST_UNIT,
-            ["p1", "p2", "p3"]
+            [1, 2, 3]
           );
           break;
         case "maximeter":

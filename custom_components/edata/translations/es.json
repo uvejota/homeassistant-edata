@@ -19,7 +19,7 @@
       "yesterday_kwh": {
         "name": "Consumo ayer"
       },
-      "last_registered_day_kwh": {
+      "last_day_kwh": {
         "name": "Último consumo registrado"
       },
       "month_surplus_kwh": {
@@ -31,7 +31,7 @@
       "yesterday_surplus_kwh": {
         "name": "Retorno ayer"
       },
-      "last_registered_day_surplus_kwh": {
+      "last_day_surplus_kwh": {
         "name": "Último retorno registrado"
       },
       "max_power_kw": {
@@ -103,10 +103,7 @@
           "iva_tax": "IVA (e.g., 1.10 para 10%)",
           "p1_kwh_eur": "Coste por kWh en P1 (€)",
           "p2_kwh_eur": "Coste por kWh en P2 (€)",
-          "p3_kwh_eur": "Coste por kWh en P3 (€)",
-          "surplus_p1_kwh_eur": "Compensación por kWh generado en P1 (€)",
-          "surplus_p2_kwh_eur": "Compensación por kWh generado en P2 (€)",
-          "surplus_p3_kwh_eur": "Compensación por kWh generado en P3 (€)"
+          "p3_kwh_eur": "Coste por kWh en P3 (€)"
         }
       },
       "formulas": {
@@ -114,8 +111,7 @@
         "data": {
           "energy_formula": "Término de energía (€)",
           "power_formula": "Término de potencia (€)",
-          "others_formula": "Otros gastos (e.g., contador, €)",
-          "surplus_formula": "Retorno por generación (se resta del coste total, €)"
+          "others_formula": "Otros gastos (e.g., contador, €)"
         }
       },
       "confirm": {
@@ -126,7 +122,6 @@
           "energy_term": "Término de energía (€)",
           "power_term": "Término de potencia (€)",
           "others_term": "Otros gastos (e.g., contador, €)",
-          "surplus_term": "Retorno por generación (se resta del coste total, €)",
           "apply_from": "Recalcular facturas desde...",
           "confirm": "Confirmar cambios"
         }
