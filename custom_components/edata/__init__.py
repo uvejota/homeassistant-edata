@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_START
 from homeassistant.core import CoreState, HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.storage import STORAGE_DIR
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
@@ -57,6 +58,22 @@ def _apply_debug_level(options: dict) -> None:
         logging.getLogger("edata").setLevel(logging.INFO)
     else:
         logging.getLogger("edata").setLevel(logging.WARNING)
+
+
+def _greenlet_ready() -> bool:
+    """Return whether SQLAlchemy sees greenlet (needed by the async DB engine).
+
+    SQLAlchemy resolves greenlet once, at import time, and caches it. On a fresh
+    install the dependency lands after SQLAlchemy is first imported (by the
+    recorder), so this stays False until Home Assistant is restarted -- even
+    though greenlet is already on disk by then.
+    """
+
+    try:
+        from sqlalchemy.util.concurrency import have_greenlet  # noqa: PLC0415
+    except Exception:  # noqa: BLE001
+        return True  # can't determine; don't block setup
+    return bool(have_greenlet)
 
 
 def _remove_legacy_file(path: Path) -> None:
@@ -105,6 +122,16 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate an old config entry to the current version."""
 
     if entry.version < 2:
+        if not _greenlet_ready():
+            # The async DB engine can't run until HA is restarted (greenlet was
+            # installed after SQLAlchemy was imported). Do NOT bump the version, so
+            # the 1.x import re-runs after the restart instead of being lost.
+            _LOGGER.warning(
+                "%s: restart Home Assistant to finish setting up edata; the 1.x "
+                "data import will run after the restart",
+                entry.data[CONF_SCUPS],
+            )
+            return False
         # 2.0 stores data in .storage/edata.db; import the orphaned 1.x JSON cache
         # from .storage/edata/ so history (incl. data older than Datadis's window)
         # is preserved, then bump the entry version.
@@ -128,6 +155,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType):
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up edata from a config entry."""
     _LOGGER.debug("Setting up platform 'edata'")
+
+    if not _greenlet_ready():
+        raise ConfigEntryNotReady(
+            "Restart Home Assistant to finish installing edata's database driver "
+            "(greenlet)"
+        )
 
     # Registers update listener to update config entry when options are updated.
     unsub_options_update_listener = entry.add_update_listener(options_update_listener)

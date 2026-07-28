@@ -5,13 +5,19 @@ import json
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.storage import STORAGE_DIR
 
-from custom_components.edata import _build_billing_rules, async_migrate_entry
+from custom_components.edata import (
+    _build_billing_rules,
+    async_migrate_entry,
+    async_setup_entry,
+)
 from custom_components.edata.const import DOMAIN, SHARED_DATAMANAGER
 from custom_components.edata.core.config import (
     CONF_CUPS,
@@ -173,6 +179,52 @@ async def test_migrate_v1_entry_without_legacy_file_just_bumps_version(
 
     assert await async_migrate_entry(hass, entry)
     assert entry.version == 2
+
+
+async def test_setup_entry_waits_for_greenlet(hass: HomeAssistant) -> None:
+    """When SQLAlchemy hasn't picked up greenlet yet, setup asks for a restart."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=2,
+        title=SCUPS,
+        data={
+            CONF_USERNAME: USERNAME,
+            CONF_PASSWORD: PASSWORD,
+            CONF_CUPS: CUPS,
+            CONF_SCUPS: SCUPS,
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    with (
+        patch("custom_components.edata._greenlet_ready", return_value=False),
+        pytest.raises(ConfigEntryNotReady),
+    ):
+        await async_setup_entry(hass, entry)
+
+
+async def test_migrate_defers_when_greenlet_not_ready(hass: HomeAssistant) -> None:
+    """A v1 entry is not migrated or version-bumped until greenlet is available."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=1,
+        title=SCUPS,
+        data={
+            CONF_USERNAME: USERNAME,
+            CONF_PASSWORD: PASSWORD,
+            CONF_CUPS: CUPS,
+            CONF_SCUPS: SCUPS,
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    with patch("custom_components.edata._greenlet_ready", return_value=False):
+        assert await async_migrate_entry(hass, entry) is False
+
+    # Version stays 1 so the 1.x import re-runs after the restart.
+    assert entry.version == 1
 
 
 def test_build_billing_rules_guards_invalid_options() -> None:
