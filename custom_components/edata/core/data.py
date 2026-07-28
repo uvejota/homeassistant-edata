@@ -52,6 +52,10 @@ class DataManager:
                 is_pvpc=isinstance(self.billing, PVPCBillingRules),
             )
 
+    async def run_migrations(self) -> list:
+        """Import legacy 1.x on-disk storage into the 2.0 database, if present."""
+        return await self._data_service.run_migrations()
+
     async def get_supply(
         self,
     ) -> Supply | None:

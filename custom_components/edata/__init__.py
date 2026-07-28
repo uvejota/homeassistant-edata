@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_START
 from homeassistant.core import CoreState, HomeAssistant
+from homeassistant.helpers.storage import STORAGE_DIR
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
@@ -24,6 +25,7 @@ from .core.config import (
     CONF_SCUPS,
     CONF_USERNAME,
 )
+from .core.data import DataManager
 from .core.lovelace import init_resource, register_static_path
 from .core.options import CONF_BILLING, CONF_DEBUG, CONF_PVPC, CONF_UPDATE_SINCE
 from .core.utils import get_shared_memory
@@ -57,12 +59,56 @@ def _apply_debug_level(options: dict) -> None:
         logging.getLogger("edata").setLevel(logging.WARNING)
 
 
+def _remove_legacy_file(path: Path) -> None:
+    """Delete the imported 1.x JSON cache file (best effort)."""
+    path.unlink(missing_ok=True)
+
+
+async def _migrate_legacy_storage(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Import the 1.x JSON cache into the 2.0 database, then remove it.
+
+    Best effort: a failure is logged and the entry is still migrated, since 2.0
+    can rebuild the database from Datadis.
+    """
+
+    cups = entry.data[CONF_CUPS]
+    scups = entry.data[CONF_SCUPS]
+    manager = DataManager(
+        hass,
+        entry.data[CONF_USERNAME],
+        entry.data[CONF_PASSWORD],
+        cups,
+        scups,
+        entry.data.get(CONF_AUTHORIZED_NIF),
+    )
+    try:
+        results = await manager.run_migrations()
+    except Exception:
+        _LOGGER.exception(
+            "%s: legacy storage migration failed; 2.0 will rebuild from Datadis",
+            scups,
+        )
+        return
+
+    if not results:
+        return
+
+    _LOGGER.info("%s: imported legacy 1.x storage (%s)", scups, results)
+    # 1.x wrote .storage/edata/edata_{cups}.json (full CUPS, lower-cased).
+    legacy_file = (
+        Path(hass.config.path(STORAGE_DIR)) / "edata" / f"edata_{cups.lower()}.json"
+    )
+    await hass.async_add_executor_job(_remove_legacy_file, legacy_file)
+
+
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate an old config entry to the current version."""
 
     if entry.version < 2:
-        # 2.0 rebuilds .storage/edata.db from Datadis; the orphaned 1.x JSON cache
-        # under .storage/edata/ is left in place and removed in a later version.
+        # 2.0 stores data in .storage/edata.db; import the orphaned 1.x JSON cache
+        # from .storage/edata/ so history (incl. data older than Datadis's window)
+        # is preserved, then bump the entry version.
+        await _migrate_legacy_storage(hass, entry)
         hass.config_entries.async_update_entry(entry, version=2)
 
     return True
