@@ -2,19 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 from datetime import datetime, timedelta
 import logging
 import math
-import os
 
 from dateutil.relativedelta import relativedelta
 
-from edata.const import PROG_NAME as EDATA_PROG_NAME
-from edata.definitions import ATTRIBUTES, PricingRules
-from edata.helpers import EdataHelper
-from edata.processors import utils
 from homeassistant.components.recorder.db_schema import Statistics
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
 from homeassistant.components.recorder.statistics import (
@@ -38,10 +32,24 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from . import const
+from .edata_api import EdataApi, build_billing_rules, tariff_label
 from .migrate import migrate_pre2024_storage_if_needed
 from .utils import get_db_instance
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def naive_local(a_datetime: datetime | None) -> datetime | None:
+    """Return a datetime as naive local time.
+
+    The library works exclusively with naive local datetimes, while Home
+    Assistant hands over aware ones.
+    """
+
+    if a_datetime is None:
+        return None
+
+    return dt_util.as_local(a_datetime).replace(tzinfo=None)
 
 
 class EdataCoordinator(DataUpdateCoordinator):
@@ -55,7 +63,8 @@ class EdataCoordinator(DataUpdateCoordinator):
         cups: str,
         scups: str,
         authorized_nif: str,
-        billing: PricingRules | None = None,
+        billing: dict | None = None,
+        is_pvpc: bool = True,
     ) -> None:
         """Initialize the data handler.."""
 
@@ -69,6 +78,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         self.scups = scups.upper()
         self.id = scups.lower()
         self.billing_rules = billing
+        self.is_pvpc = is_pvpc
 
         # Check if v2023 storage has already been migrated
         migrate_pre2024_storage_if_needed(hass, self.cups, self.id)
@@ -76,27 +86,24 @@ class EdataCoordinator(DataUpdateCoordinator):
         # Init shared data
         hass.data[const.DOMAIN][self.id] = {const.CONF_CUPS: self.cups}
 
-        # Instantiate the api helper
-        self._edata = EdataHelper(
+        # Instantiate the api adapter (blocking, hence async_setup below)
+        self._edata = EdataApi(
+            self.cups,
             username,
             password,
-            self.cups,
             self.authorized_nif,
-            pricing_rules=self.billing_rules,
-            storage_dir_path=self.hass.config.path(STORAGE_DIR),
+            self.hass.config.path(STORAGE_DIR),
         )
 
         # Making self._data to reference hass.data[const.DOMAIN][self.id] so we can use it like an alias
         self._data = hass.data[const.DOMAIN][self.id]
-        self._data[EDATA_PROG_NAME] = self._edata
+        self._data[const.DATA_EDATA_API] = self._edata
         self._data.update(
             {
                 const.DATA_STATE: const.STATE_LOADING,
-                const.DATA_ATTRIBUTES: {x: None for x in ATTRIBUTES},
+                const.DATA_ATTRIBUTES: dict.fromkeys(const.ATTRIBUTES),
             }
         )
-
-        # self._load_data(preprocess=True)
 
         # Used statistic IDs (edata:<id>_metric_to_track)
         self.statistic_ids = {
@@ -185,24 +192,50 @@ class EdataCoordinator(DataUpdateCoordinator):
         cups: str,
         scups: str,
         authorized_nif: str,
-        billing: PricingRules | None = None,
+        billing: dict | None = None,
+        is_pvpc: bool = True,
     ):
         """Async constructor."""
 
         return await hass.async_add_executor_job(
-            cls, hass, username, password, cups, scups, authorized_nif, billing
+            cls,
+            hass,
+            username,
+            password,
+            cups,
+            scups,
+            authorized_nif,
+            billing,
+            is_pvpc,
         )
 
-    async def _async_update_data(self, update_statistics=True):
-        """Update data via API."""
+    def cache_window(self) -> tuple[datetime, datetime]:
+        """Return the datetime range the integration keeps in memory."""
 
-        # fetch last 365 days
-        await self._edata.async_update(
+        return (
             datetime.today().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             - relativedelta(months=self.cache_months),  # since N cache_months
             datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
             - timedelta(minutes=1),  # to: yesterday midnight
         )
+
+    async def _async_update_data(self, update_statistics=True):
+        """Update data via API."""
+
+        date_from, date_to = self.cache_window()
+
+        # one-shot import of the 1.x json storage, no-op once the db has data
+        await self._edata.async_import_legacy_storage()
+
+        await self._edata.async_update(date_from, date_to)
+
+        if self.billing_rules:
+            # costs are only calculated if billing functionality is enabled
+            await self._edata.async_update_costs(
+                build_billing_rules(self.billing_rules, self.is_pvpc), self.is_pvpc
+            )
+
+        await self._edata.async_refresh_cache(date_from, date_to)
 
         if update_statistics:
             await self.update_statistics()
@@ -211,13 +244,10 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         return self._data
 
-    async def _load_data(self, preprocess=False):
+    async def _load_data(self):
         """Load data found in built-in statistics into state, attributes and websockets."""
 
         try:
-            if preprocess:
-                await asyncio.to_thread(self._edata.process_data)
-
             # reference to attributes shared storage
             attrs = self._data[const.DATA_ATTRIBUTES]
             attrs.update(self._edata.attributes)
@@ -310,7 +340,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         self._corrupt_stats = []
 
         # recalculate all data
-        await asyncio.to_thread(self._edata.process_data, False)
+        await self._async_recompile()
 
         # give from_dt a proper default value
         from_dt = dt_util.as_utc(
@@ -412,7 +442,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         _LOGGER.debug("%s: rebuilding statistics", self.scups)
 
         # recalculate all data
-        await asyncio.to_thread(self._edata.process_data, False)
+        await self._async_recompile()
 
         # get all statistic_ids starting with edata:<id/scups>
         all_ids = await get_db_instance(self.hass).async_add_executor_job(
@@ -576,7 +606,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         _label = "value_kWh"
         for data in self._edata.data.get("consumptions", []):
             dt_found = dt_util.as_local(data["datetime"])
-            _p = utils.get_pvpc_tariff(data["datetime"])
+            _p = tariff_label(data["datetime"])
             by_tariff_ids = [
                 const.STAT_ID_KWH(self.id),
                 const.STAT_ID_SURP_KWH(self.id),
@@ -619,7 +649,7 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         for data in _costs_data:
             dt_found = dt_util.as_local(data["datetime"])
-            tariff = utils.get_pvpc_tariff(data["datetime"])
+            tariff = tariff_label(data["datetime"])
 
             if (const.STAT_ID_POWER_EUR(self.id) not in self._last_stats_dt) or (
                 dt_found >= self._last_stats_dt[const.STAT_ID_POWER_EUR(self.id)]
@@ -698,7 +728,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             dt_found = dt_util.as_local(data["datetime"])
             stat_id_by_tariff = (
                 const.STAT_ID_P1_KW(self.id)
-                if utils.get_pvpc_tariff(data["datetime"]) == "p1"
+                if tariff_label(data["datetime"]) == "p1"
                 else const.STAT_ID_P2_KW(self.id)
             )
 
@@ -726,30 +756,17 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         await self._add_statistics(new_stats)
 
-    def soft_wipe(self):
-        """Apply a soft wipe."""
+    async def _async_recompile(self):
+        """Recompile aggregates and reload the in-memory cache."""
 
-        edata_dir = os.path.join(self.hass.config.path(STORAGE_DIR), EDATA_PROG_NAME)
-        edata_file = os.path.join(edata_dir, f"edata_{self.cups.lower()}.json")
-        edata_backup_file = edata_file + ".bck"
-
-        _LOGGER.warning("%s, soft wipe requested, preparing a backup", self.scups)
-        if os.path.exists(edata_file):
-            _LOGGER.warning(
-                "%s: backup file is '%s', rename it back to '%s' to restore it",
-                self.scups,
-                edata_backup_file,
-                edata_file,
-            )
-            os.rename(edata_file, edata_backup_file)
-
-        _LOGGER.debug("%s: deleting mem cache", self.scups)
-        self._edata.reset()
+        date_from, date_to = self.cache_window()
+        await self._edata.async_recompile_statistics(date_from, date_to)
+        await self._edata.async_refresh_cache(date_from, date_to)
 
     async def async_soft_reset(self):
         """Apply an async full reset."""
 
-        await self.hass.async_add_executor_job(self.soft_wipe)
+        await self._edata.async_wipe()
         await self._async_update_data(update_statistics=False)
         if not await self.check_statistics_integrity():
             await self.rebuild_statistics()
@@ -762,7 +779,6 @@ class EdataCoordinator(DataUpdateCoordinator):
         _LOGGER.warning("Importing last two years of data from Datadis")
         self.set_long_cache()
         await self._async_update_data(update_statistics=False)
-        await asyncio.to_thread(self._edata.process_data)
 
         # check if consumptions statistics are wrong
         if not await self.check_statistics_integrity():
@@ -823,22 +839,19 @@ class EdataCoordinator(DataUpdateCoordinator):
         else:
             pricing_rules = None
 
-        self._edata.pricing_rules = pricing_rules
-        self._edata.is_pvpc = options[const.CONF_PVPC]
-        self._edata.enable_billing = options[const.CONF_BILLING]
+        self.billing_rules = pricing_rules
+        self.is_pvpc = options.get(const.CONF_PVPC, self.is_pvpc)
 
-        for key in self._edata.data:
-            if not key.startswith("cost"):
-                continue
-            if since is not None:
-                self._edata.data[key] = [
-                    x
-                    for x in self._edata.data[key]
-                    if dt_util.as_local(x["datetime"]) < since
-                ]
-            else:
-                self._edata.data[key] = []
-
-        await asyncio.to_thread(self._edata.process_cost)
+        if pricing_rules is None:
+            await self._edata.async_clear_costs(naive_local(since))
+        else:
+            # stored costs are dropped and recalculated: the library keeps the
+            # rules hash on every bill but never checks it
+            await self._edata.async_update_costs(
+                build_billing_rules(pricing_rules, self.is_pvpc),
+                self.is_pvpc,
+                since=naive_local(since),
+                clear_first=True,
+            )
 
         await self.rebuild_statistics(since, self.cost_stat_ids)

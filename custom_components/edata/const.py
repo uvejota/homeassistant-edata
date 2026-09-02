@@ -70,6 +70,10 @@ DEFAULT_PVPC_BILLING_FORMULAS = {
 
 DATA_STATE = "state"
 DATA_ATTRIBUTES = "attributes"
+# Key under hass.data[DOMAIN][<scups>] holding the e-data API adapter.
+# Was edata.const.PROG_NAME in the 1.x library; kept as a literal because
+# utils.py, config_flow.py and the frontend card rely on this exact name.
+DATA_EDATA_API = "edata"
 DATA_SUPPLIES = "supplies"
 DATA_CONTRACTS = "contracts"
 
@@ -114,3 +118,59 @@ CUPS_CONTROL_DIGITS = "TRWAGMYFPDXBNJZSQVHLCKE"
 
 CACHE_MONTHS_SHORT = 13
 CACHE_MONTHS_LONG = 23
+
+
+# Summary attributes published through the sensors, the 'edata/ws/summary'
+# websocket and the bundled Lovelace card, mapped to their unit.
+# Ported verbatim from the 1.2.22 library (edata/definitions.py:7-56), which
+# 2.x no longer provides: they are now computed locally in summary.py.
+ATTRIBUTES = {
+    "cups": None,
+    "contract_p1_kW": "kW",
+    "contract_p2_kW": "kW",
+    "yesterday_kWh": "kWh",
+    "yesterday_hours": "h",
+    "yesterday_p1_kWh": "kWh",
+    "yesterday_p2_kWh": "kWh",
+    "yesterday_p3_kWh": "kWh",
+    "yesterday_surplus_kWh": "kWh",
+    "yesterday_surplus_p1_kWh": "kWh",
+    "yesterday_surplus_p2_kWh": "kWh",
+    "yesterday_surplus_p3_kWh": "kWh",
+    "last_registered_date": None,
+    "last_registered_day_kWh": "kWh",
+    "last_registered_day_hours": "h",
+    "last_registered_day_p1_kWh": "kWh",
+    "last_registered_day_p2_kWh": "kWh",
+    "last_registered_day_p3_kWh": "kWh",
+    "last_registered_day_surplus_kWh": "kWh",
+    "last_registered_day_surplus_p1_kWh": "kWh",
+    "last_registered_day_surplus_p2_kWh": "kWh",
+    "last_registered_day_surplus_p3_kWh": "kWh",
+    "month_kWh": "kWh",
+    "month_daily_kWh": "kWh",
+    "month_days": "d",
+    "month_p1_kWh": "kWh",
+    "month_p2_kWh": "kWh",
+    "month_p3_kWh": "kWh",
+    "month_surplus_kWh": "kWh",
+    "month_surplus_p1_kWh": "kWh",
+    "month_surplus_p2_kWh": "kWh",
+    "month_surplus_p3_kWh": "kWh",
+    "month_€": "€",
+    "last_month_kWh": "kWh",
+    "last_month_daily_kWh": "kWh",
+    "last_month_days": "d",
+    "last_month_p1_kWh": "kWh",
+    "last_month_p2_kWh": "kWh",
+    "last_month_p3_kWh": "kWh",
+    "last_month_surplus_kWh": "kWh",
+    "last_month_surplus_p1_kWh": "kWh",
+    "last_month_surplus_p2_kWh": "kWh",
+    "last_month_surplus_p3_kWh": "kWh",
+    "last_month_€": "€",
+    "max_power_kW": "kW",
+    "max_power_date": None,
+    "max_power_mean_kW": "kW",
+    "max_power_90perc_kW": "kW",
+}

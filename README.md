@@ -454,7 +454,9 @@ series:
 
 Los datos descargados se almacenan en:
 1. Base de datos de estadísticas de HA (Long Term Statistics)
-2. Ficheros json ubicado en `config/.storage/edata/edata_xxxx.json`
+2. Base de datos SQLite ubicada en `config/.storage/edata.db`, compartida por todos los suministros configurados
+
+> Hasta la versión 2025.11.3 los datos se almacenaban en ficheros json en `config/.storage/edata/edata_xxxx.json`. Al actualizar, dichos ficheros se importan automáticamente a `edata.db` y se conservan como copia de seguridad.
 
 Para acceder a los mismos, puede consumir la propia API de websockets que utilizan las tarjetas, bajo las definiciones a continuación
 

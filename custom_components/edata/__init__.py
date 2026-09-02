@@ -93,6 +93,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         scups,
         authorized_nif,
         pricing_rules,
+        entry.options.get(const.CONF_PVPC, True),
     )
     hass.data[const.DOMAIN][scups.lower()]["coordinator"] = coordinator
 

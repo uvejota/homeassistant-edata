@@ -2,21 +2,22 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 import logging
 from typing import Any
 
+from dateutil.relativedelta import relativedelta
 import voluptuous as vol
 
-from edata.connectors.datadis import DatadisConnector
-from edata.definitions import PricingRules
-from edata.processors.billing import BillingProcessor
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.storage import STORAGE_DIR
 
 from . import const, schemas as sch
+from .edata_api import build_billing_rules
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,15 +40,22 @@ class InvalidCups(HomeAssistantError):
     """Error to indicate cups is invalid."""
 
 
-async def test_login(username, password, authorized_nif=None):
+def build_connector(username: str, password: str):
+    """Build a bare Datadis connector. Blocking, run it in an executor."""
+
+    from edata.providers.datadis import DatadisConnector  # noqa: PLC0415
+
+    # no storage path: supply lookups bypass the cache anyway, so this flow has
+    # no reason to touch the integration database
+    return DatadisConnector(username, password)
+
+
+async def test_login(hass: HomeAssistant, username, password, authorized_nif=None):
     """Test login asynchronously."""
 
-    api = DatadisConnector(username, password)
+    api = await hass.async_add_executor_job(build_connector, username, password)
 
-    api._recent_queries = {}  # noqa: SLF001
-    api._recent_cache = {}  # noqa: SLF001
-
-    if await api._async_get_token() is False:
+    if not await api.async_login():
         return None
 
     return await api.async_get_supplies(authorized_nif=authorized_nif)
@@ -79,6 +87,7 @@ async def validate_step_user(
         data[const.CONF_AUTHORIZEDNIF] = None
 
     result = await test_login(
+        hass,
         data[CONF_USERNAME],
         data[CONF_PASSWORD],
         data.get(const.CONF_AUTHORIZEDNIF, None),
@@ -90,61 +99,57 @@ async def validate_step_user(
     if not result:
         raise NoSuppliesFound
 
-    return [x["cups"] for x in result]
+    return [x.cups for x in result]
+
+
+def build_bill_service(cups: str, storage_path: str):
+    """Build a bill service. Blocking, run it in an executor."""
+
+    from edata.services.bill_service import BillService  # noqa: PLC0415
+
+    return BillService(cups, storage_path)
 
 
 async def simulate_last_month_billing(
     hass: HomeAssistant, config_entry: config_entries.ConfigEntry, data: dict[str, Any]
 ) -> dict[str, Any]:
-    """Validate the user input from the 'step formulas'."""
+    """Simulate last month bill with the user input from the 'step formulas'."""
 
-    coordinator_id = config_entry.data["scups"].lower()
-    pricing_rules = PricingRules(
-        {
-            x: data[x]
-            for x in data
-            if x
-            in (
-                const.CONF_CYCLE_START_DAY,
-                const.PRICE_P1_KW_YEAR,
-                const.PRICE_P2_KW_YEAR,
-                const.PRICE_P1_KWH,
-                const.PRICE_P2_KWH,
-                const.PRICE_P3_KWH,
-                const.PRICE_METER_MONTH,
-                const.PRICE_MARKET_KW_YEAR,
-                const.PRICE_ELECTRICITY_TAX,
-                const.PRICE_IVA_TAX,
-                const.BILLING_ENERGY_FORMULA,
-                const.BILLING_POWER_FORMULA,
-                const.BILLING_OTHERS_FORMULA,
-                const.BILLING_SURPLUS_FORMULA,
-            )
-        }
-    )
-    proc = BillingProcessor(
-        {
-            "consumptions": hass.data[const.DOMAIN][coordinator_id]["edata"].data[
-                "consumptions"
-            ],
-            "contracts": hass.data[const.DOMAIN][coordinator_id]["edata"].data[
-                "contracts"
-            ],
-            "prices": hass.data[const.DOMAIN][coordinator_id]["edata"].data["pvpc"],
-            "rules": pricing_rules,
-        }
+    is_pvpc = data.get(const.CONF_PVPC, True)
+    billing_rules = build_billing_rules(data, is_pvpc)
+
+    service = await hass.async_add_executor_job(
+        build_bill_service,
+        config_entry.data[const.CONF_CUPS].upper(),
+        hass.config.path(STORAGE_DIR),
     )
 
-    elements = len(proc.output["monthly"])
-    if elements > 1:
-        return proc.output["monthly"][-2]
-    elif elements == 1:  # noqa: RET505
-        return proc.output["monthly"][-1]
-    else:
+    month_starts = datetime.today().replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0
+    )
+    last_month_starts = month_starts - relativedelta(months=1)
+
+    # simulate() does not persist anything, and returns hourly bills
+    bills = await service.simulate(
+        billing_rules,
+        is_pvpc,
+        last_month_starts,
+        month_starts - timedelta(minutes=1),
+    )
+
+    if not bills:
         _LOGGER.warning(
             "Skipping simulation. This is the normal if you just changed billing to PVPC"
         )
         return None
+
+    return {
+        "datetime": last_month_starts,
+        const.CONF_VALUE_EUR: round(sum(x.value_eur for x in bills), 2),
+        const.CONF_ENERGY_TERM: round(sum(x.energy_term for x in bills), 2),
+        const.CONF_POWER_TERM: round(sum(x.power_term for x in bills), 2),
+        const.CONF_OTHERS_TERM: round(sum(x.others_term for x in bills), 2),
+    }
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
