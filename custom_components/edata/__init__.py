@@ -98,12 +98,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # postpone first refresh to speed up startup
     @callback
-    async def async_first_refresh(*args):
+    def async_first_refresh(*args):
         """Force the component to assess the first refresh."""
-        hass.async_create_task(coordinator.async_refresh())
+        # Background task: Datadis can take minutes to answer, and a tracked
+        # task created on EVENT_HOMEASSISTANT_START makes Home Assistant wait
+        # for it before wrapping up the start up phase.
+        entry.async_create_background_task(
+            hass, coordinator.async_refresh(), f"{const.DOMAIN}_first_refresh"
+        )
 
     if hass.state == CoreState.running:
-        await async_first_refresh()
+        async_first_refresh()
     else:
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, async_first_refresh)
 
