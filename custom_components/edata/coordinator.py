@@ -41,7 +41,44 @@ from . import const
 from .migrate import migrate_pre2024_storage_if_needed
 from .utils import get_db_instance
 
+try:
+    from homeassistant.components.recorder.models import StatisticMeanType
+except ImportError:  # HA < 2025.4
+    StatisticMeanType = None
+
 _LOGGER = logging.getLogger(__name__)
+
+
+def build_statistic_metadata(
+    has_mean: bool,
+    has_sum: bool,
+    name: str,
+    statistic_id: str,
+    unit_of_measurement: str,
+    unit_class: str | None,
+) -> StatisticMetaData:
+    """Build statistics metadata compatible with the running HA version.
+
+    HA 2025.4 replaced has_mean with mean_type, and HA 2025.11 added unit_class.
+    Both are mandatory from HA 2026.11 on.
+    """
+
+    metadata = StatisticMetaData(
+        has_sum=has_sum,
+        name=name,
+        source=const.DOMAIN,
+        statistic_id=statistic_id,
+        unit_of_measurement=unit_of_measurement,
+    )
+    if StatisticMeanType is not None:
+        metadata["mean_type"] = (
+            StatisticMeanType.ARITHMETIC if has_mean else StatisticMeanType.NONE
+        )
+    else:
+        metadata["has_mean"] = has_mean
+    if (MAJOR_VERSION, MINOR_VERSION) >= (2025, 11):
+        metadata["unit_class"] = unit_class
+    return metadata
 
 
 class EdataCoordinator(DataUpdateCoordinator):
@@ -533,31 +570,31 @@ class EdataCoordinator(DataUpdateCoordinator):
                 continue
 
             if stat_id in self.energy_stat_ids:
-                metadata = StatisticMetaData(
+                metadata = build_statistic_metadata(
                     has_mean=False,
                     has_sum=True,
                     name=const.STAT_TITLE_KWH(self.id, stat_id),
-                    source=const.DOMAIN,
                     statistic_id=stat_id,
                     unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+                    unit_class="energy",
                 )
             elif stat_id in self.cost_stat_ids:
-                metadata = StatisticMetaData(
+                metadata = build_statistic_metadata(
                     has_mean=False,
                     has_sum=True,
                     name=const.STAT_TITLE_EUR(self.id, stat_id),
-                    source=const.DOMAIN,
                     statistic_id=stat_id,
                     unit_of_measurement=CURRENCY_EURO,
+                    unit_class=None,
                 )
             elif stat_id in self.maximeter_stat_ids:
-                metadata = StatisticMetaData(
+                metadata = build_statistic_metadata(
                     has_mean=True,
                     has_sum=False,
                     name=const.STAT_TITLE_KW(self.id, stat_id),
-                    source=const.DOMAIN,
                     statistic_id=stat_id,
                     unit_of_measurement=UnitOfPower.KILO_WATT,
+                    unit_class="power",
                 )
             else:
                 continue
