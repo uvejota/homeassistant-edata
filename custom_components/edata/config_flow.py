@@ -4,7 +4,6 @@ import logging
 import tempfile
 from typing import Any
 
-from edata.models import Bill
 from edata.models.bill import BillingRules, PVPCBillingRules
 from edata.providers.datadis import DatadisConnector
 
@@ -21,6 +20,7 @@ from .core.config import (
     step_choose_cups,
     step_user,
 )
+from .core.data import BillSimulation
 from .core.options import (
     CONF_APPLYFROM,
     CONF_BILLING,
@@ -55,7 +55,7 @@ def get_scups(hass: HomeAssistant, cups: str) -> None | str:
 
 async def simulate_last_month_billing(
     hass: HomeAssistant, config_entry: config_entries.ConfigEntry, data: dict[str, Any]
-) -> Bill | None:
+) -> BillSimulation | None:
     """Preview the last month's bill for the candidate billing options."""
 
     data_manager = get_shared_memory(hass, config_entry.data[CONF_SCUPS]).get(
@@ -155,7 +155,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         """Initialize options flow."""
         super().__init__()
         self.user_input = {}
-        self.sim: Bill | None = None
+        self.sim: BillSimulation | None = None
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""

@@ -92,20 +92,33 @@
       },
       "costs": {
         "title": "Facturación",
+        "description": "Introduce os prezos **sen impostos**, tal e como aparecen na túa factura ou contrato. O imposto eléctrico e o IVE aplícanse despois, nas fórmulas.",
         "data": {
-          "p1_kw_year_eur": "Custo por kW contratado en P1 (€)",
-          "p2_kw_year_eur": "Custo por kW contratado en P2 (€)",
-          "meter_month_eur": "Custo mensual por alquiler de contador (€)",
-          "market_kw_year_eur": "Custo anual por mercado de kW (€)",
-          "electricity_tax": "Imposto de electricidade (e.g., 1.05 para 5%)",
-          "iva_tax": "IVE (e.g., 1.10 para 10%)",
-          "p1_kwh_eur": "Custo por kWh en P1 (€)",
-          "p2_kwh_eur": "Custo por kWh en P2 (€)",
-          "p3_kwh_eur": "Custo por kWh en P3 (€)"
+          "p1_kw_year_eur": "Potencia P1 (€/kW·ano)",
+          "p2_kw_year_eur": "Potencia P2 (€/kW·ano)",
+          "meter_month_eur": "Aluguer do contador (€/mes)",
+          "market_kw_year_eur": "Marxe de comercialización (€/kW·ano)",
+          "electricity_tax": "Imposto eléctrico (multiplicador)",
+          "iva_tax": "IVE (multiplicador)",
+          "p1_kwh_eur": "Enerxía P1, punta (€/kWh)",
+          "p2_kwh_eur": "Enerxía P2, chan (€/kWh)",
+          "p3_kwh_eur": "Enerxía P3, val (€/kWh)"
+        },
+        "data_description": {
+          "p1_kw_year_eur": "Prezo da potencia contratada en punta, sen impostos. Se a túa factura o dá en €/kW·día, multiplícao por 365.",
+          "p2_kw_year_eur": "Prezo da potencia contratada en val, sen impostos. Se a túa factura o dá en €/kW·día, multiplícao por 365.",
+          "meter_month_eur": "Aluguer do equipo de medida, sen IVE. Se a túa factura o dá por días, multiplícao por 30.",
+          "market_kw_year_eur": "Marxe de comercialización por kW contratado, sen impostos. A fórmula por defecto súmao á potencia P1.",
+          "electricity_tax": "Imposto especial sobre a electricidade como multiplicador: 1.0511 equivale ao 5,11 %.",
+          "iva_tax": "IVE como multiplicador: 1.21 equivale ao 21 % e 1.10 ao 10 %.",
+          "p1_kwh_eur": "Prezo da enerxía en horas punta, sen impostos.",
+          "p2_kwh_eur": "Prezo da enerxía en horas chan, sen impostos.",
+          "p3_kwh_eur": "Prezo da enerxía en horas val, sen impostos."
         }
       },
       "formulas": {
         "title": "Fórmulas",
+        "description": "Expresións que se calculan para cada hora. Ademais dos valores do paso anterior, podes usar `kwh` (consumo da hora), `kwh_eur` (prezo da enerxía nesa hora), `p1_kw` e `p2_kw` (potencias contratadas).",
         "data": {
           "energy_formula": "Termo de enerxía (€)",
           "power_formula": "Termo de potencia (€)",
@@ -114,8 +127,9 @@
       },
       "confirm": {
         "title": "Simulación (con impostos)",
+        "description": "Simulación do último mes completo, **con impostos**. Só se facturan as horas con consumo (e con prezo, se usas PVPC): se o período non cobre todas as horas do mes, o importe sairá por debaixo da túa factura real.",
         "data": {
-          "month": "Mes simulado",
+          "period": "Período simulado (horas con datos / horas do mes)",
           "value_eur": "Factura (€)",
           "energy_term": "Termo de enerxía (€)",
           "power_term": "Termo de potencia (€)",

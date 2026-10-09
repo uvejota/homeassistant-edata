@@ -94,20 +94,33 @@
       },
       "costs": {
         "title": "Billing",
+        "description": "Enter prices **without taxes**, as they appear on your bill or contract. Electricity tax and VAT are applied afterwards, in the formulas.",
         "data": {
-          "p1_kw_year_eur": "EUR cost of KW in P1 per year",
-          "p2_kw_year_eur": "EUR cost of KW in P2 per year",
-          "meter_month_eur": "Meter cost per month",
-          "market_kw_year_eur": "Market cost per year",
-          "electricity_tax": "Electricity tax (e.g., 1.05 = 5%)",
-          "iva_tax": "IVA tax (e.g., 1.10 = 10%)",
-          "p1_kwh_eur": "EUR cost of KWH in P1",
-          "p2_kwh_eur": "EUR cost of KWH in P2",
-          "p3_kwh_eur": "EUR cost of KWH in P3"
+          "p1_kw_year_eur": "Power P1 (€/kW·year)",
+          "p2_kw_year_eur": "Power P2 (€/kW·year)",
+          "meter_month_eur": "Meter rental (€/month)",
+          "market_kw_year_eur": "Retail margin (€/kW·year)",
+          "electricity_tax": "Electricity tax (multiplier)",
+          "iva_tax": "VAT (multiplier)",
+          "p1_kwh_eur": "Energy P1, peak (€/kWh)",
+          "p2_kwh_eur": "Energy P2, flat (€/kWh)",
+          "p3_kwh_eur": "Energy P3, valley (€/kWh)"
+        },
+        "data_description": {
+          "p1_kw_year_eur": "Price of the contracted power in the peak period, without taxes. If your bill shows €/kW·day, multiply it by 365.",
+          "p2_kw_year_eur": "Price of the contracted power in the valley period, without taxes. If your bill shows €/kW·day, multiply it by 365.",
+          "meter_month_eur": "Metering equipment rental, without VAT. If your bill shows it per day, multiply it by 30.",
+          "market_kw_year_eur": "Retail margin per contracted kW, without taxes. The default formula adds it to the P1 power.",
+          "electricity_tax": "Special electricity tax as a multiplier: 1.0511 means 5.11 %.",
+          "iva_tax": "VAT as a multiplier: 1.21 means 21 % and 1.10 means 10 %.",
+          "p1_kwh_eur": "Energy price in peak hours, without taxes.",
+          "p2_kwh_eur": "Energy price in flat hours, without taxes.",
+          "p3_kwh_eur": "Energy price in valley hours, without taxes."
         }
       },
       "formulas": {
         "title": "Formulas",
+        "description": "Expressions computed for every hour. Besides the values from the previous step, you can use `kwh` (the hour's consumption), `kwh_eur` (the energy price for that hour), `p1_kw` and `p2_kw` (contracted power).",
         "data": {
           "energy_formula": "Energy term calculus (EUR)",
           "power_formula": "Power term calculus (EUR)",
@@ -116,8 +129,9 @@
       },
       "confirm": {
         "title": "Simulation (with taxes)",
+        "description": "Simulation of the last complete month, **with taxes**. Only hours with consumption (and with a price, if you use PVPC) are billed: if the period does not cover every hour of the month, the amount will be lower than your real bill.",
         "data": {
-          "month": "Simulated month",
+          "period": "Simulated period (hours with data / hours in the month)",
           "value_eur": "Factura (€)",
           "energy_term": "Energy term (€)",
           "power_term": "Power term (€)",

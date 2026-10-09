@@ -117,7 +117,7 @@ Navegue hasta `Ajustes > Dispositivos y Servicios > XXXX (edata) - Configurar`. 
 
 ![Opciones de edata](assets/configure-step1.png)
 
-2. Si no ha activado PVPC, tendrá que configurar los costes asociados a cada término (según su contrato).
+2. Si no ha activado PVPC, tendrá que configurar los costes asociados a cada término (según su contrato). Introduzca los precios **sin impuestos**: el impuesto eléctrico y el IVA se aplican después en las fórmulas. Cada campo indica sus unidades y cómo convertir el dato si su factura lo da de otra forma (por ejemplo, por días).
 
 ![Opciones de facturación](assets/configure-step2.png)
 
@@ -145,6 +145,8 @@ Las variables anteriores pueden usarse para formar expresiones para los siguient
 4. Simulación del último mes y selección de la fecha de inicio para aplicar nueva tarificación.
 
 Este último paso es para confirmar que hemos confeccionado nuestras fórmulas correctamente. Es un simulador del último mes completo (si estás a mediados de julio, calculará junio), de modo que si se acerca a la de tu factura... ¡Lo has hecho bien!
+
+La simulación indica el **periodo simulado y cuántas horas tienen datos** (por ejemplo, _12/06/2026 – 30/06/2026 (456/720 h)_). Solo se facturan las horas con consumo (y con precio, si usa PVPC), así que si no cubre todas las horas del mes, el importe saldrá por debajo de su factura.
 
 No hay que rellenar nada, sólo visualizar, marcar la fecha desde la cual quieres aplicar los cambios de tarificación, y confirmar.
 

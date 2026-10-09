@@ -1,5 +1,7 @@
 """Definition of data manager for ha-edata integration."""
 
+import calendar
+from dataclasses import dataclass
 from datetime import datetime
 import typing
 
@@ -12,6 +14,22 @@ from edata.services.data_service import DataService
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import STORAGE_DIR
+
+
+@dataclass
+class BillSimulation:
+    """A month's simulated bill and how much of the month it covers.
+
+    Only hours with every input (consumption and, for PVPC, a price) are billed,
+    so ``hours`` may fall short of ``month_hours`` and the bill short of the
+    real one.
+    """
+
+    bill: Bill
+    start: datetime
+    end: datetime
+    hours: float
+    month_hours: int
 
 
 class DataManager:
@@ -148,7 +166,7 @@ class DataManager:
 
     async def simulate_last_month(
         self, billing_rules: BillingRules, is_pvpc: bool
-    ) -> Bill | None:
+    ) -> BillSimulation | None:
         """Preview the last complete month's bill under candidate rules."""
         bills = await self._bill_service.simulate(
             billing_rules=billing_rules, is_pvpc=is_pvpc
@@ -156,10 +174,16 @@ class DataManager:
         if not bills:
             return None
 
-        monthly: dict[datetime, Bill] = {}
+        by_month: dict[datetime, list[Bill]] = {}
         for item in bills:
-            key = get_month(item.datetime)
-            agg = monthly.setdefault(key, Bill(datetime=key, delta_h=0))
+            by_month.setdefault(get_month(item.datetime), []).append(item)
+
+        months = sorted(by_month)
+        month = months[-2] if len(months) > 1 else months[-1]
+        hourly = by_month[month]
+
+        agg = Bill(datetime=month, delta_h=0)
+        for item in hourly:
             agg.delta_h += item.delta_h
             agg.value_eur += item.value_eur
             agg.energy_term += item.energy_term
@@ -167,5 +191,10 @@ class DataManager:
             agg.others_term += item.others_term
             agg.surplus_term += item.surplus_term
 
-        months = [monthly[key] for key in sorted(monthly)]
-        return months[-2] if len(months) > 1 else months[-1]
+        return BillSimulation(
+            bill=agg,
+            start=min(x.datetime for x in hourly),
+            end=max(x.datetime for x in hourly),
+            hours=agg.delta_h,
+            month_hours=calendar.monthrange(month.year, month.month)[1] * 24,
+        )
