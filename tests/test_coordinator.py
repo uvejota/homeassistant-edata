@@ -90,13 +90,15 @@ async def test_full_import_always_syncs(
     config_entry: MockConfigEntry,
     mock_data_manager: None,
 ) -> None:
-    """The manual full import bypasses the interval."""
+    """The manual full import bypasses the interval and re-fetches everything."""
     coordinator = await _setup(hass, config_entry)
     manager = coordinator._data_manager
-    assert manager.synced == 1
+    assert (manager.synced, manager.full_synced) == (1, 0)
+    first_sync = coordinator._last_sync
 
     await coordinator.async_full_import()
-    assert manager.synced == 2
+    assert (manager.synced, manager.full_synced) == (1, 1)
+    assert coordinator._last_sync > first_sync
 
 
 async def test_sync_store_removed_with_entry(

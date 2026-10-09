@@ -78,7 +78,7 @@ El sensor `sensor.edata_xxxx` es un tanto especial, ya que incluye información 
 Desde la versión 2024.07.5, la integración incorpora las siguientes acciones, accesibles desde el panel del dispositivo edata que desea configurar.
 
 * **Reparar estadísticas de Home Assistant:** Borra las estadísticas de edata en Home Assistant (consumo, coste y maxímetro) y las vuelve a generar a partir de los datos que edata ya tiene guardados. No consulta a Datadis. Útil si las gráficas o el panel de energía muestran huecos, duplicados o valores incoherentes.
-* **Forzar sincronización:** Sincroniza con Datadis en ese momento, sin esperar a la sincronización automática (que se hace como mucho una vez cada 24 h, porque Datadis solo responde a cada consulta una vez al día), y después repara las estadísticas como el botón anterior. Solo pide lo que falta; Datadis limita el histórico a los 2 últimos años.
+* **Forzar sincronización:** Vuelve a pedir a Datadis todo el histórico que tenga disponible (los 2 últimos años) y después repara las estadísticas como el botón anterior. La sincronización automática solo pide lo que falta, como mucho una vez cada 24 h, y Datadis no responde de nuevo a una misma consulta en ese tiempo; como esta consulta es distinta, trae los datos más recientes que tenga Datadis aunque ya se haya sincronizado ese día. Útil si te faltan datos que ya aparecen en Datadis.
 
 
 ![Acciones](assets/actions.png)
