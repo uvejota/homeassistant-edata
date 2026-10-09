@@ -40,6 +40,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
+          # tag the commit that was built; without it the new tag is created on
+          # the default branch, so releases built from other branches get
+          # mislabelled and mis-sorted
+          target_commitish: ${{ github.sha }}
           name: ${{ steps.version.outputs.version }}
           prerelease: true
           body: |
