@@ -45,14 +45,15 @@ class DataManager:
         )
         self._bill_service = BillService(cups=self.cups, storage_path=storage_path)
 
-    async def sync(self) -> None:
-        """Sync data from external service."""
-        await self._data_service.update()
+    async def sync(self) -> bool:
+        """Sync data from external service; return whether Datadis was reached."""
+        synced = await self._data_service.update()
         if self.billing:
             await self._bill_service.update(
                 billing_rules=self.billing,
                 is_pvpc=isinstance(self.billing, PVPCBillingRules),
             )
+        return synced
 
     async def run_migrations(self) -> list:
         """Import legacy 1.x on-disk storage into the 2.0 database, if present."""

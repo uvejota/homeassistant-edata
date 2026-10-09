@@ -151,6 +151,7 @@ class FakeDataManager:
         """Store the billing rules and preload deterministic data."""
         self.billing = billing
         self.synced = 0
+        self.sync_result = True
         self.rebuilt: list[datetime | None] = []
         self._supply = build_supply()
         self._contracts = build_contracts()
@@ -161,9 +162,10 @@ class FakeDataManager:
         self._bills = build_hourly_bills()
         self._monthly_bills = build_monthly_bills()
 
-    async def sync(self) -> None:
+    async def sync(self) -> bool:
         """Record that a sync happened."""
         self.synced += 1
+        return self.sync_result
 
     async def rebuild_billing(self, since: datetime | None = None) -> None:
         """Record a billing rebuild request."""

@@ -8,6 +8,7 @@ from dateutil.relativedelta import relativedelta
 from edata.models.bill import BillingRules
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
@@ -21,6 +22,12 @@ from .core.statistics import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# Datadis serves each query at most once every 24 h (repeats come from the
+# connector's cache), so syncing more often only costs a login and uncached
+# supply/contract requests without bringing new data.
+SYNC_INTERVAL = timedelta(hours=24)
+SYNC_STORAGE_VERSION = 1
 
 
 class EdataCoordinator(DataUpdateCoordinator):
@@ -46,6 +53,12 @@ class EdataCoordinator(DataUpdateCoordinator):
         self.id = scups.lower()
         self.billing_rules = billing
         self._sync_task: asyncio.Task | None = None
+        # last successful Datadis sync, persisted so a restart doesn't force one
+        self._sync_store: Store[dict[str, str]] = Store(
+            hass, SYNC_STORAGE_VERSION, f"{const.DOMAIN}.{self.id}.sync"
+        )
+        self._last_sync: datetime | None = None
+        self._last_sync_loaded = False
 
         # Init shared data
         hass.data[const.DOMAIN][self.id] = {CONF_CUPS: self.cups}
@@ -84,6 +97,9 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         await self._load_data()
 
+        if not await self._async_sync_due():
+            return self._shared
+
         # Never let a slow full sync stack: skip if the previous one is still running.
         if self._sync_task is None or self._sync_task.done():
             self._sync_task = self.hass.async_create_background_task(
@@ -95,11 +111,45 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         return self._shared
 
+    async def _async_sync_due(self) -> bool:
+        """Return whether the last successful Datadis sync is old enough."""
+
+        if not self._last_sync_loaded:
+            stored = await self._sync_store.async_load() or {}
+            if last := stored.get("last_sync"):
+                self._last_sync = dt_util.parse_datetime(last)
+            self._last_sync_loaded = True
+
+        if self._last_sync is None:
+            return True
+        next_sync = self._last_sync + SYNC_INTERVAL
+        if dt_util.utcnow() < next_sync:
+            _LOGGER.debug(
+                "%s: last Datadis sync at %s, skipping until %s",
+                self.scups,
+                self._last_sync,
+                next_sync,
+            )
+            return False
+        return True
+
+    async def _async_sync_datadis(self) -> bool:
+        """Sync from Datadis and record the time when it succeeds."""
+
+        synced = await self._data_manager.sync()
+        if synced:
+            self._last_sync = dt_util.utcnow()
+            self._last_sync_loaded = True
+            await self._sync_store.async_save(
+                {"last_sync": self._last_sync.isoformat()}
+            )
+        return synced
+
     async def _sync_data(self):
         """Sync data via API."""
 
         _LOGGER.info("%s: updating data", self.scups)
-        await self._data_manager.sync()
+        await self._async_sync_datadis()
         await self._load_data()
 
         _LOGGER.info("%s: updating all statistics", self.scups)
@@ -221,7 +271,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         """Fetch all available data from Datadis and rebuild statistics."""
 
         _LOGGER.warning("%s: importing all available data from Datadis", self.scups)
-        await self._data_manager.sync()
+        await self._async_sync_datadis()
         await self._load_data()
         await self.async_soft_reset()
 
