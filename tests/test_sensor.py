@@ -65,3 +65,26 @@ async def test_sensor_attributes_rounded(
     assert attributes["last_day_consumption_by_tariff"] == [0.3, 1.23, 0.0]
     assert attributes["last_day_delta_h"] == 24.0
     assert attributes["last_datetime"] == datetime(2023, 1, 2, 23, 0)
+
+
+async def test_numeric_sensors_display_two_decimals(
+    setup_integration: None,
+    hass: HomeAssistant,
+    billing_config_entry: MockConfigEntry,
+    mock_data_manager: None,
+) -> None:
+    """Energy, power and cost sensors suggest two decimals; info has none."""
+    billing_config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(billing_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    registry = er.async_get(hass)
+
+    def precision(key: str) -> int | None:
+        entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{SCUPS.lower()} {key}")
+        options = registry.async_get(entity_id).options.get("sensor", {})
+        return options.get("suggested_display_precision")
+
+    for key in ("last_day_kwh", "month_surplus_kwh", "max_power_kw", "month_eur"):
+        assert precision(key) == 2, key
+    assert precision("info") is None

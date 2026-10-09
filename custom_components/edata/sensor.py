@@ -136,6 +136,7 @@ class EdataEnergySensor(EdataSensorEntity, SensorEntity):
 
     _attr_icon = "mdi:counter"
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_suggested_display_precision = 2
 
 
 class EdataPowerSensor(EdataSensorEntity, SensorEntity):
@@ -143,6 +144,7 @@ class EdataPowerSensor(EdataSensorEntity, SensorEntity):
 
     _attr_icon = "mdi:gauge"
     _attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
+    _attr_suggested_display_precision = 2
 
 
 class EdataCostSensor(EdataSensorEntity, SensorEntity):
@@ -150,3 +152,4 @@ class EdataCostSensor(EdataSensorEntity, SensorEntity):
 
     _attr_icon = "mdi:currency-eur"
     _attr_native_unit_of_measurement = CURRENCY_EURO
+    _attr_suggested_display_precision = 2
