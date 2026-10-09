@@ -42,6 +42,9 @@ const LABELS_BY_LOCALE = {
     total: "Total",
     date: "Fecha",
     cost: "Coste",
+    energy: "Energía",
+    power: "Potencia",
+    others: "Otros",
   },
   ca: {
     p1: "Punta",
@@ -57,6 +60,9 @@ const LABELS_BY_LOCALE = {
     total: "Total",
     date: "Data",
     cost: "Cost",
+    energy: "Energia",
+    power: "Potència",
+    others: "Altres",
   },
   gl: {
     p1: "Punta",
@@ -72,6 +78,9 @@ const LABELS_BY_LOCALE = {
     total: "Total",
     date: "Data",
     cost: "Custo",
+    energy: "Enerxía",
+    power: "Potencia",
+    others: "Outros",
   },
   en: {
     p1: "Peak",
@@ -87,6 +96,9 @@ const LABELS_BY_LOCALE = {
     total: "Total",
     date: "Date",
     cost: "Cost",
+    energy: "Energy",
+    power: "Power",
+    others: "Others",
   },
 };
 
@@ -339,16 +351,18 @@ class EdataCard extends LitElement {
     }
   }
 
-  async getBarChartOptions(endpoint, unit, tariffs) {
+  // splits: values of the `splitBy` websocket parameter (tariffs 1-3, or bill
+  // terms), drawn as stacked series that add up to the total
+  async getBarChartOptions(endpoint, unit, splits, splitBy = "tariff") {
     let results;
-    if (tariffs?.length > 0) {
+    if (splits?.length > 0) {
       results = await Promise.all(
-        tariffs.map((tariff) =>
+        splits.map((split) =>
           this._hass.callWS({
             type: endpoint,
             scups: this._scups,
             aggr: this._aggr,
-            tariff: tariff,
+            [splitBy]: split,
             records: this._records,
           })
         )
@@ -364,9 +378,9 @@ class EdataCard extends LitElement {
       ];
     }
 
-    const series = tariffs?.length
-      ? tariffs.map((tariff, index) => ({
-        name: getLabel("p" + tariff),
+    const series = splits?.length
+      ? splits.map((split, index) => ({
+        name: getLabel(splitBy == "tariff" ? "p" + split : split),
         data: this.normalizeX(...results)[index],
       }))
       : [
@@ -583,7 +597,8 @@ class EdataCard extends LitElement {
           chartOptions = await this.getBarChartOptions(
             "edata/ws/costs",
             DEF_COST_UNIT,
-            [1, 2, 3]
+            ["energy", "power", "others"],
+            "term"
           );
           break;
         case "maximeter":

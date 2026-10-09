@@ -164,13 +164,25 @@ async def get_recent_surplus(
     return _sort_and_limit_results(result, records)
 
 
+BILL_TERMS = {
+    "energy": "energy_term",
+    "power": "power_term",
+    "others": "others_term",
+}
+
+
 async def get_recent_bills(
     data_manager: DataManager,
     aggr: typing.Literal["hour", "day", "month"],
     records: int,
+    term: typing.Literal["energy", "power", "others"] | None = None,
     now_as_ref: bool = False,
 ) -> list[tuple[float, float]]:
-    """Get recent bill data as a list of tuples (timestamp, value_eur)."""
+    """Get recent bill data as a list of tuples (timestamp, value_eur).
+
+    With ``term``, return only that bill term (energy, power or others); the
+    three add up to the total.
+    """
     # Get reference date
     most_recent = await data_manager.get_most_recent_energy_dt()
     ref_date = _get_reference_date(most_recent, now_as_ref)
@@ -191,7 +203,10 @@ async def get_recent_bills(
             end=ref_date,
         )
 
-    result = [(bill.datetime.timestamp() * 1000, bill.value_eur) for bill in bills]
+    field = BILL_TERMS[term] if term else "value_eur"
+    result = [
+        (bill.datetime.timestamp() * 1000, getattr(bill, field)) for bill in bills
+    ]
 
     return _sort_and_limit_results(result, records)
 

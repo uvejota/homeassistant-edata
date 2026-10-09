@@ -83,3 +83,59 @@ async def test_surplus_by_tariff_adds_up_to_total(
     assert by_tariff.keys() >= total.keys()
     for ts, value in total.items():
         assert by_tariff[ts] == pytest.approx(value)
+
+
+@pytest.mark.parametrize("aggr", ["hour", "day", "month"])
+async def test_cost_terms_add_up_to_total(
+    setup_integration: None,
+    hass: HomeAssistant,
+    billing_config_entry: MockConfigEntry,
+    mock_data_manager: None,
+    hass_ws_client: WebSocketGenerator,
+    aggr: str,
+) -> None:
+    """Cost split by bill term (energy, power, others) adds up to the total."""
+    billing_config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(billing_config_entry.entry_id)
+    await hass.async_block_till_done()
+    client = await hass_ws_client(hass)
+
+    async def fetch(**extra: Any) -> list:
+        await client.send_json_auto_id(
+            {"type": f"{DOMAIN}/ws/costs", "scups": SCUPS, "aggr": aggr, **extra}
+        )
+        response = await client.receive_json()
+        assert response["success"]
+        return response["result"]
+
+    total = {ts: value for ts, value in await fetch()}
+    by_term: dict[float, float] = {}
+    for term in ("energy", "power", "others"):
+        for ts, value in await fetch(term=term):
+            by_term[ts] = by_term.get(ts, 0.0) + value
+
+    assert any(total.values())
+    assert by_term.keys() == total.keys()
+    for ts, value in total.items():
+        assert by_term[ts] == pytest.approx(value)
+
+
+async def test_costs_reject_tariff(
+    setup_integration: None,
+    hass: HomeAssistant,
+    billing_config_entry: MockConfigEntry,
+    mock_data_manager: None,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Bills carry no per-tariff split, so a tariff filter is rejected."""
+    billing_config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(billing_config_entry.entry_id)
+    await hass.async_block_till_done()
+    client = await hass_ws_client(hass)
+
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/ws/costs", "scups": SCUPS, "aggr": "month", "tariff": 1}
+    )
+    response = await client.receive_json()
+    assert not response["success"]
+    assert response["error"]["code"] == "invalid_format"

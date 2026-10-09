@@ -109,7 +109,7 @@ def build_monthly_bills(months: int = 2) -> list[Bill]:
             delta_h=720.0,
             value_eur=round(50.0 + 5 * i, 3),
             energy_term=round(35.0 + 3 * i, 3),
-            power_term=round(14.0 + i, 3),
+            power_term=round(14.0 + 2 * i, 3),
             others_term=1.0,
             surplus_term=0.0,
         )

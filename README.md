@@ -163,7 +163,7 @@ Se ofrecen una serie de tarjetas nativas que facilitan la representación de los
 ![Editor](assets/card-editor.png)
 
 Las tarjetas disponibles son:
-- Gráfica de consumos (`consumptions`), excedente (`surplus`), o facturas (`costs`); agrupados por hora, día o mes.
+- Gráfica de consumos (`consumptions`), excedente (`surplus`), o facturas (`costs`); agrupados por hora, día o mes. Los consumos y excedentes se desglosan por periodo (punta, llano y valle) y las facturas por término (energía, potencia y otros).
 - Gráfica de potencias máximas registradas (`maximeter`)
 - Resumen del último día registrado (`summary-last-day`), mes en curso (`summary-month`), o mes pasado (`summary-last-month`).
 
@@ -404,7 +404,7 @@ Para acceder a los mismos, puede consumir la propia API de websockets que utiliz
 |--------------------------|-----------------|-------------------|----------------|
 | `ws_get_consumptions` | Historial de consumos. | `edata/ws/consumptions` | `scups` (requerido): CUPS abreviado (`xxxx`). <br> `aggr` (opcional, por defecto: `"day"`): agregación (`"hour"`, `"day"` o `"month"`). <br> `records` (opcional, por defecto: 30): número de registros. <br> `tariff` (opcional): periodo (`1`, `2` o `3`). <br> `from_now` (opcional): si es `true`, cuenta los registros hacia atrás desde ahora en lugar de desde el último dato. |
 | `ws_get_surplus` | Historial de excedentes. | `edata/ws/surplus` | `scups` (requerido): CUPS abreviado (`xxxx`). <br> `aggr` (opcional, por defecto: `"day"`): agregación (`"hour"`, `"day"` o `"month"`). <br> `records` (opcional, por defecto: 30): número de registros. <br> `tariff` (opcional): periodo (`1`, `2` o `3`). <br> `from_now` (opcional): si es `true`, cuenta los registros hacia atrás desde ahora en lugar de desde el último dato. |
-| `ws_get_cost` | Historial de costes. | `edata/ws/costs` | `scups` (requerido): CUPS abreviado (`xxxx`). <br> `aggr` (opcional, por defecto: `"day"`): agregación (`"hour"`, `"day"` o `"month"`). <br> `records` (opcional, por defecto: 30): número de registros. <br> `tariff` (opcional): periodo (`1`, `2` o `3`). <br> `from_now` (opcional): si es `true`, cuenta los registros hacia atrás desde ahora en lugar de desde el último dato. |
+| `ws_get_cost` | Historial de costes. | `edata/ws/costs` | `scups` (requerido): CUPS abreviado (`xxxx`). <br> `aggr` (opcional, por defecto: `"day"`): agregación (`"hour"`, `"day"` o `"month"`). <br> `records` (opcional, por defecto: 30): número de registros. <br> `term` (opcional): término de la factura (`"energy"`, `"power"` u `"others"`); los tres suman el total. <br> `from_now` (opcional): si es `true`, cuenta los registros hacia atrás desde ahora en lugar de desde el último dato. |
 | `ws_get_maximeter` | Historial del maxímetro. | `edata/ws/maximeter` | `scups` (requerido): CUPS abreviado (`xxxx`). <br> `tariff` (opcional): periodo (`1` o `2`). |
 | `ws_get_summary` | Resumen (atributos). | `edata/ws/summary` | `scups` (requerido): CUPS abreviado (`xxxx`). |
 
