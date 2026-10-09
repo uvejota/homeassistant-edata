@@ -97,3 +97,21 @@ async def test_full_import_always_syncs(
 
     await coordinator.async_full_import()
     assert manager.synced == 2
+
+
+async def test_sync_store_removed_with_entry(
+    setup_integration: None,
+    hass: HomeAssistant,
+    hass_storage: dict,
+    config_entry: MockConfigEntry,
+    mock_data_manager: None,
+) -> None:
+    """Removing the entry deletes its persisted last-sync timestamp."""
+    key = f"{DOMAIN}.{SCUPS.lower()}.sync"
+    await _setup(hass, config_entry)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert key in hass_storage
+
+    assert await hass.config_entries.async_remove(config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert key not in hass_storage

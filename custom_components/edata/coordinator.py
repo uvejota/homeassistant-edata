@@ -30,6 +30,12 @@ SYNC_INTERVAL = timedelta(hours=24)
 SYNC_STORAGE_VERSION = 1
 
 
+def sync_store(hass: HomeAssistant, scups: str) -> Store[dict[str, str]]:
+    """Return the store that persists the last successful Datadis sync."""
+
+    return Store(hass, SYNC_STORAGE_VERSION, f"{const.DOMAIN}.{scups.lower()}.sync")
+
+
 class EdataCoordinator(DataUpdateCoordinator):
     """Handle Datadis data and statistics.."""
 
@@ -54,9 +60,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         self.billing_rules = billing
         self._sync_task: asyncio.Task | None = None
         # last successful Datadis sync, persisted so a restart doesn't force one
-        self._sync_store: Store[dict[str, str]] = Store(
-            hass, SYNC_STORAGE_VERSION, f"{const.DOMAIN}.{self.id}.sync"
-        )
+        self._sync_store = sync_store(hass, self.scups)
         self._last_sync: datetime | None = None
         self._last_sync_loaded = False
 

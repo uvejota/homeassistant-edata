@@ -17,7 +17,7 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
 from . import const
-from .coordinator import EdataCoordinator
+from .coordinator import EdataCoordinator, sync_store
 from .core.config import (
     CONF_AUTHORIZED_NIF,
     CONF_CUPS,
@@ -182,6 +182,7 @@ async def async_remove_entry(hass: HomeAssistant, entry) -> None:
     """Handle removal of an entry."""
 
     hass.data.get(const.DOMAIN, {}).pop(entry.data.get("scups"), None)
+    await sync_store(hass, entry.data[CONF_SCUPS]).async_remove()
 
 
 async def options_update_listener(hass: HomeAssistant, entry: ConfigEntry):
