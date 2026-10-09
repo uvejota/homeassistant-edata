@@ -414,23 +414,59 @@ Todos devuelven una lista de pares `[marca de tiempo en ms, valor]`, salvo `edat
 
 ## FAQ
 
-**No tengo datos de ayer**
+**No me llegan datos nuevos, o llevan días sin actualizarse**
 
-> Muchos me escribís preguntando por los datos de ayer. Veréis, no es tan sencillo. La API de Datadis sólo te permite hacer una misma petición cada 24 horas, de modo que si a vuestra integración le toca a las 17h (por ejemplo), y tu distribuidora sube tus datos de ayer a las 19h, nunca dispondrás de los datos de ayer. Esto puede mitigarse con un pequeño algoritmo que vaya retrasando la petición una hora cada día hasta encontrar la franja en la que encuentres los datos, de modo que al final "sincronices" la hora de tu descarga con una hora próxima a la de la adición de los datos, o indicando una ventana para la actualización (y que cada uno investigue cuál le viene bien a su CUPS).
+> edata solo puede mostrar lo que le devuelve la API de Datadis, y eso depende mucho de tu distribuidora. Lo normal es ir uno o dos días por detrás, pero a veces la API deja de servir datos durante días o incluso semanas (algunas distribuidoras solo los vuelcan al cerrar el ciclo de facturación), y luego llegan todos de golpe sin que hagas nada.
+>
+> Si en el log de edata no hay errores, no es un fallo de la integración: simplemente Datadis no está dando datos. Ten en cuenta que lo que ves en la web de Datadis no tiene por qué coincidir con lo que devuelve su API, son fuentes distintas. Si se alarga mucho, puedes escribir a Datadis desde el formulario de contacto de su web.
 
-**Los datos me aparecen en la web de Datadis pero no en la integración**
+**Los datos ya aparecen en Datadis, pero no en edata**
 
-> Los datos que sí aparecen en la web de Datadis, pero no en edata. Nosotros consumimos la API privada de Datadis, pero ellos en sus gráficos no utilizan la misma API (o tienen distintos privilegios). Esto no es tan raro, ni una mala práctica (de hecho es buena). Este es el motivo por el cual la disponibilidad de los datos varía entre ambas fuentes.
+> Datadis solo permite repetir la misma consulta una vez cada 24 h, así que edata sincroniza como mucho una vez al día. Si a tu instalación le toca a las 17 h y tu distribuidora sube los datos a las 19 h, no los verás hasta el día siguiente.
+>
+> Si no quieres esperar, pulsa _Forzar sincronización_ en el dispositivo de edata: vuelve a pedir todo el histórico disponible, que es una consulta distinta, y trae lo último que tenga Datadis. Solo funciona una vez al día.
 
-**He cambiado de comercializadora y he dejado de recibir datos**
+**¿Sirve de algo reiniciar Home Assistant o borrar la caché?**
 
-> Los datos del mes de inicio de un nuevo contrato no aparecen, porque no los devuelve la API de Datadis. Desconozco el motivo pero es así.
+> No, y suele empeorarlo. Datadis rechaza con un error 429 las consultas repetidas en menos de 24 h, y edata guarda sus respuestas precisamente para no repetirlas. Reiniciar no adelanta nada, y borrar `.storage/edata_cache` solo provoca más errores 429. Deja que la integración pida lo que le falta.
+
+**Error de credenciales, o no encuentra mi suministro**
+
+> - El usuario y la contraseña son los mismos con los que entras en la web de Datadis. Comprueba que funcionan allí, porque la contraseña caduca.
+> - Deja vacío el _NIF autorizado_ salvo que el suministro sea de otro titular que te lo haya autorizado en Datadis. Si eres el titular y lo rellenas, fallará.
+> - Copia el CUPS completo desde _Mis suministros_ en la web de Datadis, incluidos los dos últimos caracteres (por ejemplo, `0F`).
+> - Si acabas de dar de alta el suministro o la cuenta, puede tardar en aparecer en Datadis. Hasta que no salga allí, no hay nada que hacer.
+> - No hace falta marcar la casilla de la API al registrarte; edata usa la privada, que tienen todas las cuentas.
+
+**He cambiado de contrato o de comercializadora y he dejado de recibir datos**
+
+> La API de Datadis no devuelve los datos del mes en que cambia el contrato; suelen aparecer al mes siguiente. Si tu distribuidora registró mal la fecha de alta del suministro, tendrás que reclamárselo a ella.
+
+**La tarjeta no muestra nada**
+
+> - Si usas apexcharts-card, cambia todas las `xxxx` por los últimos cuatro caracteres de tu CUPS.
+> - Después de actualizar edata, recarga el navegador sin caché (Ctrl+F5 o equivalente).
+> - Comprueba que ningún bloqueador de anuncios o de scripts está bloqueando la tarjeta.
+
+**¿Cómo configuro el panel de energía?**
+
+> En _Consumo de la red_ elige `edata:xxxx_consumption` y, si tienes placas, añade `edata:xxxx_surplus` en _Retorno a la red_. Para el coste, si tienes la facturación activada, marca _Usar una entidad que registra el coste total_ y elige `edata:xxxx_cost`, que está en €, no en kWh. No añadas otros dispositivos de tu casa como consumo de la red, o se sumarán dos veces.
 
 **Veo datos inconsistentes, huecos, o el panel de energía no muestra lo mismo que las tarjetas**
 
-> Usa el botón _Reparar estadísticas de Home Assistant_ (o equivalente, según el idioma) del dispositivo de edata. Borra las estadísticas de edata en Home Assistant y las regenera a partir de los datos que edata tiene guardados, sin consultar a Datadis ni modificar esos datos.
+> Usa el botón _Reparar estadísticas de Home Assistant_ del dispositivo de edata. Borra las estadísticas de edata en Home Assistant y las regenera a partir de los datos que edata tiene guardados, sin consultar a Datadis ni modificar esos datos.
 
+**Hay una hora de desfase con los datos de Datadis**
+
+> Es una diferencia de criterio: Datadis apunta el consumo al final de cada hora y Home Assistant al principio. El consumo de 00:00 a 01:00 aparece a la 01:00 en Datadis y a las 00:00 en Home Assistant.
+
+**No puedo instalarla**
+
+> - edata se instala desde HACS (repositorio personalizado), no desde _Complementos_.
+> - Se configura desde la interfaz; la configuración por YAML ya no existe.
+> - Necesitas Home Assistant 2025.11 o posterior y el componente `recorder` activo.
+> - Si falla al descargar dependencias, suele ser un problema de red o DNS, por ejemplo un filtro del router o del operador que bloquea PyPI.
 
 **Nada de lo anterior soluciona mi problema**
 
-> Pásate por las _issues_ del repositorio por si alguien tiene el mismo problema. En caso contrario, puedes crear tú la _issue_ aportando logs y descripción de tu problema.
+> Comprueba primero que tienes la última versión de edata. Si es así, activa _Activar depuración_ en las opciones de la integración, espera a la siguiente sincronización (o pulsa _Forzar sincronización_) y abre una _issue_ con el log y la descripción del problema. Antes, echa un vistazo a las _issues_ por si alguien tiene el mismo problema.
