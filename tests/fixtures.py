@@ -6,6 +6,8 @@ import typing
 from edata.models import Bill, Contract, Energy, Power, Statistics, Supply
 from edata.models.bill import BillingRules
 
+from custom_components.edata.core.data import BillSimulation
+
 CUPS = "ES0021000000000000AA0A"
 SCUPS = "aa0a"
 USERNAME = "12345678Z"
@@ -171,9 +173,15 @@ class FakeDataManager:
         """Record a billing rebuild request."""
         self.rebuilt.append(since)
 
-    async def simulate_last_month(self, billing_rules, is_pvpc) -> Bill:
-        """Return a deterministic preview bill."""
-        return self._monthly_bills[-1]
+    async def simulate_last_month(self, billing_rules, is_pvpc) -> BillSimulation:
+        """Return a deterministic preview covering part of February 2023."""
+        return BillSimulation(
+            bill=self._monthly_bills[-1],
+            start=datetime(2023, 2, 1, 0, 0),
+            end=datetime(2023, 2, 25, 23, 0),
+            hours=600.0,
+            month_hours=672,
+        )
 
     async def get_supply(self) -> Supply:
         """Return the fake supply."""

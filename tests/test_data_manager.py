@@ -1,6 +1,7 @@
 """Tests for the DataManager facade against a real on-disk database."""
 
 from collections.abc import AsyncGenerator, Generator
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -117,4 +118,10 @@ async def test_rebuild_and_simulate(
 
     preview = await manager.simulate_last_month(rules, is_pvpc=False)
     assert preview is not None
-    assert preview.value_eur > 0
+    assert preview.bill.value_eur > 0
+    # the fixture only has the first 48 hours of January 2023: the preview must
+    # say so instead of passing as a full month
+    assert preview.start == datetime(2023, 1, 1, 0, 0)
+    assert preview.end == datetime(2023, 1, 2, 23, 0)
+    assert preview.hours == preview.bill.delta_h == 48
+    assert preview.month_hours == 31 * 24

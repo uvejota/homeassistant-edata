@@ -143,6 +143,10 @@ async def test_options_flow_apply_since(
         result["flow_id"], _schema_defaults(result["data_schema"])
     )
     assert result["step_id"] == "confirm"
+    # the preview states the simulated span and its coverage, not just the month
+    assert _schema_defaults(result["data_schema"])["period"] == (
+        "01/02/2023 – 25/02/2023 (600/672 h)"
+    )
 
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],

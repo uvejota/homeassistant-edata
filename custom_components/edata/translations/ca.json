@@ -91,20 +91,33 @@
       },
       "costs": {
         "title": "Facturació",
+        "description": "Introdueix els preus **sense impostos**, tal com apareixen a la factura o al contracte. L'impost elèctric i l'IVA s'apliquen després, a les fórmules.",
         "data": {
-          "p1_kw_year_eur": "Potència: Preu kW franja Punta - P1 (€)",
-          "p2_kw_year_eur": "Potència: Preu kW franja Vall - P2 (€)",
-          "meter_month_eur": "Cost mensual lloger del comptador (€)",
-          "market_kw_year_eur": "Cost anual per mercat de kW (€)",
-          "electricity_tax": "Impost sobre l'electricitat (ex: 1,05 per a un 5%)",
-          "iva_tax": "IVA (ex: 1,10 per a un 10%)",
-          "p1_kwh_eur": "Energia: Preu per kWh a la franja Punta - P1 (€)",
-          "p2_kwh_eur": "Energia: Preu per kWh a la franja Pla - P2 (€)",
-          "p3_kwh_eur": "Energia: Preu per kWh a la franja Vall - P3 (€)"
+          "p1_kw_year_eur": "Potència P1 (€/kW·any)",
+          "p2_kw_year_eur": "Potència P2 (€/kW·any)",
+          "meter_month_eur": "Lloguer del comptador (€/mes)",
+          "market_kw_year_eur": "Marge de comercialització (€/kW·any)",
+          "electricity_tax": "Impost elèctric (multiplicador)",
+          "iva_tax": "IVA (multiplicador)",
+          "p1_kwh_eur": "Energia P1, punta (€/kWh)",
+          "p2_kwh_eur": "Energia P2, pla (€/kWh)",
+          "p3_kwh_eur": "Energia P3, vall (€/kWh)"
+        },
+        "data_description": {
+          "p1_kw_year_eur": "Preu de la potència contractada en punta, sense impostos. Si la factura el dona en €/kW·dia, multiplica'l per 365.",
+          "p2_kw_year_eur": "Preu de la potència contractada en vall, sense impostos. Si la factura el dona en €/kW·dia, multiplica'l per 365.",
+          "meter_month_eur": "Lloguer de l'equip de mesura, sense IVA. Si la factura el dona per dies, multiplica'l per 30.",
+          "market_kw_year_eur": "Marge de comercialització per kW contractat, sense impostos. La fórmula per defecte el suma a la potència P1.",
+          "electricity_tax": "Impost especial sobre l'electricitat com a multiplicador: 1.0511 equival al 5,11 %.",
+          "iva_tax": "IVA com a multiplicador: 1.21 equival al 21 % i 1.10 al 10 %.",
+          "p1_kwh_eur": "Preu de l'energia en hores punta, sense impostos.",
+          "p2_kwh_eur": "Preu de l'energia en hores pla, sense impostos.",
+          "p3_kwh_eur": "Preu de l'energia en hores vall, sense impostos."
         }
       },
       "formulas": {
         "title": "Fórmules",
+        "description": "Expressions que es calculen per a cada hora. A més dels valors del pas anterior, pots fer servir `kwh` (consum de l'hora), `kwh_eur` (preu de l'energia en aquella hora), `p1_kw` i `p2_kw` (potències contractades).",
         "data": {
           "energy_formula": "Terme d'energia (€)",
           "power_formula": "Terme de potència (€)",
@@ -113,8 +126,9 @@
       },
       "confirm": {
         "title": "Simulació (amb impostos)",
+        "description": "Simulació de l'últim mes complet, **amb impostos**. Només es facturen les hores amb consum (i amb preu, si fas servir PVPC): si el període no cobreix totes les hores del mes, l'import sortirà per sota de la factura real.",
         "data": {
-          "month": "Mes simulat",
+          "period": "Període simulat (hores amb dades / hores del mes)",
           "value_eur": "Factura (€)",
           "energy_term": "Terme d'energia (€)",
           "power_term": "Terme de potència (€)",

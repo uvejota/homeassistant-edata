@@ -2,12 +2,13 @@
 
 import typing
 
-from edata.models import Bill
 from edata.models.bill import BillingRules, PVPCBillingRules
 from pydantic_core import PydanticUndefined
 import voluptuous as vol
 
 from homeassistant.helpers import selector as sel
+
+from .data import BillSimulation
 
 CONF_DEBUG = "debug"
 CONF_BILLING = "billing"
@@ -95,23 +96,37 @@ def step_formulas(is_pvpc: bool, prev_options: dict[str, typing.Any]) -> vol.Sch
     return vol.Schema(schema)
 
 
-def step_confirm(sim: Bill | None) -> vol.Schema:
+def format_period(sim: BillSimulation) -> str:
+    """Describe the simulated span and its coverage, e.g. "12/06/2026 – 30/06/2026 (456/720 h)".
+
+    Only hours with every input are billed, so a partly covered month (missing
+    PVPC prices or consumptions) shows up here instead of as a puzzling total.
+    """
+
+    return (
+        f"{sim.start:%d/%m/%Y} – {sim.end:%d/%m/%Y} "
+        f"({sim.hours:g}/{sim.month_hours} h)"
+    )
+
+
+def step_confirm(sim: BillSimulation | None) -> vol.Schema:
     """Build the options confirm step dict schema, previewing the last month."""
 
     schema: dict[typing.Any, typing.Any] = {}
     if sim is not None:
+        bill = sim.bill
         schema = {
-            vol.Optional("month", default=sim.datetime.strftime("%m/%Y")): str,
-            vol.Optional("value_eur", default=round(sim.value_eur, 2)): vol.Coerce(
+            vol.Optional("period", default=format_period(sim)): str,
+            vol.Optional("value_eur", default=round(bill.value_eur, 2)): vol.Coerce(
                 float
             ),
-            vol.Optional("energy_term", default=round(sim.energy_term, 2)): vol.Coerce(
+            vol.Optional("energy_term", default=round(bill.energy_term, 2)): vol.Coerce(
                 float
             ),
-            vol.Optional("power_term", default=round(sim.power_term, 2)): vol.Coerce(
+            vol.Optional("power_term", default=round(bill.power_term, 2)): vol.Coerce(
                 float
             ),
-            vol.Optional("others_term", default=round(sim.others_term, 2)): vol.Coerce(
+            vol.Optional("others_term", default=round(bill.others_term, 2)): vol.Coerce(
                 float
             ),
         }
