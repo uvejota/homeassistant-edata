@@ -34,18 +34,11 @@ async def reset_edata_db(hass: HomeAssistant) -> AsyncGenerator[None]:
     ordering constraint) so each test also starts from a fresh on-disk database.
     """
 
-    def _reset() -> None:
-        EdataDB._instance = None
-        EdataDB._engine = None
-        EdataDB._db_url = None
-
     db_path = Path(get_db_path(hass.config.path(STORAGE_DIR)))
     db_path.unlink(missing_ok=True)
-    _reset()
+    EdataDB.reset()
     yield
-    if EdataDB._engine is not None:
-        await EdataDB._engine.dispose()
-    _reset()
+    EdataDB.reset()
     db_path.unlink(missing_ok=True)
 
 
