@@ -73,6 +73,34 @@ class DataManager:
             )
         return synced
 
+    async def full_sync(self) -> bool:
+        """Re-fetch every record Datadis still serves, not just what is missing.
+
+        The regular sync only asks for days that are missing or newer than the
+        last record, and Datadis answers a repeated query from the connector's
+        24 h cache. Requesting the whole history uses a different query, so it
+        brings the latest data Datadis has (and fills older gaps it now has).
+        The connector keeps the start within Datadis's two-year window.
+        """
+        if not await self._data_service.update():
+            return False
+
+        supply = await self._data_service.get_supply()
+        if supply is None:
+            return False
+        start, end = supply.date_start, datetime.now()
+
+        await self._data_service.update_energy(start, end)
+        await self._data_service.update_power(start, end)
+        await self._data_service.update_statistics(start, end)
+        if self.billing:
+            await self._bill_service.update(
+                start=start,
+                billing_rules=self.billing,
+                is_pvpc=isinstance(self.billing, PVPCBillingRules),
+            )
+        return True
+
     async def run_migrations(self) -> list:
         """Import legacy 1.x on-disk storage into the 2.0 database, if present."""
         return await self._data_service.run_migrations()

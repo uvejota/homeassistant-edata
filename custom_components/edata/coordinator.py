@@ -137,10 +137,17 @@ class EdataCoordinator(DataUpdateCoordinator):
             return False
         return True
 
-    async def _async_sync_datadis(self) -> bool:
-        """Sync from Datadis and record the time when it succeeds."""
+    async def _async_sync_datadis(self, full: bool = False) -> bool:
+        """Sync from Datadis and record the time when it succeeds.
 
-        synced = await self._data_manager.sync()
+        ``full`` re-fetches the whole history Datadis serves instead of only
+        what is missing (see ``DataManager.full_sync``).
+        """
+
+        if full:
+            synced = await self._data_manager.full_sync()
+        else:
+            synced = await self._data_manager.sync()
         if synced:
             self._last_sync = dt_util.utcnow()
             self._last_sync_loaded = True
@@ -275,7 +282,7 @@ class EdataCoordinator(DataUpdateCoordinator):
         """Fetch all available data from Datadis and rebuild statistics."""
 
         _LOGGER.warning("%s: importing all available data from Datadis", self.scups)
-        await self._async_sync_datadis()
+        await self._async_sync_datadis(full=True)
         await self._load_data()
         await self.async_soft_reset()
 
