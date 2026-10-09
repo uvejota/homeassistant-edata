@@ -43,7 +43,7 @@ Para instalar esta integración en Home Assistant necesitarás:
 
 * una cuenta funcional (y validada) en la web de [Datadis](https://www.datadis.es)
   * no hay que marcar la casilla de la API al registrar, usaremos la privada que está habilitada por defecto,
-* una instalación *reciente* y funcional de Home Assistant (a partir de ahora HA), los componentes `recorder` y `lovelace` deben estar disponibles (lo están por defecto),
+* una instalación funcional de Home Assistant (a partir de ahora HA) **2025.11 o posterior**, con los componentes `recorder` y `lovelace` disponibles (lo están por defecto),
 * instalar [HACS](https://hacs.xyz/),
 * (opcional) instalar el componente [apexchart-card](https://github.com/RomRider/apexcharts-card) (usando HACS) si se quisiera utilizar este método para visualizar los datos.
 
@@ -61,7 +61,7 @@ Una vez satisfecho lo anterior, los pasos a seguir para la instalación son:
 
 5. Esperar unos minutos. Le aparecerá un nuevo dispositivo, que consta de un sensor principal llamado `sensor.edata_xxxx` donde `xxxx` dependerá de los últimos caracteres de su CUPS, y de otros sensores con los datos.
 
-> **NOTA:** La instalación puede tardar bastante en su primera ejecución, ya que la integración "rescata" el último año de consumos desde Datadis, y ésta a veces puede tomarse su tiempo. Periódicamente, la integración solicitará únicamente lo que le falta, en intervalos de 24h.
+> **NOTA:** La instalación puede tardar bastante en su primera ejecución, ya que la integración descarga el histórico desde el inicio del suministro (como máximo los dos últimos años, que es lo que permite Datadis), y Datadis a veces puede tomarse su tiempo. Después, la integración solicitará únicamente lo que le falta, como mucho una vez cada 24 h.
 
 ## Sensores de la integración
 
@@ -77,15 +77,15 @@ El sensor `sensor.edata_xxxx` es un tanto especial, ya que incluye información 
 
 Desde la versión 2024.07.5, la integración incorpora las siguientes acciones, accesibles desde el panel del dispositivo edata que desea configurar.
 
-* **Restablecer:** Botón que puede arreglar algunas incoherencias en el último año de datos. Útil si experimentas huecos o consumos duplicados.
-* **Importar todos los datos disponibles:** Botón que sincroniza edata con todos los datos disponibles en Datadis. Datadis limita el histórico a los 2 últimos años, y no es posible obtenerlos antes de dicha fecha mediante la API.
+* **Reparar estadísticas de Home Assistant:** Borra las estadísticas de edata en Home Assistant (consumo, coste y maxímetro) y las vuelve a generar a partir de los datos que edata ya tiene guardados. No consulta a Datadis. Útil si las gráficas o el panel de energía muestran huecos, duplicados o valores incoherentes.
+* **Forzar sincronización:** Sincroniza con Datadis en ese momento, sin esperar a la sincronización automática (que se hace como mucho una vez cada 24 h, porque Datadis solo responde a cada consulta una vez al día), y después repara las estadísticas como el botón anterior. Solo pide lo que falta; Datadis limita el histórico a los 2 últimos años.
 
 
 ![Acciones](assets/actions.png)
 
 ## Integración con panel Energía (Long Term Statistics)
 
-La integración combina almacenamiento local (en ficheros), con la base de datos de estadísticas nativa de Home Assistant, lo cual habilita su uso en el panel de energía. Por defecto, las estadísticas generadas serán:
+La integración combina almacenamiento local (una base de datos SQLite propia), con la base de datos de estadísticas nativa de Home Assistant, lo cual habilita su uso en el panel de energía. Por defecto, las estadísticas generadas serán:
 
 | statistic_id | Tipo | Unidad | Significado |
 | ------------- | ------------- | ------------- | ------------- |
@@ -93,19 +93,19 @@ La integración combina almacenamiento local (en ficheros), con la base de datos
 | `edata:xxxx_p1_consumption` | `sum` | `kWh` | Consumo en P1 |
 | `edata:xxxx_p2_consumption` | `sum` | `kWh` | Consumo en P2 |
 | `edata:xxxx_p3_consumption` | `sum` | `kWh` | Consumo en P3 |
-| `edata:xxxx_surplus` | `sum` | `kWh` | Generación total  |
+| `edata:xxxx_surplus` | `sum` | `kWh` | Excedentes (retorno) total |
 | `edata:xxxx_maximeter` | `max` | `kW` | Maxímetro |
 | `edata:xxxx_p1_maximeter` | `max` | `kW` | Maxímetro en P1 |
 | `edata:xxxx_p2_maximeter` | `max` | `kW` | Maxímetro en P2 |
-| `edata:xxxx_cost`*  | `float` | `€` | Coste total |
-| `edata:xxxx_p1_cost`*  | `float` | `€` | Coste total en P1 |
-| `edata:xxxx_p2_cost`*  | `float` | `€` | Coste total en P2 |
-| `edata:xxxx_p3_cost`*  | `float` | `€` | Coste total en P3 |
-| `edata:xxxx_power_cost`*  | `float` | `€` | Coste (potencia) |
-| `edata:xxxx_energy_cost`*  | `float` | `€` | Coste (energía) |
-| `edata:xxxx_p1_energy_cost`*  | `float` | `€` | Coste (energía) en P1 |
-| `edata:xxxx_p2_energy_cost`*  | `float` | `€` | Coste (energía) en P2 |
-| `edata:xxxx_p3_energy_cost`*  | `float` | `€` | Coste (energía) en P3 |
+| `edata:xxxx_cost`*  | `sum` | `€` | Coste total |
+| `edata:xxxx_p1_cost`*  | `sum` | `€` | Coste total en P1 |
+| `edata:xxxx_p2_cost`*  | `sum` | `€` | Coste total en P2 |
+| `edata:xxxx_p3_cost`*  | `sum` | `€` | Coste total en P3 |
+| `edata:xxxx_power_cost`*  | `sum` | `€` | Coste (potencia) |
+| `edata:xxxx_energy_cost`*  | `sum` | `€` | Coste (energía) |
+| `edata:xxxx_p1_energy_cost`*  | `sum` | `€` | Coste (energía) en P1 |
+| `edata:xxxx_p2_energy_cost`*  | `sum` | `€` | Coste (energía) en P2 |
+| `edata:xxxx_p3_energy_cost`*  | `sum` | `€` | Coste (energía) en P3 |
 
 \* Los campos marcados con asterisco no están habilitados por defecto, y se habilitan como indica el siguiente apartado.
 
@@ -163,7 +163,7 @@ Se ofrecen una serie de tarjetas nativas que facilitan la representación de los
 ![Editor](assets/card-editor.png)
 
 Las tarjetas disponibles son:
-- Gráfica de consumos (`consumptions`), excedente (`surplus`), o facturas (`costs`); agrupados por hora/mes/día/año.
+- Gráfica de consumos (`consumptions`), excedente (`surplus`), o facturas (`costs`); agrupados por hora, día o mes. Los consumos y excedentes se desglosan por periodo (punta, llano y valle) y las facturas por término (energía, potencia y otros).
 - Gráfica de potencias máximas registradas (`maximeter`)
 - Resumen del último día registrado (`summary-last-day`), mes en curso (`summary-month`), o mes pasado (`summary-last-month`).
 
@@ -224,14 +224,10 @@ series:
     type: column
     data_generator: |
       return hass.connection.sendMessagePromise({
-      type: 'edata/consumptions/daily',
-      scups: 'xxxx'}).then(
-          (resp) => {
-              return resp.map((data, index) => {
-                return [new Date(data['datetime']).getTime(), data['value_kWh']];
-              });
-          }
-      );
+      type: 'edata/ws/consumptions',
+      scups: 'xxxx',
+      aggr: 'day',
+      records: 30});
     show:
       in_chart: false
       in_brush: true
@@ -240,40 +236,31 @@ series:
     stack_group: "1"
     data_generator: |
       return hass.connection.sendMessagePromise({
-      type: 'edata/consumptions/daily',
-      scups: 'xxxx'}).then(
-          (resp) => {
-              return resp.map((data, index) => {
-                return [new Date(data['datetime']).getTime(), data['value_p1_kWh']];
-              });
-          }
-      );
+      type: 'edata/ws/consumptions',
+      scups: 'xxxx',
+      aggr: 'day',
+      tariff: 1,
+      records: 30});
   - entity: sensor.edata_xxxx
     name: Llano
     stack_group: "1"
     data_generator: |
       return hass.connection.sendMessagePromise({
-      type: 'edata/consumptions/daily',
-      scups: 'xxxx'}).then(
-          (resp) => {
-              return resp.map((data, index) => {
-                return [new Date(data['datetime']).getTime(), data['value_p2_kWh']];
-              });
-          }
-      );
+      type: 'edata/ws/consumptions',
+      scups: 'xxxx',
+      aggr: 'day',
+      tariff: 2,
+      records: 30});
   - entity: sensor.edata_xxxx
     name: Valle
     stack_group: "1"
     data_generator: |
       return hass.connection.sendMessagePromise({
-      type: 'edata/consumptions/daily',
-      scups: 'xxxx'}).then(
-          (resp) => {
-              return resp.map((data, index) => {
-                return [new Date(data['datetime']).getTime(), data['value_p3_kWh']];
-              });
-          }
-      );
+      type: 'edata/ws/consumptions',
+      scups: 'xxxx',
+      aggr: 'day',
+      tariff: 3,
+      records: 30});
 ```
 
 </details>
@@ -328,7 +315,7 @@ series:
       type: 'edata/ws/consumptions',
       scups: 'xxxx',
       aggr: 'month',
-      tariff: 'p1',
+      tariff: 1,
       records: 12});
   - entity: sensor.edata_xxxx
     name: Llano
@@ -338,7 +325,7 @@ series:
       type: 'edata/ws/consumptions',
       scups: 'xxxx',
       aggr: 'month',
-      tariff: 'p2',
+      tariff: 2,
       records: 12});
   - entity: sensor.edata_xxxx
     name: Valle
@@ -348,7 +335,7 @@ series:
       type: 'edata/ws/consumptions',
       scups: 'xxxx',
       aggr: 'month',
-      tariff: 'p3',
+      tariff: 3,
       records: 12});
 ```
 
@@ -383,7 +370,7 @@ series:
     data_generator: |
       return hass.connection.sendMessagePromise({
       type: 'edata/ws/maximeter',
-      tariff: 'p1',
+      tariff: 1,
       scups: 'xxxx'});
   - entity: sensor.edata_xxxx
     type: column
@@ -395,7 +382,7 @@ series:
     data_generator: |
       return hass.connection.sendMessagePromise({
       type: 'edata/ws/maximeter',
-      tariff: 'p2',
+      tariff: 2,
       scups: 'xxxx'});
 ```
 
@@ -403,68 +390,25 @@ series:
 
 ### Detalle de un día/mes concreto
 
-![Captura mes en curso](https://i.imgur.com/1MOF0jk.png)
-
-<details>
-<summary>He leído las instrucciones y quiero ver el contenido</summary>
-
-``` yaml
-type: custom:apexcharts-card
-chart_type: pie
-header:
-  show: true
-  title: Mes en curso
-  show_states: true
-  colorize_states: true
-  floating: true
-all_series_config:
-  show:
-    legend_value: true
-    in_header: false
-  unit: kWh
-apex_config:
-  chart:
-    height: 250px
-series:
-  - entity: sensor.xxxx_consumo_en_el_mes
-    show:
-      in_chart: false
-      in_header: true
-    name: Total
-  - entity: sensor.xxxx_consumo_en_el_mes
-    attribute: month_p1_kWh
-    name: Punta
-  - entity: sensor.xxxx_consumo_en_el_mes
-    attribute: month_p2_kWh
-    name: Llano
-  - entity: sensor.xxxx_consumo_en_el_mes
-    attribute: month_p3_kWh
-    name: Valle
-  - entity: sensor.xxxx_factura_del_mes
-    name: Facturación
-    show:
-      in_chart: false
-      in_header: true
-    unit: €
-```
-
-</details>
+Para ver el reparto por periodos (punta, llano y valle) del último día, del mes en curso o del mes pasado, junto con el total y el coste, usa la tarjeta nativa con `summary-last-day`, `summary-month` o `summary-last-month` (ver [Gráficas con tarjeta nativa](#Gráficas-con-tarjeta-nativa)).
 
 ## Acceso a datos descargados
 
 Los datos descargados se almacenan en:
 1. Base de datos de estadísticas de HA (Long Term Statistics)
-2. Ficheros json ubicado en `config/.storage/edata/edata_xxxx.json`
+2. Base de datos SQLite de edata, en `config/.storage/edata.db`
 
 Para acceder a los mismos, puede consumir la propia API de websockets que utilizan las tarjetas, bajo las definiciones a continuación
 
-| **Nombre del WebSocket** | **Descripción**                       | **Endpoint**                           | **Parámetros**                                                                                                                  |
-|--------------------------|---------------------------------------|------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
-| `ws_get_consumptions`    | Obtiene el historial de consumos.     | `/ws/consumptions`   | `scups` (requerido): Identificador SCUPS (CUPS abreviado). <br> `aggr` (opcional, por defecto: "day"): Nivel de agregación ("day", "hour", "week", "month"). <br> `records` (opcional, por defecto: 30): Número de registros a obtener. <br> `tariff` (opcional): Tramo ("p1", "p2", "p3"). |
-| `ws_get_surplus`         | Obtiene el historial de excedentes.   | `/ws/surplus`        | `scups` (requerido): Identificador SCUPS. <br> `aggr` (opcional, por defecto: "day"): Nivel de agregación ("day", "hour", "week", "month"). <br> `records` (opcional, por defecto: 30): Número de registros a obtener. <br> `tariff` (opcional): Tramo ("p1", "p2", "p3"). |
-| `ws_get_cost`            | Obtiene el historial de costes.       | `/ws/costs`          | `scups` (requerido): Identificador SCUPS. <br> `aggr` (opcional, por defecto: "day"): Nivel de agregación ("day", "hour", "week", "month"). <br> `records` (opcional, por defecto: 30): Número de registros a obtener. <br> `tariff` (opcional): Tramo ("p1", "p2", "p3"). |
-| `ws_get_maximeter`       | Obtiene el historial del maximetro.   | `/ws/maximeter`      | `scups` (requerido): Identificador SCUPS. <br> `tariff` (opcional): Tramo ("p1", "p2").   |
-| `ws_get_summary`       | Obtiene un resumen (atributos).   | `/ws/summary`      | `scups` (requerido): Identificador SCUPS. |
+| **Nombre del WebSocket** | **Descripción** | **Tipo (`type`)** | **Parámetros** |
+|--------------------------|-----------------|-------------------|----------------|
+| `ws_get_consumptions` | Historial de consumos. | `edata/ws/consumptions` | `scups` (requerido): CUPS abreviado (`xxxx`). <br> `aggr` (opcional, por defecto: `"day"`): agregación (`"hour"`, `"day"` o `"month"`). <br> `records` (opcional, por defecto: 30): número de registros. <br> `tariff` (opcional): periodo (`1`, `2` o `3`). <br> `from_now` (opcional): si es `true`, cuenta los registros hacia atrás desde ahora en lugar de desde el último dato. |
+| `ws_get_surplus` | Historial de excedentes. | `edata/ws/surplus` | `scups` (requerido): CUPS abreviado (`xxxx`). <br> `aggr` (opcional, por defecto: `"day"`): agregación (`"hour"`, `"day"` o `"month"`). <br> `records` (opcional, por defecto: 30): número de registros. <br> `tariff` (opcional): periodo (`1`, `2` o `3`). <br> `from_now` (opcional): si es `true`, cuenta los registros hacia atrás desde ahora en lugar de desde el último dato. |
+| `ws_get_cost` | Historial de costes. | `edata/ws/costs` | `scups` (requerido): CUPS abreviado (`xxxx`). <br> `aggr` (opcional, por defecto: `"day"`): agregación (`"hour"`, `"day"` o `"month"`). <br> `records` (opcional, por defecto: 30): número de registros. <br> `term` (opcional): término de la factura (`"energy"`, `"power"` u `"others"`); los tres suman el total. <br> `from_now` (opcional): si es `true`, cuenta los registros hacia atrás desde ahora en lugar de desde el último dato. |
+| `ws_get_maximeter` | Historial del maxímetro. | `edata/ws/maximeter` | `scups` (requerido): CUPS abreviado (`xxxx`). <br> `tariff` (opcional): periodo (`1` o `2`). |
+| `ws_get_summary` | Resumen (atributos). | `edata/ws/summary` | `scups` (requerido): CUPS abreviado (`xxxx`). |
+
+Todos devuelven una lista de pares `[marca de tiempo en ms, valor]`, salvo `edata/ws/summary`, que devuelve un diccionario con los atributos.
 
 ## FAQ
 
@@ -482,9 +426,7 @@ Para acceder a los mismos, puede consumir la propia API de websockets que utiliz
 
 **Veo datos inconsistentes, huecos, o el panel de energía no muestra lo mismo que las tarjetas**
 
-> Desde la versión `2024.07.5` existe un botón asociado a los dispositivos de edata llamado _Restablecer_ (o equivalente, según el idioma). Este botón restablece el último año de datos solicitándolos de nuevo a Datadis y regenera las estadísticas acorde a los nuevos datos si detecta incoherencias.
->
-> **No es recomendable utilizarlo a la ligera, ya que utiliza la configuración de tarificación más reciente, y además descarta todos los precios PVPC que ya hubiese descargado con antelación.**
+> Usa el botón _Reparar estadísticas de Home Assistant_ (o equivalente, según el idioma) del dispositivo de edata. Borra las estadísticas de edata en Home Assistant y las regenera a partir de los datos que edata tiene guardados, sin consultar a Datadis ni modificar esos datos.
 
 
 **Nada de lo anterior soluciona mi problema**

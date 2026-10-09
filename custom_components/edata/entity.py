@@ -5,6 +5,20 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import const
 
+# Attributes are for display: the raw values (kept by the coordinator and served
+# by the websockets) carry float noise like 1.2300000000000002
+ATTR_DECIMALS = 2
+
+
+def _round_attribute(value):
+    """Round a float attribute, or each float in a list, to ATTR_DECIMALS."""
+
+    if isinstance(value, float):
+        return round(value, ATTR_DECIMALS)
+    if isinstance(value, list):
+        return [_round_attribute(x) for x in value]
+    return value
+
 
 class EdataEntity(CoordinatorEntity):
     """Representation of any e-data entity."""
@@ -25,9 +39,9 @@ class EdataEntity(CoordinatorEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (const.DOMAIN, self.coordinator.cups)
+                (const.DOMAIN, self.coordinator.cups)  # pyright: ignore[reportAttributeAccessIssue]
             },
-            name=self.coordinator.id.upper(),
+            name=self.coordinator.id.upper(),  # pyright: ignore[reportAttributeAccessIssue]
             sw_version=f"edata v{getattr(self.coordinator.hass.data['integrations'][const.DOMAIN], 'version', 0)}",
         )
 
@@ -58,7 +72,8 @@ class EdataSensorEntity(EdataEntity):
     @property
     def extra_state_attributes(self):
         """Return the state attributes."""
-        return {x: self._data.get("attributes", {}).get(x, None) for x in self._attrs}
+        attributes = self._data.get("attributes", {})
+        return {x: _round_attribute(attributes.get(x, None)) for x in self._attrs}
 
 
 class EdataButtonEntity(EdataEntity):
