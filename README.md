@@ -43,7 +43,7 @@ Para instalar esta integración en Home Assistant necesitarás:
 
 * una cuenta funcional (y validada) en la web de [Datadis](https://www.datadis.es)
   * no hay que marcar la casilla de la API al registrar, usaremos la privada que está habilitada por defecto,
-* una instalación *reciente* y funcional de Home Assistant (a partir de ahora HA), los componentes `recorder` y `lovelace` deben estar disponibles (lo están por defecto),
+* una instalación funcional de Home Assistant (a partir de ahora HA) **2025.11 o posterior**, con los componentes `recorder` y `lovelace` disponibles (lo están por defecto),
 * instalar [HACS](https://hacs.xyz/),
 * (opcional) instalar el componente [apexchart-card](https://github.com/RomRider/apexcharts-card) (usando HACS) si se quisiera utilizar este método para visualizar los datos.
 
