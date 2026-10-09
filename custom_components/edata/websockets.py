@@ -62,6 +62,7 @@ async def ws_get_consumptions(hass: HomeAssistant, connection, msg):
         vol.Required("scups"): str,
         vol.Optional("aggr", default="day"): vol.Union("day", "hour", "month"),
         vol.Optional("records", default=30): int,
+        vol.Optional("tariff"): vol.Union(1, 2, 3),
         vol.Optional("from_now"): bool,
     }
 )
@@ -71,6 +72,7 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
     _scups = msg["scups"].lower()
     _aggr = msg["aggr"]
     _records = msg["records"]
+    _tariff = msg.get("tariff", None)
     _now_as_ref = msg.get("from_now", False)
     data_manager: DataManager | None = hass.data[const.DOMAIN][_scups].get(
         const.SHARED_DATAMANAGER
@@ -84,6 +86,7 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
             data_manager,
             aggr=_aggr,
             records=_records,
+            tariff=_tariff,
             now_as_ref=_now_as_ref,
         )
     except KeyError:

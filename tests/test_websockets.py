@@ -46,3 +46,40 @@ async def test_websocket_commands(
 
     assert response["success"]
     assert response["result"] == snapshot
+
+
+@pytest.mark.parametrize("aggr", ["hour", "day", "month"])
+async def test_surplus_by_tariff_adds_up_to_total(
+    setup_integration: None,
+    hass: HomeAssistant,
+    billing_config_entry: MockConfigEntry,
+    mock_data_manager: None,
+    hass_ws_client: WebSocketGenerator,
+    aggr: str,
+) -> None:
+    """Surplus split by tariff (P1, P2, P3) adds up to the total at every point."""
+    billing_config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(billing_config_entry.entry_id)
+    await hass.async_block_till_done()
+    client = await hass_ws_client(hass)
+
+    async def fetch(**extra: Any) -> list:
+        await client.send_json_auto_id(
+            {"type": f"{DOMAIN}/ws/surplus", "scups": SCUPS, "aggr": aggr, **extra}
+        )
+        response = await client.receive_json()
+        assert response["success"]
+        return response["result"]
+
+    total = {ts: value for ts, value in await fetch()}
+    by_tariff: dict[float, float] = {}
+    for tariff in (1, 2, 3):
+        for ts, value in await fetch(tariff=tariff):
+            by_tariff[ts] = by_tariff.get(ts, 0.0) + value
+
+    assert any(total.values())
+    # per-tariff series may carry one extra, older hourly point that the total
+    # trims to ``records``; compare over the total's points
+    assert by_tariff.keys() >= total.keys()
+    for ts, value in total.items():
+        assert by_tariff[ts] == pytest.approx(value)

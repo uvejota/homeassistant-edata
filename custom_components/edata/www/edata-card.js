@@ -575,7 +575,8 @@ class EdataCard extends LitElement {
         case "surplus":
           chartOptions = await this.getBarChartOptions(
             "edata/ws/surplus",
-            DEF_ENERGY_UNIT
+            DEF_ENERGY_UNIT,
+            [1, 2, 3]
           );
           break;
         case "costs":
