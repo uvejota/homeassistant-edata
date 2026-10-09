@@ -33,10 +33,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
 class EdataResetButton(EdataButtonEntity, ButtonEntity):
     """Representation of an e-data restoration button."""
 
-    _attr_icon = "mdi:sync-alert"
+    _attr_icon = "mdi:chart-box-outline"
 
 
 class EdataImportButton(EdataButtonEntity, ButtonEntity):
     """Representation of an e-data import button."""
 
-    _attr_icon = "mdi:content-save-all"
+    _attr_icon = "mdi:sync"
