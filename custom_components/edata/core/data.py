@@ -10,6 +10,7 @@ from edata.services.bill_service import BillService
 from edata.services.data_service import DataService
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import STORAGE_DIR
 
 
@@ -40,6 +41,7 @@ class DataManager:
             datadis_pwd=password,
             storage_path=storage_path,
             datadis_authorized_nif=authorized_nif,
+            session=async_get_clientsession(hass),
         )
         self._bill_service = BillService(cups=self.cups, storage_path=storage_path)
 

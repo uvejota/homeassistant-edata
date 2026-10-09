@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import logging
 
-from edata.core.utils import get_tariff
-
 from homeassistant.components.recorder.models import (
     StatisticData,
     StatisticMeanType,
@@ -17,11 +15,12 @@ from homeassistant.util import dt as dt_util
 
 from ...const import DOMAIN
 from ..data import DataManager
-from ..utils import async_get_tariff
+from ..utils import async_get_tariffs
 from .utils import (
     add_statistics,
     get_last_stat_datetime,
     make_stat_id,
+    resolve_load_window,
     should_add_statistic,
 )
 
@@ -37,12 +36,6 @@ async def update_power_statistics(
     """Update power (maximeter) statistics."""
     _LOGGER.debug("%s: updating power statistics", scups)
 
-    # Fetch data
-    data = await service.get_power()
-    if not data:
-        _LOGGER.debug("%s: no power data available", scups)
-        return
-
     # Define stat IDs
     stat_ids = {
         "maximeter": make_stat_id(DOMAIN, integration_id, "maximeter"),
@@ -55,12 +48,23 @@ async def update_power_statistics(
     for key, stat_id in stat_ids.items():
         last_stat_dts[key] = await get_last_stat_datetime(hass, stat_id)
 
+    # Load only from the earliest already-recorded stat onwards instead of the
+    # whole maximeter history
+    supply = await service.get_supply()
+    load_start, load_end = resolve_load_window(
+        min(last_stat_dts.values()), supply.date_start if supply else None
+    )
+    data = await service.get_power(start=load_start, end=load_end)
+    if not data:
+        _LOGGER.debug("%s: no new power data available", scups)
+        return
+
     # Build statistics
     stats_data = {key: [] for key in stat_ids}
 
-    for power_point in data:
+    tariffs = await async_get_tariffs([x.datetime for x in data])
+    for power_point, tariff in zip(data, tariffs, strict=True):
         dt_found = dt_util.as_local(power_point.datetime)
-        tariff = await async_get_tariff(power_point.datetime)
 
         # General maximeter
         if should_add_statistic(last_stat_dts["maximeter"], dt_found):

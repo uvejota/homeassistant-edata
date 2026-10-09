@@ -15,7 +15,7 @@ from homeassistant.util import dt as dt_util
 
 from ...const import DOMAIN
 from ..data import DataManager
-from ..utils import async_get_tariff, iter_month_windows
+from ..utils import async_get_tariffs, iter_month_windows
 from .utils import (
     add_statistics,
     calculate_cumulative_sum,
@@ -72,9 +72,9 @@ async def update_bill_statistics(
 
         batch: dict[str, list[StatisticData]] = {key: [] for key in stat_ids}
 
-        for bill in data:
+        tariffs = await async_get_tariffs([x.datetime for x in data])
+        for bill, tariff in zip(data, tariffs, strict=True):
             dt_found = dt_util.as_local(bill.datetime)
-            tariff = await async_get_tariff(bill.datetime)
 
             if should_add_statistic(last_stats["power_cost"][0], dt_found):
                 batch["power_cost"].append(
