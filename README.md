@@ -77,8 +77,8 @@ El sensor `sensor.edata_xxxx` es un tanto especial, ya que incluye información 
 
 Desde la versión 2024.07.5, la integración incorpora las siguientes acciones, accesibles desde el panel del dispositivo edata que desea configurar.
 
-* **Restablecer:** Botón que puede arreglar algunas incoherencias en el último año de datos. Útil si experimentas huecos o consumos duplicados.
-* **Importar todos los datos disponibles:** Botón que sincroniza edata con todos los datos disponibles en Datadis. Datadis limita el histórico a los 2 últimos años, y no es posible obtenerlos antes de dicha fecha mediante la API.
+* **Reparar estadísticas de Home Assistant:** Borra las estadísticas de edata en Home Assistant (consumo, coste y maxímetro) y las vuelve a generar a partir de los datos que edata ya tiene guardados. No consulta a Datadis. Útil si las gráficas o el panel de energía muestran huecos, duplicados o valores incoherentes.
+* **Forzar sincronización:** Sincroniza con Datadis en ese momento, sin esperar a la sincronización automática (que se hace como mucho una vez cada 24 h, porque Datadis solo responde a cada consulta una vez al día), y después repara las estadísticas como el botón anterior. Solo pide lo que falta; Datadis limita el histórico a los 2 últimos años.
 
 
 ![Acciones](assets/actions.png)
@@ -482,9 +482,7 @@ Para acceder a los mismos, puede consumir la propia API de websockets que utiliz
 
 **Veo datos inconsistentes, huecos, o el panel de energía no muestra lo mismo que las tarjetas**
 
-> Desde la versión `2024.07.5` existe un botón asociado a los dispositivos de edata llamado _Restablecer_ (o equivalente, según el idioma). Este botón restablece el último año de datos solicitándolos de nuevo a Datadis y regenera las estadísticas acorde a los nuevos datos si detecta incoherencias.
->
-> **No es recomendable utilizarlo a la ligera, ya que utiliza la configuración de tarificación más reciente, y además descarta todos los precios PVPC que ya hubiese descargado con antelación.**
+> Usa el botón _Reparar estadísticas de Home Assistant_ (o equivalente, según el idioma) del dispositivo de edata. Borra las estadísticas de edata en Home Assistant y las regenera a partir de los datos que edata tiene guardados, sin consultar a Datadis ni modificar esos datos.
 
 
 **Nada de lo anterior soluciona mi problema**

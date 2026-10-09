@@ -3,10 +3,10 @@
   "entity": {
     "button": {
       "soft_reset": {
-        "name": "Restablir"
+        "name": "Reparar les estadístiques de Home Assistant"
       },
       "import_all_data": {
-        "name": "Importa totes les dades disponibles"
+        "name": "Forçar la sincronització"
       }
     },
     "sensor": {

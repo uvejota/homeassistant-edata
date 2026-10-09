@@ -3,10 +3,10 @@
   "entity": {
     "button": {
       "soft_reset": {
-        "name": "Reset"
+        "name": "Repair Home Assistant statistics"
       },
       "import_all_data": {
-        "name": "Import all available data"
+        "name": "Force sync"
       }
     },
     "sensor": {
