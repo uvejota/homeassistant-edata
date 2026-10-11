@@ -52,16 +52,16 @@
     "abort": {
       "already_configured": "CUPS ja configurat",
       "unknown": "S'ha produït un error desconegut",
-      "invalid_credentials": "Credencials incorrectes",
+      "cannot_login": "No s'ha pogut iniciar sessió a Datadis. Revisa l'usuari (NIF) i la contrasenya; si són correctes, pot ser que Datadis no respongui: torna-ho a provar més tard.",
       "invalid_cups": "CUPS incorrecte",
-      "no_supplies_found": "No es van trobar subministraments en el compte proporcionat"
+      "no_supplies_found": "No s'han trobat subministraments en aquest compte. Si els subministraments són d'una altra persona que t'ha autoritzat, omple el NIF autoritzat amb el seu NIF."
     },
     "error": {
       "already_configured": "Aquest CUPS ja ha estat configurat",
       "unknown": "S'ha produït un error desconegut",
-      "invalid_credentials": "Credencials incorrectes",
+      "cannot_login": "No s'ha pogut iniciar sessió a Datadis. Revisa l'usuari (NIF) i la contrasenya; si són correctes, pot ser que Datadis no respongui: torna-ho a provar més tard.",
       "invalid_cups": "CUPS incorrecte",
-      "no_supplies_found": "No es van trobar subministraments en el compte proporcionat"
+      "no_supplies_found": "No s'han trobat subministraments en aquest compte. Si els subministraments són d'una altra persona que t'ha autoritzat, omple el NIF autoritzat amb el seu NIF."
     },
     "step": {
       "user": {

@@ -69,16 +69,16 @@
     "error": {
       "unknown": "Erro descoñecido",
       "already_configured": "Este CUPS xa está configurado",
-      "invalid_credentials": "Credenciais incorrectas",
+      "cannot_login": "Non se puido iniciar sesión en Datadis. Revisa o usuario (NIF) e o contrasinal; se son correctos, pode que Datadis non estea respondendo: téntao máis tarde.",
       "invalid_cups": "CUPS incorrectos",
-      "no_supplies_found": "Non se atoparon subministracións na conta proporcionada"
+      "no_supplies_found": "Non se atoparon subministracións nesta conta. Se as subministracións son doutra persoa que te autorizou, enche o NIF autorizado co seu NIF."
     },
     "abort": {
       "unknown": "Erro descoñecido",
       "already_configured": "Este CUPS xa está configurado",
-      "invalid_credentials": "Credenciais incorrectas",
+      "cannot_login": "Non se puido iniciar sesión en Datadis. Revisa o usuario (NIF) e o contrasinal; se son correctos, pode que Datadis non estea respondendo: téntao máis tarde.",
       "invalid_cups": "CUPS incorrectos",
-      "no_supplies_found": "Non se atoparon subministracións na conta proporcionada"
+      "no_supplies_found": "Non se atoparon subministracións nesta conta. Se as subministracións son doutra persoa que te autorizou, enche o NIF autorizado co seu NIF."
     }
   },
   "options": {

@@ -1,7 +1,7 @@
 """Configuration Flow (GUI)."""
 
+from functools import partial
 import logging
-import tempfile
 from typing import Any
 
 from edata.models.bill import BillingRules, PVPCBillingRules
@@ -9,6 +9,8 @@ from edata.providers.datadis import DatadisConnector
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import STORAGE_DIR
 
 from . import const
 from .core.config import (
@@ -92,18 +94,27 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
             )
             user_input[CONF_AUTHORIZED_NIF] = None
 
-        api = DatadisConnector(
-            user_input[CONF_USERNAME],
-            user_input[CONF_PASSWORD],
-            storage_path=tempfile.gettempdir(),
-        )
-        supplies = await api.async_get_supplies(
-            authorized_nif=user_input.get(CONF_AUTHORIZED_NIF)
-        )
-        if not supplies:
-            errors["base"] = (
-                "invalid_credentials" if supplies is None else "no_supplies_found"
+        # the connector opens its query cache on disk, so build it off the loop
+        api = await self.hass.async_add_executor_job(
+            partial(
+                DatadisConnector,
+                user_input[CONF_USERNAME],
+                user_input[CONF_PASSWORD],
+                storage_path=self.hass.config.path(STORAGE_DIR),
+                session=async_get_clientsession(self.hass),
             )
+        )
+        # log in first: a rejected login would otherwise surface as an empty
+        # supply list, pointing at the CUPS or authorized NIF instead
+        if not await api.async_login():
+            errors["base"] = "cannot_login"
+        elif not (
+            supplies := await api.async_get_supplies(
+                authorized_nif=user_input.get(CONF_AUTHORIZED_NIF)
+            )
+        ):
+            errors["base"] = "no_supplies_found"
+        if errors:
             return self.async_show_form(
                 step_id="user", data_schema=step_user(), errors=errors
             )

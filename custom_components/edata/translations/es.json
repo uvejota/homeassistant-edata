@@ -52,16 +52,16 @@
     "abort": {
       "unknown": "Error desconocido",
       "already_configured": "Este CUPS ya está configurado",
-      "invalid_credentials": "Credenciales incorrectas",
+      "cannot_login": "No se pudo iniciar sesión en Datadis. Revisa el usuario (NIF) y la contraseña; si son correctos, puede que Datadis no esté respondiendo: inténtalo más tarde.",
       "invalid_cups": "CUPS inválido",
-      "no_supplies_found": "No se encontraron suministros en la cuenta proporcionada"
+      "no_supplies_found": "No se encontraron suministros en esta cuenta. Si los suministros son de otra persona que te ha autorizado, rellena el NIF autorizado con su NIF."
     },
     "error": {
       "unknown": "Error desconocido",
       "already_configured": "Este CUPS ya está configurado",
-      "invalid_credentials": "Credenciales incorrectas",
+      "cannot_login": "No se pudo iniciar sesión en Datadis. Revisa el usuario (NIF) y la contraseña; si son correctos, puede que Datadis no esté respondiendo: inténtalo más tarde.",
       "invalid_cups": "CUPS inválido",
-      "no_supplies_found": "No se encontraron suministros en la cuenta proporcionada"
+      "no_supplies_found": "No se encontraron suministros en esta cuenta. Si los suministros son de otra persona que te ha autorizado, rellena el NIF autorizado con su NIF."
     },
     "step": {
       "user": {

@@ -48,6 +48,7 @@ def mock_supplies() -> AsyncMock:
         "custom_components.edata.config_flow.DatadisConnector"
     ) as connector:
         instance = connector.return_value
+        instance.async_login = AsyncMock(return_value=True)
         instance.async_get_supplies = AsyncMock(
             return_value=[SimpleNamespace(cups=CUPS)]
         )
@@ -80,26 +81,26 @@ async def test_user_flow_success(
 
 
 @pytest.mark.parametrize(
-    ("supplies_return", "expected_error"),
+    ("login", "supplies", "expected_error"),
     [
-        (None, "invalid_credentials"),
-        ([], "no_supplies_found"),
+        (False, None, "cannot_login"),
+        (True, [], "no_supplies_found"),
     ],
-    ids=["invalid_credentials", "no_supplies_found"],
+    ids=["cannot_login", "no_supplies_found"],
 )
 async def test_user_flow_errors(
     setup_integration: None,
     hass: HomeAssistant,
-    supplies_return: list | None,
+    login: bool,
+    supplies: list | None,
     expected_error: str,
 ) -> None:
-    """Credential and empty-supply errors are surfaced on the user step."""
+    """A rejected login and an empty supply list are told apart on the user step."""
     with patch(
         "custom_components.edata.config_flow.DatadisConnector"
     ) as connector:
-        connector.return_value.async_get_supplies = AsyncMock(
-            return_value=supplies_return
-        )
+        connector.return_value.async_login = AsyncMock(return_value=login)
+        connector.return_value.async_get_supplies = AsyncMock(return_value=supplies)
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": SOURCE_USER}
         )
@@ -110,6 +111,34 @@ async def test_user_flow_errors(
 
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": expected_error}
+    # supplies are only asked for once the login worked
+    assert connector.return_value.async_get_supplies.await_count == int(login)
+
+
+async def test_user_flow_retries_after_an_error(
+    setup_integration: None,
+    hass: HomeAssistant,
+) -> None:
+    """After a rejected login the user can fix the password and go on."""
+    with patch(
+        "custom_components.edata.config_flow.DatadisConnector"
+    ) as connector:
+        connector.return_value.async_login = AsyncMock(side_effect=[False, True])
+        connector.return_value.async_get_supplies = AsyncMock(
+            return_value=[SimpleNamespace(cups=CUPS)]
+        )
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_USERNAME: USERNAME, CONF_PASSWORD: "wrong"}
+        )
+        assert result["errors"] == {"base": "cannot_login"}
+
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_USERNAME: USERNAME, CONF_PASSWORD: PASSWORD}
+        )
+    assert result["step_id"] == "choosecups"
 
 
 async def test_options_flow_apply_since(
@@ -183,3 +212,22 @@ def test_billing_schema_excludes_surplus(builder, is_pvpc: bool) -> None:
     """Surplus discounts are no longer configurable (assumed zero)."""
     keys = [str(key.schema) for key in builder(is_pvpc, {}).schema]
     assert not any("surplus" in key for key in keys)
+
+
+async def test_user_flow_with_real_connector(
+    setup_integration: None,
+    hass: HomeAssistant,
+) -> None:
+    """The real connector is built (off the loop) and a rejected login is shown."""
+    with patch(
+        "edata.providers.datadis.DatadisConnector._async_get_token",
+        AsyncMock(return_value=False),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_USERNAME: USERNAME, CONF_PASSWORD: PASSWORD}
+        )
+
+    assert result["errors"] == {"base": "cannot_login"}
