@@ -54,7 +54,8 @@
       "unknown": "Unknown error occurred",
       "cannot_login": "Could not log in to Datadis. Check the username (NIF) and the password; if they are correct, Datadis may not be responding: try again later.",
       "invalid_cups": "Invalid CUPS",
-      "no_supplies_found": "No supplies were found in this account. If the supplies belong to someone who has authorized you, fill in the authorized NIF with their NIF."
+      "no_supplies_found": "No supplies were found in this account. If the supplies belong to someone who has authorized you, fill in the authorized NIF with their NIF.",
+      "all_configured": "Every supply of this account is already configured."
     },
     "error": {
       "already_configured": "This CUPS is already configured",
@@ -70,12 +71,20 @@
           "username": "Username",
           "authorized_nif": "Authorized NIF"
         },
+        "data_description": {
+          "username": "The NIF/NIE you log in to datadis.es with.",
+          "password": "Your datadis.es password.",
+          "authorized_nif": "Only if the supplies belong to someone who has authorized you in Datadis: their NIF. Leave it empty if you are the holder."
+        },
         "title": "Set up integration"
       },
       "choosecups": {
         "title": "Select the CUPS",
         "data": {
           "cups": "CUPS"
+        },
+        "data_description": {
+          "cups": "The supply to add. Those already configured are not listed."
         }
       }
     }

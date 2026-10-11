@@ -57,12 +57,20 @@
           "password": "Contrasinal",
           "cups": "CUPS",
           "authorized_nif": "NIF autorizado"
+        },
+        "data_description": {
+          "username": "O NIF/NIE co que entras en datadis.es.",
+          "password": "O contrasinal de datadis.es.",
+          "authorized_nif": "Só se as subministracións son doutra persoa que te autorizou en Datadis: o seu NIF. Déixao baleiro se es o titular."
         }
       },
       "choosecups": {
         "title": "Seleccione os CUPS",
         "data": {
           "cups": "CUPS"
+        },
+        "data_description": {
+          "cups": "A subministración que queres engadir. As que xa están configuradas non aparecen."
         }
       }
     },
@@ -78,7 +86,8 @@
       "already_configured": "Este CUPS xa está configurado",
       "cannot_login": "Non se puido iniciar sesión en Datadis. Revisa o usuario (NIF) e o contrasinal; se son correctos, pode que Datadis non estea respondendo: téntao máis tarde.",
       "invalid_cups": "CUPS incorrectos",
-      "no_supplies_found": "Non se atoparon subministracións nesta conta. Se as subministracións son doutra persoa que te autorizou, enche o NIF autorizado co seu NIF."
+      "no_supplies_found": "Non se atoparon subministracións nesta conta. Se as subministracións son doutra persoa que te autorizou, enche o NIF autorizado co seu NIF.",
+      "all_configured": "Todas as subministracións desta conta xa están configuradas."
     }
   },
   "options": {

@@ -4,6 +4,7 @@ from functools import partial
 import logging
 from typing import Any
 
+from edata.models import Supply
 from edata.models.bill import BillingRules, PVPCBillingRules
 from edata.providers.datadis import DatadisConnector
 
@@ -19,6 +20,7 @@ from .core.config import (
     CONF_PASSWORD,
     CONF_SCUPS,
     CONF_USERNAME,
+    normalize_nif,
     step_choose_cups,
     step_user,
 )
@@ -41,18 +43,14 @@ _LOGGER = logging.getLogger(__name__)
 J2_EXPR_TOKENS = ("{{ ", " }}")
 
 
-def get_scups(hass: HomeAssistant, cups: str) -> None | str:
-    """Calculate a non-colliding scups."""
+def get_scups(cups: str, taken: set[str]) -> str:
+    """Return the shortest CUPS suffix (4+ chars, lower case) not in ``taken``."""
 
     for i in range(4, len(cups)):
         scups = cups[-i:].lower()
-        found = hass.data.get(const.DOMAIN, {}).get(scups)
-        if found is None:
-            break
-        elif found[CONF_CUPS] == cups.upper():  # noqa: RET508
-            return None
-
-    return scups
+        if scups not in taken:
+            return scups
+    return cups.lower()
 
 
 async def simulate_last_month_billing(
@@ -80,76 +78,86 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
         """Initialize config flow."""
         super().__init__()
         self.user_input = {}
+        self._supplies: list[Supply] = []
+
+    def _configured_cups(self) -> set[str]:
+        """Return the CUPS of every entry, loaded or not.
+
+        Entries created before CUPS were used as unique IDs only get one when
+        they are next set up, so look at their data too.
+        """
+        return {
+            entry.data[CONF_CUPS].upper()
+            for entry in self._async_current_entries(include_ignore=False)
+        }
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Handle the credentials check step."""
         errors = {}
 
-        if user_input is None:
-            return self.async_show_form(step_id="user", data_schema=step_user())
+        if user_input is not None:
+            user_input[CONF_USERNAME] = normalize_nif(user_input[CONF_USERNAME]) or ""
+            nif = normalize_nif(user_input.get(CONF_AUTHORIZED_NIF))
+            if nif is not None and nif.upper() == user_input[CONF_USERNAME].upper():
+                _LOGGER.warning(
+                    "Ignoring authorized NIF since it is equal to the provided username"
+                )
+                nif = None
+            user_input[CONF_AUTHORIZED_NIF] = nif
 
-        if user_input.get(CONF_AUTHORIZED_NIF, None) == user_input[CONF_USERNAME]:
-            _LOGGER.warning(
-                "Ignoring authorized NIF since it is equal to the provided username"
+            # the connector opens its query cache on disk, so build it off the loop
+            api = await self.hass.async_add_executor_job(
+                partial(
+                    DatadisConnector,
+                    user_input[CONF_USERNAME],
+                    user_input[CONF_PASSWORD],
+                    storage_path=self.hass.config.path(STORAGE_DIR),
+                    session=async_get_clientsession(self.hass),
+                )
             )
-            user_input[CONF_AUTHORIZED_NIF] = None
+            # log in first: a rejected login would otherwise surface as an empty
+            # supply list, pointing at the CUPS or authorized NIF instead
+            if not await api.async_login():
+                errors["base"] = "cannot_login"
+            elif not (supplies := await api.async_get_supplies(authorized_nif=nif)):
+                errors["base"] = "no_supplies_found"
+            else:
+                configured = self._configured_cups()
+                self._supplies = [
+                    x for x in supplies if x.cups.upper() not in configured
+                ]
+                if not self._supplies:
+                    return self.async_abort(reason="all_configured")
+                self.user_input.update(user_input)
+                return await self.async_step_choosecups()
 
-        # the connector opens its query cache on disk, so build it off the loop
-        api = await self.hass.async_add_executor_job(
-            partial(
-                DatadisConnector,
-                user_input[CONF_USERNAME],
-                user_input[CONF_PASSWORD],
-                storage_path=self.hass.config.path(STORAGE_DIR),
-                session=async_get_clientsession(self.hass),
-            )
+        return self.async_show_form(
+            step_id="user", data_schema=step_user(user_input), errors=errors
         )
-        # log in first: a rejected login would otherwise surface as an empty
-        # supply list, pointing at the CUPS or authorized NIF instead
-        if not await api.async_login():
-            errors["base"] = "cannot_login"
-        elif not (
-            supplies := await api.async_get_supplies(
-                authorized_nif=user_input.get(CONF_AUTHORIZED_NIF)
-            )
-        ):
-            errors["base"] = "no_supplies_found"
-        if errors:
-            return self.async_show_form(
-                step_id="user", data_schema=step_user(), errors=errors
-            )
-
-        self.user_input["cups_list"] = [x.cups for x in supplies]
-        self.user_input.update(user_input)
-        return await self.async_step_choosecups()
 
     async def async_step_choosecups(self, user_input=None):
         """Handle the 'choose cups' step."""
-        errors = {}
 
         if user_input is None:
             return self.async_show_form(
                 step_id="choosecups",
-                data_schema=step_choose_cups(self.user_input["cups_list"]),
+                data_schema=step_choose_cups(self._supplies),
             )
 
-        self.user_input.update(user_input)
-        scups = get_scups(self.hass, self.user_input[CONF_CUPS])
+        cups = user_input[CONF_CUPS]
+        await self.async_set_unique_id(cups.upper())
+        self._abort_if_unique_id_configured()
+        if cups.upper() in self._configured_cups():
+            return self.async_abort(reason="already_configured")
 
-        if scups is None:
-            errors.update({"base": "already_configured"})
-
-        if not errors:
-            self.user_input[CONF_SCUPS] = scups
-            return self.async_create_entry(
-                title=self.user_input[CONF_SCUPS],
-                data={**self.user_input},
-            )
-
-        return self.async_show_form(
-            step_id="choosecups",
-            data_schema=step_choose_cups(self.user_input["cups_list"]),
-            errors=errors,
+        taken = {
+            entry.data[CONF_SCUPS]
+            for entry in self._async_current_entries(include_ignore=False)
+        } | set(self.hass.data.get(const.DOMAIN, {}))
+        scups = get_scups(cups, taken)
+        return self.async_create_entry(
+            title=scups,
+            data={**self.user_input, CONF_CUPS: cups, CONF_SCUPS: scups},
         )
 
     @staticmethod

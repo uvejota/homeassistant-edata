@@ -1,6 +1,5 @@
 """Tests for the edata config and options flows."""
 
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -11,10 +10,13 @@ from homeassistant.config_entries import SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
+from custom_components.edata.config_flow import get_scups
 from custom_components.edata.const import DOMAIN
 from custom_components.edata.core.config import (
+    CONF_AUTHORIZED_NIF,
     CONF_CUPS,
     CONF_PASSWORD,
+    CONF_SCUPS,
     CONF_USERNAME,
 )
 from custom_components.edata.core.options import (
@@ -28,7 +30,7 @@ from custom_components.edata.core.options import (
     step_formulas,
 )
 
-from .fixtures import CUPS, PASSWORD, USERNAME
+from .fixtures import CUPS, PASSWORD, SCUPS, USERNAME, build_supply
 
 
 def _schema_defaults(schema: vol.Schema) -> dict:
@@ -50,7 +52,7 @@ def mock_supplies() -> AsyncMock:
         instance = connector.return_value
         instance.async_login = AsyncMock(return_value=True)
         instance.async_get_supplies = AsyncMock(
-            return_value=[SimpleNamespace(cups=CUPS)]
+            return_value=[build_supply()]
         )
         yield instance.async_get_supplies
 
@@ -78,6 +80,9 @@ async def test_user_flow_success(
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"][CONF_CUPS] == CUPS
+    assert result["data"][CONF_SCUPS] == SCUPS
+    assert result["result"].unique_id == CUPS
+    assert "cups_list" not in result["data"]
 
 
 @pytest.mark.parametrize(
@@ -125,7 +130,7 @@ async def test_user_flow_retries_after_an_error(
     ) as connector:
         connector.return_value.async_login = AsyncMock(side_effect=[False, True])
         connector.return_value.async_get_supplies = AsyncMock(
-            return_value=[SimpleNamespace(cups=CUPS)]
+            return_value=[build_supply()]
         )
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": SOURCE_USER}
@@ -231,3 +236,180 @@ async def test_user_flow_with_real_connector(
         )
 
     assert result["errors"] == {"base": "cannot_login"}
+
+
+def _supply(cups: str, **changes):
+    """Build a fake supply with another CUPS (and other fields)."""
+    return build_supply().model_copy(update={"cups": cups, **changes})
+
+
+def _entry(cups: str, scups: str, unique_id: str | None = None) -> MockConfigEntry:
+    """Build an edata entry for ``cups`` (not set up)."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        title=scups,
+        unique_id=unique_id,
+        data={
+            CONF_USERNAME: USERNAME,
+            CONF_PASSWORD: PASSWORD,
+            CONF_CUPS: cups,
+            CONF_SCUPS: scups,
+        },
+    )
+
+
+async def _submit_credentials(hass: HomeAssistant, **user_input):
+    """Start a user flow and submit the credentials step."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    return await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_USERNAME: USERNAME, CONF_PASSWORD: PASSWORD, **user_input},
+    )
+
+
+async def test_password_is_hidden_and_input_kept_after_an_error(
+    setup_integration: None,
+    hass: HomeAssistant,
+) -> None:
+    """The password field is masked; on error the NIFs are kept but not it."""
+    with patch("custom_components.edata.config_flow.DatadisConnector") as connector:
+        connector.return_value.async_login = AsyncMock(return_value=False)
+        result = await _submit_credentials(hass, **{CONF_AUTHORIZED_NIF: "87654321X"})
+
+    assert result["errors"] == {"base": "cannot_login"}
+    fields = {str(key): (key, value) for key, value in result["data_schema"].schema.items()}
+    password = fields[CONF_PASSWORD][1]
+    assert password.config["type"] == "password"
+    assert fields[CONF_USERNAME][0].default() == USERNAME
+    assert fields[CONF_AUTHORIZED_NIF][0].description == {
+        "suggested_value": "87654321X"
+    }
+    assert fields[CONF_PASSWORD][0].default is vol.UNDEFINED
+
+
+@pytest.mark.parametrize(
+    ("username", "authorized_nif", "stored_username", "stored_nif"),
+    [
+        (" 1234 5678Z ", "  ", "12345678Z", None),
+        ("12345678Z", "87654321 x", "12345678Z", "87654321x"),
+        # the same NIF as the username (any case) is not an authorization
+        ("12345678Z", "12345678z", "12345678Z", None),
+    ],
+)
+async def test_nifs_are_cleaned_up(
+    setup_integration: None,
+    hass: HomeAssistant,
+    mock_supplies: AsyncMock,
+    mock_data_manager: None,
+    username: str,
+    authorized_nif: str,
+    stored_username: str,
+    stored_nif: str | None,
+) -> None:
+    """Blanks are dropped from the NIFs, and a self-authorization is ignored."""
+    result = await _submit_credentials(
+        hass, **{CONF_USERNAME: username, CONF_AUTHORIZED_NIF: authorized_nif}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_CUPS: CUPS}
+    )
+
+    assert result["data"][CONF_USERNAME] == stored_username
+    assert result["data"][CONF_AUTHORIZED_NIF] == stored_nif
+    assert mock_supplies.await_args.kwargs["authorized_nif"] == stored_nif
+
+
+async def test_supplies_are_labelled_and_configured_ones_hidden(
+    setup_integration: None,
+    hass: HomeAssistant,
+    mock_supplies: AsyncMock,
+) -> None:
+    """Each CUPS shows where it is; already configured CUPS are left out."""
+    _entry("ES0021000000000000BB0B", "bb0b").add_to_hass(hass)  # not set up
+    mock_supplies.return_value = [
+        build_supply(),
+        _supply("ES0021000000000000BB0B"),
+        _supply("ES0021000000000000CC0C", address=None, municipality=None),
+    ]
+
+    result = await _submit_credentials(hass)
+
+    assert result["step_id"] == "choosecups"
+    selector = result["data_schema"].schema[CONF_CUPS]
+    assert selector.config["options"] == [
+        {"value": CUPS, "label": f"{CUPS} · FAKE STREET 1, FAKETOWN"},
+        {"value": "ES0021000000000000CC0C", "label": "ES0021000000000000CC0C"},
+    ]
+
+
+async def test_abort_when_every_supply_is_configured(
+    setup_integration: None,
+    hass: HomeAssistant,
+    mock_supplies: AsyncMock,
+) -> None:
+    """With nothing left to add, the flow ends instead of offering a duplicate."""
+    _entry(CUPS, SCUPS, unique_id=CUPS).add_to_hass(hass)
+
+    result = await _submit_credentials(hass)
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "all_configured"
+
+
+async def test_duplicate_cups_aborts(
+    setup_integration: None,
+    hass: HomeAssistant,
+    mock_supplies: AsyncMock,
+) -> None:
+    """A CUPS configured while the flow was open is caught by its unique ID."""
+    result = await _submit_credentials(hass)
+    assert result["step_id"] == "choosecups"
+
+    _entry(CUPS, SCUPS, unique_id=CUPS).add_to_hass(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_CUPS: CUPS}
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+
+
+async def test_short_cups_avoids_every_entry(
+    setup_integration: None,
+    hass: HomeAssistant,
+    mock_supplies: AsyncMock,
+    mock_data_manager: None,
+) -> None:
+    """The short CUPS skips those of entries that are not loaded too."""
+    # another supply ending the same way, configured but not set up
+    _entry("ES0021000000000001AA0A", SCUPS).add_to_hass(hass)
+
+    result = await _submit_credentials(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_CUPS: CUPS}
+    )
+
+    assert result["data"][CONF_SCUPS] == "0aa0a"
+
+
+def test_get_scups() -> None:
+    """The shortest free suffix of 4+ characters is used."""
+    assert get_scups(CUPS, set()) == "aa0a"
+    assert get_scups(CUPS, {"aa0a", "0aa0a"}) == "00aa0a"
+
+
+async def test_existing_entry_gets_its_unique_id(
+    setup_integration: None,
+    hass: HomeAssistant,
+    mock_data_manager: None,
+) -> None:
+    """Entries created before CUPS were unique IDs get one when set up."""
+    entry = _entry(CUPS.lower(), SCUPS)
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.unique_id == CUPS

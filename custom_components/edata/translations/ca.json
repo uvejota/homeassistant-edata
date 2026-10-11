@@ -54,7 +54,8 @@
       "unknown": "S'ha produït un error desconegut",
       "cannot_login": "No s'ha pogut iniciar sessió a Datadis. Revisa l'usuari (NIF) i la contrasenya; si són correctes, pot ser que Datadis no respongui: torna-ho a provar més tard.",
       "invalid_cups": "CUPS incorrecte",
-      "no_supplies_found": "No s'han trobat subministraments en aquest compte. Si els subministraments són d'una altra persona que t'ha autoritzat, omple el NIF autoritzat amb el seu NIF."
+      "no_supplies_found": "No s'han trobat subministraments en aquest compte. Si els subministraments són d'una altra persona que t'ha autoritzat, omple el NIF autoritzat amb el seu NIF.",
+      "all_configured": "Tots els subministraments d'aquest compte ja estan configurats."
     },
     "error": {
       "already_configured": "Aquest CUPS ja ha estat configurat",
@@ -70,12 +71,20 @@
           "username": "Nom d'usuari",
           "authorized_nif": "NIF autoritzat"
         },
+        "data_description": {
+          "username": "El NIF/NIE amb què entres a datadis.es.",
+          "password": "La contrasenya de datadis.es.",
+          "authorized_nif": "Només si els subministraments són d'una altra persona que t'ha autoritzat a Datadis: el seu NIF. Deixa-ho buit si n'ets el titular."
+        },
         "title": "Configuració de la integració"
       },
       "choosecups": {
         "title": "Seleccioneu el CUPS",
         "data": {
           "cups": "CUPS"
+        },
+        "data_description": {
+          "cups": "El subministrament que vols afegir. Els que ja estan configurats no hi apareixen."
         }
       }
     }
