@@ -169,7 +169,7 @@ Las tarjetas disponibles son:
 - Gráfica de potencias máximas registradas (`maximeter`)
 - Resumen del último día registrado (`summary-last-day`), mes en curso (`summary-month`), o mes pasado (`summary-last-month`).
 
-Adicionalmente, puedes cambiar los colores añadiendo el atributo `colors` al YAML resultante:
+Los colores se pueden cambiar en la sección _Colores_ del editor, con el selector o escribiendo su código hexadecimal, o añadiendo el atributo `colors` al YAML resultante:
 
 ```yaml
 type: custom:edata-card
