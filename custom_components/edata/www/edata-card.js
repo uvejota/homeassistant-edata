@@ -365,21 +365,18 @@ class EdataCard extends LitElement {
   }
 
   // splits: values of the `splitBy` websocket parameter (tariffs 1-3, or bill
-  // terms), drawn as stacked series that add up to the total
+  // terms), drawn as stacked series that add up to the total; all of them come
+  // in one call through its plural form (`tariffs`, `terms`)
   async getBarChartOptions(endpoint, unit, splits, splitBy = "tariff") {
     let results;
     if (splits?.length > 0) {
-      results = await Promise.all(
-        splits.map((split) =>
-          this._hass.callWS({
-            type: endpoint,
-            scups: this._scups,
-            aggr: this._aggr,
-            [splitBy]: split,
-            records: this._records,
-          })
-        )
-      );
+      results = await this._hass.callWS({
+        type: endpoint,
+        scups: this._scups,
+        aggr: this._aggr,
+        [splitBy + "s"]: splits,
+        records: this._records,
+      });
     } else {
       results = [
         await this._hass.callWS({

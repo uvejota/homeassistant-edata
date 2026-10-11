@@ -63,9 +63,24 @@ class DataManager:
         )
         self._bill_service = BillService(cups=self.cups, storage_path=storage_path)
 
+        # The most recent energy timestamp is asked by every card query but only
+        # changes when energy is written, so it is kept in memory. Writers bump
+        # the generation; a read that raced with a write does not store its
+        # (possibly older) result.
+        self._last_energy_dt: datetime | None = None
+        self._last_energy_dt_gen: int | None = None
+        self._energy_gen = 0
+
+    def _energy_changed(self) -> None:
+        """Forget what was cached about the stored energy."""
+        self._energy_gen += 1
+
     async def sync(self) -> bool:
         """Sync data from external service; return whether Datadis was reached."""
-        synced = await self._data_service.update()
+        try:
+            synced = await self._data_service.update()
+        finally:
+            self._energy_changed()
         if self.billing:
             await self._bill_service.update(
                 billing_rules=self.billing,
@@ -82,17 +97,20 @@ class DataManager:
         brings the latest data Datadis has (and fills older gaps it now has).
         The connector keeps the start within Datadis's two-year window.
         """
-        if not await self._data_service.update():
-            return False
+        try:
+            if not await self._data_service.update():
+                return False
 
-        supply = await self._data_service.get_supply()
-        if supply is None:
-            return False
-        start, end = supply.date_start, datetime.now()
+            supply = await self._data_service.get_supply()
+            if supply is None:
+                return False
+            start, end = supply.date_start, datetime.now()
 
-        await self._data_service.update_energy(start, end)
-        await self._data_service.update_power(start, end)
-        await self._data_service.update_statistics(start, end)
+            await self._data_service.update_energy(start, end)
+            await self._data_service.update_power(start, end)
+            await self._data_service.update_statistics(start, end)
+        finally:
+            self._energy_changed()
         if self.billing:
             await self._bill_service.update(
                 start=start,
@@ -103,7 +121,10 @@ class DataManager:
 
     async def run_migrations(self) -> list:
         """Import legacy 1.x on-disk storage into the 2.0 database, if present."""
-        return await self._data_service.run_migrations()
+        try:
+            return await self._data_service.run_migrations()
+        finally:
+            self._energy_changed()
 
     async def get_supply(
         self,
@@ -132,7 +153,13 @@ class DataManager:
         self,
     ) -> datetime | None:
         """Get the most recent energy data."""
-        return await self._data_service.get_last_energy_dt()
+        gen = self._energy_gen
+        if self._last_energy_dt_gen != gen:
+            last = await self._data_service.get_last_energy_dt()
+            if gen != self._energy_gen:
+                return last  # energy was written meanwhile: do not cache
+            self._last_energy_dt, self._last_energy_dt_gen = last, gen
+        return self._last_energy_dt
 
     async def get_power(
         self,
