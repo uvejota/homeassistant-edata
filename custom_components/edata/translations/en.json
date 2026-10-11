@@ -52,15 +52,18 @@
     "abort": {
       "already_configured": "CUPS is already configured",
       "unknown": "Unknown error occurred",
-      "cannot_login": "Could not log in to Datadis. Check the username (NIF) and the password; if they are correct, Datadis may not be responding: try again later.",
+      "invalid_auth": "Datadis rejected the username or password. Check that the username is your NIF/NIE and the password the one you use at datadis.es (it expires from time to time).",
+      "cannot_connect": "Could not reach Datadis, or it is not responding. Try again later.",
       "invalid_cups": "Invalid CUPS",
       "no_supplies_found": "No supplies were found in this account. If the supplies belong to someone who has authorized you, fill in the authorized NIF with their NIF.",
-      "all_configured": "Every supply of this account is already configured."
+      "all_configured": "Every supply of this account is already configured.",
+      "reauth_successful": "Password updated. The integration has been reloaded."
     },
     "error": {
       "already_configured": "This CUPS is already configured",
       "unknown": "Unknown error occurred",
-      "cannot_login": "Could not log in to Datadis. Check the username (NIF) and the password; if they are correct, Datadis may not be responding: try again later.",
+      "invalid_auth": "Datadis rejected the username or password. Check that the username is your NIF/NIE and the password the one you use at datadis.es (it expires from time to time).",
+      "cannot_connect": "Could not reach Datadis, or it is not responding. Try again later.",
       "invalid_cups": "Invalid CUPS",
       "no_supplies_found": "No supplies were found in this account. If the supplies belong to someone who has authorized you, fill in the authorized NIF with their NIF."
     },
@@ -85,6 +88,16 @@
         },
         "data_description": {
           "cups": "The supply to add. Those already configured are not listed."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate with Datadis",
+        "description": "Datadis rejected the password of {username}. Type your current datadis.es password; the integration carries on where it was.",
+        "data": {
+          "password": "Password"
+        },
+        "data_description": {
+          "password": "Your datadis.es password."
         }
       }
     }

@@ -155,6 +155,7 @@ class FakeDataManager:
         self.synced = 0
         self.full_synced = 0
         self.sync_result = True
+        self.login_rejected = False
         self.rebuilt: list[datetime | None] = []
         self._supply = build_supply()
         self._contracts = build_contracts()

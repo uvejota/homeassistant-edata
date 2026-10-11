@@ -72,22 +72,35 @@
         "data_description": {
           "cups": "A subministración que queres engadir. As que xa están configuradas non aparecen."
         }
+      },
+      "reauth_confirm": {
+        "title": "Volver autenticarse en Datadis",
+        "description": "Datadis rexeitou o contrasinal de {username}. Escribe o contrasinal actual de datadis.es; a integración seguirá onde estaba.",
+        "data": {
+          "password": "Contrasinal"
+        },
+        "data_description": {
+          "password": "O contrasinal de datadis.es."
+        }
       }
     },
     "error": {
       "unknown": "Erro descoñecido",
       "already_configured": "Este CUPS xa está configurado",
-      "cannot_login": "Non se puido iniciar sesión en Datadis. Revisa o usuario (NIF) e o contrasinal; se son correctos, pode que Datadis non estea respondendo: téntao máis tarde.",
+      "invalid_auth": "Datadis rexeitou o usuario ou o contrasinal. Comproba que o usuario sexa o teu NIF/NIE e que o contrasinal sexa o de datadis.es (caduca cada certo tempo).",
+      "cannot_connect": "Non se puido conectar con Datadis ou non está respondendo. Téntao máis tarde.",
       "invalid_cups": "CUPS incorrectos",
       "no_supplies_found": "Non se atoparon subministracións nesta conta. Se as subministracións son doutra persoa que te autorizou, enche o NIF autorizado co seu NIF."
     },
     "abort": {
       "unknown": "Erro descoñecido",
       "already_configured": "Este CUPS xa está configurado",
-      "cannot_login": "Non se puido iniciar sesión en Datadis. Revisa o usuario (NIF) e o contrasinal; se son correctos, pode que Datadis non estea respondendo: téntao máis tarde.",
+      "invalid_auth": "Datadis rexeitou o usuario ou o contrasinal. Comproba que o usuario sexa o teu NIF/NIE e que o contrasinal sexa o de datadis.es (caduca cada certo tempo).",
+      "cannot_connect": "Non se puido conectar con Datadis ou non está respondendo. Téntao máis tarde.",
       "invalid_cups": "CUPS incorrectos",
       "no_supplies_found": "Non se atoparon subministracións nesta conta. Se as subministracións son doutra persoa que te autorizou, enche o NIF autorizado co seu NIF.",
-      "all_configured": "Todas as subministracións desta conta xa están configuradas."
+      "all_configured": "Todas as subministracións desta conta xa están configuradas.",
+      "reauth_successful": "Contrasinal actualizado. Recargouse a integración."
     }
   },
   "options": {

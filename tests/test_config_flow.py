@@ -2,8 +2,12 @@
 
 from unittest.mock import AsyncMock, patch
 
+import aiohttp
+from edata.providers.datadis import URL_TOKEN, LoginStatus
+
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 import voluptuous as vol
 
 from homeassistant.config_entries import SOURCE_USER
@@ -86,25 +90,28 @@ async def test_user_flow_success(
 
 
 @pytest.mark.parametrize(
-    ("login", "supplies", "expected_error"),
+    ("login", "status", "supplies", "expected_error"),
     [
-        (False, None, "cannot_login"),
-        (True, [], "no_supplies_found"),
+        (False, LoginStatus.REJECTED, None, "invalid_auth"),
+        (False, LoginStatus.UNAVAILABLE, None, "cannot_connect"),
+        (True, LoginStatus.OK, [], "no_supplies_found"),
     ],
-    ids=["cannot_login", "no_supplies_found"],
+    ids=["invalid_auth", "cannot_connect", "no_supplies_found"],
 )
 async def test_user_flow_errors(
     setup_integration: None,
     hass: HomeAssistant,
     login: bool,
+    status: LoginStatus,
     supplies: list | None,
     expected_error: str,
 ) -> None:
-    """A rejected login and an empty supply list are told apart on the user step."""
+    """Rejected credentials, Datadis not answering and no supplies differ."""
     with patch(
         "custom_components.edata.config_flow.DatadisConnector"
     ) as connector:
         connector.return_value.async_login = AsyncMock(return_value=login)
+        connector.return_value.login_status = status
         connector.return_value.async_get_supplies = AsyncMock(return_value=supplies)
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": SOURCE_USER}
@@ -129,6 +136,7 @@ async def test_user_flow_retries_after_an_error(
         "custom_components.edata.config_flow.DatadisConnector"
     ) as connector:
         connector.return_value.async_login = AsyncMock(side_effect=[False, True])
+        connector.return_value.login_status = LoginStatus.REJECTED
         connector.return_value.async_get_supplies = AsyncMock(
             return_value=[build_supply()]
         )
@@ -138,7 +146,7 @@ async def test_user_flow_retries_after_an_error(
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {CONF_USERNAME: USERNAME, CONF_PASSWORD: "wrong"}
         )
-        assert result["errors"] == {"base": "cannot_login"}
+        assert result["errors"] == {"base": "invalid_auth"}
 
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {CONF_USERNAME: USERNAME, CONF_PASSWORD: PASSWORD}
@@ -219,23 +227,29 @@ def test_billing_schema_excludes_surplus(builder, is_pvpc: bool) -> None:
     assert not any("surplus" in key for key in keys)
 
 
+@pytest.mark.parametrize(
+    ("reply", "expected_error"),
+    [
+        # what Datadis answers to wrong credentials
+        ({"status": 500, "text": '{"message": "Bad credentials"}'}, "invalid_auth"),
+        ({"status": 503, "text": "Service Unavailable"}, "cannot_connect"),
+        ({"exc": aiohttp.ClientConnectionError()}, "cannot_connect"),
+    ],
+    ids=["rejected", "unavailable", "no_connection"],
+)
 async def test_user_flow_with_real_connector(
     setup_integration: None,
     hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    reply: dict,
+    expected_error: str,
 ) -> None:
-    """The real connector is built (off the loop) and a rejected login is shown."""
-    with patch(
-        "edata.providers.datadis.DatadisConnector._async_get_token",
-        AsyncMock(return_value=False),
-    ):
-        result = await hass.config_entries.flow.async_init(
-            DOMAIN, context={"source": SOURCE_USER}
-        )
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {CONF_USERNAME: USERNAME, CONF_PASSWORD: PASSWORD}
-        )
+    """The real connector, on HA's session, tells the login failures apart."""
+    aioclient_mock.post(URL_TOKEN, **reply)
 
-    assert result["errors"] == {"base": "cannot_login"}
+    result = await _submit_credentials(hass)
+
+    assert result["errors"] == {"base": expected_error}
 
 
 def _supply(cups: str, **changes):
@@ -276,9 +290,10 @@ async def test_password_is_hidden_and_input_kept_after_an_error(
     """The password field is masked; on error the NIFs are kept but not it."""
     with patch("custom_components.edata.config_flow.DatadisConnector") as connector:
         connector.return_value.async_login = AsyncMock(return_value=False)
+        connector.return_value.login_status = LoginStatus.REJECTED
         result = await _submit_credentials(hass, **{CONF_AUTHORIZED_NIF: "87654321X"})
 
-    assert result["errors"] == {"base": "cannot_login"}
+    assert result["errors"] == {"base": "invalid_auth"}
     fields = {str(key): (key, value) for key, value in result["data_schema"].schema.items()}
     password = fields[CONF_PASSWORD][1]
     assert password.config["type"] == "password"
@@ -413,3 +428,39 @@ async def test_existing_entry_gets_its_unique_id(
     await hass.async_block_till_done()
 
     assert entry.unique_id == CUPS
+
+
+async def test_reauth_updates_the_password(
+    setup_integration: None,
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    mock_data_manager: None,
+) -> None:
+    """Re-authentication checks the new password, saves it and reloads."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await config_entry.start_reauth_flow(hass)
+    assert result["step_id"] == "reauth_confirm"
+    assert result["description_placeholders"]["username"] == USERNAME
+
+    with patch("custom_components.edata.config_flow.DatadisConnector") as connector:
+        connector.return_value.async_login = AsyncMock(side_effect=[False, True])
+        connector.return_value.login_status = LoginStatus.REJECTED
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_PASSWORD: "still-wrong"}
+        )
+        assert result["errors"] == {"base": "invalid_auth"}
+
+        with patch.object(hass.config_entries, "async_reload") as reload:
+            result = await hass.config_entries.flow.async_configure(
+                result["flow_id"], {CONF_PASSWORD: "new-secret"}
+            )
+            await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert config_entry.data[CONF_PASSWORD] == "new-secret"
+    assert config_entry.data[CONF_CUPS] == CUPS
+    reload.assert_called_once_with(config_entry.entry_id)

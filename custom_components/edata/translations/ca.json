@@ -52,15 +52,18 @@
     "abort": {
       "already_configured": "CUPS ja configurat",
       "unknown": "S'ha produït un error desconegut",
-      "cannot_login": "No s'ha pogut iniciar sessió a Datadis. Revisa l'usuari (NIF) i la contrasenya; si són correctes, pot ser que Datadis no respongui: torna-ho a provar més tard.",
+      "invalid_auth": "Datadis ha rebutjat l'usuari o la contrasenya. Comprova que l'usuari sigui el teu NIF/NIE i que la contrasenya sigui la de datadis.es (caduca cada cert temps).",
+      "cannot_connect": "No s'ha pogut connectar amb Datadis o no respon. Torna-ho a provar més tard.",
       "invalid_cups": "CUPS incorrecte",
       "no_supplies_found": "No s'han trobat subministraments en aquest compte. Si els subministraments són d'una altra persona que t'ha autoritzat, omple el NIF autoritzat amb el seu NIF.",
-      "all_configured": "Tots els subministraments d'aquest compte ja estan configurats."
+      "all_configured": "Tots els subministraments d'aquest compte ja estan configurats.",
+      "reauth_successful": "Contrasenya actualitzada. S'ha recarregat la integració."
     },
     "error": {
       "already_configured": "Aquest CUPS ja ha estat configurat",
       "unknown": "S'ha produït un error desconegut",
-      "cannot_login": "No s'ha pogut iniciar sessió a Datadis. Revisa l'usuari (NIF) i la contrasenya; si són correctes, pot ser que Datadis no respongui: torna-ho a provar més tard.",
+      "invalid_auth": "Datadis ha rebutjat l'usuari o la contrasenya. Comprova que l'usuari sigui el teu NIF/NIE i que la contrasenya sigui la de datadis.es (caduca cada cert temps).",
+      "cannot_connect": "No s'ha pogut connectar amb Datadis o no respon. Torna-ho a provar més tard.",
       "invalid_cups": "CUPS incorrecte",
       "no_supplies_found": "No s'han trobat subministraments en aquest compte. Si els subministraments són d'una altra persona que t'ha autoritzat, omple el NIF autoritzat amb el seu NIF."
     },
@@ -85,6 +88,16 @@
         },
         "data_description": {
           "cups": "El subministrament que vols afegir. Els que ja estan configurats no hi apareixen."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Torna a autenticar-te a Datadis",
+        "description": "Datadis ha rebutjat la contrasenya de {username}. Escriu la contrasenya actual de datadis.es; la integració continuarà on era.",
+        "data": {
+          "password": "Contrasenya"
+        },
+        "data_description": {
+          "password": "La contrasenya de datadis.es."
         }
       }
     }

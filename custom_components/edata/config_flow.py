@@ -6,10 +6,12 @@ from typing import Any
 
 from edata.models import Supply
 from edata.models.bill import BillingRules, PVPCBillingRules
-from edata.providers.datadis import DatadisConnector
+from edata.providers.datadis import DatadisConnector, LoginStatus
+import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import selector as sel
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import STORAGE_DIR
 
@@ -51,6 +53,32 @@ def get_scups(cups: str, taken: set[str]) -> str:
         if scups not in taken:
             return scups
     return cups.lower()
+
+
+async def async_try_login(
+    hass: HomeAssistant, username: str, password: str
+) -> tuple[DatadisConnector, str | None]:
+    """Log in to Datadis; return the connector and the form error, if any.
+
+    A rejected login and Datadis not answering get different errors: only the
+    first one is about the credentials.
+    """
+
+    # the connector opens its query cache on disk, so build it off the loop
+    api = await hass.async_add_executor_job(
+        partial(
+            DatadisConnector,
+            username,
+            password,
+            storage_path=hass.config.path(STORAGE_DIR),
+            session=async_get_clientsession(hass),
+        )
+    )
+    if await api.async_login():
+        return api, None
+    if api.login_status is LoginStatus.REJECTED:
+        return api, "invalid_auth"
+    return api, "cannot_connect"
 
 
 async def simulate_last_month_billing(
@@ -105,20 +133,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
                 nif = None
             user_input[CONF_AUTHORIZED_NIF] = nif
 
-            # the connector opens its query cache on disk, so build it off the loop
-            api = await self.hass.async_add_executor_job(
-                partial(
-                    DatadisConnector,
-                    user_input[CONF_USERNAME],
-                    user_input[CONF_PASSWORD],
-                    storage_path=self.hass.config.path(STORAGE_DIR),
-                    session=async_get_clientsession(self.hass),
-                )
-            )
             # log in first: a rejected login would otherwise surface as an empty
             # supply list, pointing at the CUPS or authorized NIF instead
-            if not await api.async_login():
-                errors["base"] = "cannot_login"
+            api, error = await async_try_login(
+                self.hass, user_input[CONF_USERNAME], user_input[CONF_PASSWORD]
+            )
+            if error:
+                errors["base"] = error
             elif not (supplies := await api.async_get_supplies(authorized_nif=nif)):
                 errors["base"] = "no_supplies_found"
             else:
@@ -158,6 +179,39 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
         return self.async_create_entry(
             title=scups,
             data={**self.user_input, CONF_CUPS: cups, CONF_SCUPS: scups},
+        )
+
+    async def async_step_reauth(self, entry_data: dict[str, Any]):
+        """Start re-authentication after Datadis rejected the credentials."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input=None):
+        """Ask for the new password and check it before saving it."""
+        entry = self._get_reauth_entry()
+        errors = {}
+
+        if user_input is not None:
+            _, error = await async_try_login(
+                self.hass, entry.data[CONF_USERNAME], user_input[CONF_PASSWORD]
+            )
+            if error:
+                errors["base"] = error
+            else:
+                return self.async_update_reload_and_abort(
+                    entry, data_updates={CONF_PASSWORD: user_input[CONF_PASSWORD]}
+                )
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_PASSWORD): sel.TextSelector(
+                        sel.TextSelectorConfig(type=sel.TextSelectorType.PASSWORD)
+                    )
+                }
+            ),
+            description_placeholders={"username": entry.data[CONF_USERNAME]},
+            errors=errors,
         )
 
     @staticmethod
