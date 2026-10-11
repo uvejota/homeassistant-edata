@@ -6,4 +6,4 @@ name: a new version gets a new URL and is never served stale from the cache.
 
 | File | Source | License |
 | --- | --- | --- |
-| `lit-core-3.2.1.min.js` | https://cdn.jsdelivr.net/gh/lit/dist@3.2.1/core/lit-core.min.js | BSD-3-Clause (Google LLC) |
+| `lit-core-3.3.3.min.js` | https://cdn.jsdelivr.net/gh/lit/dist@3.3.3/core/lit-core.min.js | BSD-3-Clause (Google LLC) |

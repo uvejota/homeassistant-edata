@@ -1,4 +1,4 @@
-import { LitElement, html } from "./vendor/lit-core-3.2.1.min.js";
+import { LitElement, html } from "./vendor/lit-core-3.3.3.min.js";
 import "https://cdnjs.cloudflare.com/ajax/libs/apexcharts/5.3.3/apexcharts.min.js?module";
 // Set program constants and definitions
 const PROG_NAME = "edata-card";
