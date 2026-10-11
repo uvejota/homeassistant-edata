@@ -34,21 +34,32 @@ jobs:
     if: github.ref == 'refs/heads/dev'
     name: dev
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # pushes in a row must not interleave their delete/create
+    concurrency:
+      group: rolling-dev-release
+      cancel-in-progress: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Create zip
         run: |
           cd custom_components/edata
           zip ../../homeassistant-edata.zip -r ./
 
-      - name: Create/Update dev release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: dev
-          name: dev
-          files: homeassistant-edata.zip
-          prerelease: true
+      # Recreate the release instead of updating it: GitHub (and HACS) order
+      # releases by creation date, and an updated release keeps both its old
+      # date and its tag on the commit it was first created from.
+      - name: Recreate dev release on this commit
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete dev --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
+          gh release create dev homeassistant-edata.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title dev \
+            --prerelease \
+            --notes "Rolling build of the latest commit on \`dev\` ($GITHUB_SHA). Unstable: install at your own risk and back up Home Assistant first."
