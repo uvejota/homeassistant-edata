@@ -55,11 +55,17 @@ Una vez satisfecho lo anterior, los pasos a seguir para la instalación son:
 
 ![Selección de edata](assets/install.png)
 
-4. Configurar sus credenciales de Datadis, indicando el NIF autorizado _únicamente si no es el titular del suministro indicado_. A continuación se listará los suministros encontrados para las credenciales introducidas.
+4. Configurar sus credenciales de Datadis, indicando el NIF autorizado _únicamente si no es el titular del suministro indicado_.
 
 ![Paso de configuración](assets/install-step1.png)
 
-5. Esperar unos minutos. Le aparecerá un nuevo dispositivo, que consta de un sensor principal llamado `sensor.edata_xxxx` donde `xxxx` dependerá de los últimos caracteres de su CUPS, y de otros sensores con los datos.
+5. Elegir el suministro (CUPS) entre los encontrados para esas credenciales. Cada uno aparece con su dirección, y los que ya están configurados no se muestran.
+
+![Selección del CUPS](assets/install-step2.png)
+
+6. Esperar unos minutos. Le aparecerá un nuevo dispositivo llamado `XXXX`, donde `XXXX` son los últimos caracteres de su CUPS, con un sensor principal `edata_xxxx` y otros sensores con los datos.
+
+> **NOTA:** En las instalaciones recientes de Home Assistant, el ID del sensor principal es `sensor.xxxx_edata_xxxx`, porque Home Assistant antepone el nombre del dispositivo al de la entidad. Las instalaciones antiguas conservan `sensor.edata_xxxx`. Compruebe el suyo en el dispositivo.
 
 > **NOTA:** La instalación puede tardar bastante en su primera ejecución, ya que la integración descarga el histórico desde el inicio del suministro (como máximo los dos últimos años, que es lo que permite Datadis), y Datadis a veces puede tomarse su tiempo. Después, la integración solicitará únicamente lo que le falta, como mucho una vez cada 24 h.
 
@@ -69,7 +75,7 @@ La integración ofrece los sensores de la figura. Cada uno de estos sensores dis
 
 ![Sensores](assets/sensors.png)
 
-El sensor `sensor.edata_xxxx` es un tanto especial, ya que incluye información relativa al contrato vigente en el CUPS configurado, y su estado indica el último dato descargado de Datadis.
+El sensor principal (`edata_xxxx`) es un tanto especial, ya que incluye información relativa al contrato vigente en el CUPS configurado, y su estado indica el último dato descargado de Datadis.
 
 > **NOTA:** Si no ves los datos de ayer, lee el [FAQ](#FAQ)
 
@@ -152,7 +158,7 @@ No hay que rellenar nada, sólo visualizar, marcar la fecha desde la cual quiere
 
 ![Simulación del último mes](assets/configure-step4.png)
 
-Una vez configuradas y calculadas (tendrá que esperar un poco), las estadísticas pueden configurarse en el panel de energía en `Ajustes > Paneles de control > Energía > Añadir consumo (Red Eléctrica)`:
+Una vez configuradas y calculadas (tendrá que esperar un poco), las estadísticas pueden configurarse en el panel de energía en `Ajustes > Paneles de control > Energía > Red eléctrica > Añadir conexión a la red`:
 
 ![Opciones de edata](assets/configure-energy.png)
 
@@ -189,13 +195,13 @@ A continuación se ofrece la configuración orientativa para **visualizar los da
 
 > **IMPORTANTE:** en las siguientes tarjetas deberá reemplazar TODAS las ocurrencias de `xxxx` por sus últimos cuatro caracteres de su CUPS.
 >
-> **El nombre de las entidades puede ser distinto en su instalación. Revíselo.**
+> **El nombre de las entidades puede ser distinto en su instalación. Revíselo.** En las instalaciones recientes de Home Assistant, el sensor principal es `sensor.xxxx_edata_xxxx` en lugar de `sensor.edata_xxxx`; el `scups` de las consultas sigue siendo `xxxx`.
 
 Además, puedes consultar la sección _Discussions_ del repositorio, en el que los usuarios pueden compartir sus configuraciones, por si te gusta alguna.
 
 ### Consumo diario
 
-![GIF consumo diario](https://media.giphy.com/media/hnyH5DCpz9x4gzQWdi/giphy.gif)
+![Consumo diario](assets/apexcharts-daily.png)
 
 <details>
 <summary>He leído las instrucciones y quiero ver el contenido</summary>
@@ -269,7 +275,7 @@ series:
 
 ### Consumo mensual
 
-![GIF consumo mensual](https://i.imgur.com/sgPQbfd.png)
+![Consumo mensual](assets/apexcharts-monthly.png)
 
 <details>
 <summary>He leído las instrucciones y quiero ver el contenido</summary>
@@ -345,7 +351,7 @@ series:
 
 ### Maxímetro
 
-![Captura maximetro](https://media.giphy.com/media/uCt6kqj7XN5K3PN4mE/giphy.gif)
+![Maxímetro](assets/apexcharts-maximeter.png)
 
 <details>
 <summary>He leído las instrucciones y quiero ver el contenido</summary>
