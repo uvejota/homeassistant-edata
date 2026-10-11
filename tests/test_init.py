@@ -2,6 +2,7 @@
 
 from datetime import datetime
 import json
+import re
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -180,3 +181,29 @@ def test_build_billing_rules_guards_invalid_options() -> None:
     assert _build_billing_rules({}) is None
     # billing enabled but required price fields absent (e.g. legacy/partial config)
     assert _build_billing_rules({CONF_BILLING: True, CONF_PVPC: False}) is None
+
+
+async def test_card_is_served_with_cache_headers(
+    setup_integration: None,
+    hass: HomeAssistant,
+    hass_client,
+    config_entry: MockConfigEntry,
+    mock_data_manager: None,
+) -> None:
+    """The card and its vendored libraries are served browser-cacheable."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    client = await hass_client()
+    card = await client.get("/edata/edata-card.js")
+    assert card.status == 200
+    assert "max-age" in card.headers["Cache-Control"]
+
+    # every relative import of the card must resolve to a served file
+    imports = re.findall(r'^import .*?"\./([^"]+)"', await card.text(), re.M)
+    assert imports
+    for path in imports:
+        lib = await client.get(f"/edata/{path}")
+        assert lib.status == 200, path
+        assert "max-age" in lib.headers["Cache-Control"]

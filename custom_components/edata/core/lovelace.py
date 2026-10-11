@@ -1,17 +1,6 @@
-from aiohttp import web
-
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.lovelace.resources import ResourceStorageCollection
 from homeassistant.core import HomeAssistant
-
-
-def register_static_path(app: web.Application, url_path: str, path):
-    """Register static path."""
-
-    async def serve_file(request):
-        return web.FileResponse(path)
-
-    app.router.add_route("GET", url_path, serve_file)
 
 
 async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:

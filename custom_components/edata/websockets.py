@@ -24,7 +24,11 @@ _LOGGER = logging.getLogger(__name__)
         vol.Required("scups"): str,
         vol.Optional("aggr", default="day"): vol.Union("day", "hour", "month"),
         vol.Optional("records", default=30): int,
-        vol.Optional("tariff"): vol.Union(1, 2, 3),
+        # one series (``tariff``, or the total), or one per tariff in a list
+        vol.Exclusive("tariff", "split"): vol.Union(1, 2, 3),
+        vol.Exclusive("tariffs", "split"): vol.All(
+            [vol.Union(1, 2, 3)], vol.Length(min=1)
+        ),
         vol.Optional("from_now"): bool,
     }
 )
@@ -46,13 +50,23 @@ async def ws_get_consumptions(hass: HomeAssistant, connection, msg):
         connection.send_result(msg["id"], [])
         return
 
-    data = await edata_history.get_recent_consumptions(
-        data_manager,
-        aggr=_aggr,
-        records=_records,
-        tariff=_tariff,
-        now_as_ref=_now_as_ref,
-    )
+    if "tariffs" in msg:
+        data = await edata_history.get_recent_energy_series(
+            data_manager,
+            "consumption",
+            aggr=_aggr,
+            records=_records,
+            tariffs=msg["tariffs"],
+            now_as_ref=_now_as_ref,
+        )
+    else:
+        data = await edata_history.get_recent_consumptions(
+            data_manager,
+            aggr=_aggr,
+            records=_records,
+            tariff=_tariff,
+            now_as_ref=_now_as_ref,
+        )
     connection.send_result(msg["id"], data)
 
 
@@ -62,7 +76,11 @@ async def ws_get_consumptions(hass: HomeAssistant, connection, msg):
         vol.Required("scups"): str,
         vol.Optional("aggr", default="day"): vol.Union("day", "hour", "month"),
         vol.Optional("records", default=30): int,
-        vol.Optional("tariff"): vol.Union(1, 2, 3),
+        # one series (``tariff``, or the total), or one per tariff in a list
+        vol.Exclusive("tariff", "split"): vol.Union(1, 2, 3),
+        vol.Exclusive("tariffs", "split"): vol.All(
+            [vol.Union(1, 2, 3)], vol.Length(min=1)
+        ),
         vol.Optional("from_now"): bool,
     }
 )
@@ -82,13 +100,23 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
         connection.send_result(msg["id"], [])
         return
     try:
-        data = await edata_history.get_recent_surplus(
-            data_manager,
-            aggr=_aggr,
-            records=_records,
-            tariff=_tariff,
-            now_as_ref=_now_as_ref,
-        )
+        if "tariffs" in msg:
+            data = await edata_history.get_recent_energy_series(
+                data_manager,
+                "surplus",
+                aggr=_aggr,
+                records=_records,
+                tariffs=msg["tariffs"],
+                now_as_ref=_now_as_ref,
+            )
+        else:
+            data = await edata_history.get_recent_surplus(
+                data_manager,
+                aggr=_aggr,
+                records=_records,
+                tariff=_tariff,
+                now_as_ref=_now_as_ref,
+            )
     except KeyError:
         data = []
         _LOGGER.info("Stats not found for CUPS %s", _scups)
@@ -101,7 +129,11 @@ async def ws_get_surplus(hass: HomeAssistant, connection, msg):
         vol.Required("scups"): str,
         vol.Optional("aggr", default="day"): vol.Union("day", "hour", "month"),
         vol.Optional("records", default=30): int,
-        vol.Optional("term"): vol.Union("energy", "power", "others"),
+        # one series (``term``, or the total), or one per term in a list
+        vol.Exclusive("term", "split"): vol.Union("energy", "power", "others"),
+        vol.Exclusive("terms", "split"): vol.All(
+            [vol.Union("energy", "power", "others")], vol.Length(min=1)
+        ),
         vol.Optional("from_now"): bool,
     }
 )
@@ -121,13 +153,22 @@ async def ws_get_cost(hass: HomeAssistant, connection, msg):
         connection.send_result(msg["id"], [])
         return
     try:
-        data = await edata_history.get_recent_bills(
-            data_manager,
-            aggr=_aggr,
-            records=_records,
-            term=_term,
-            now_as_ref=_now_as_ref,
-        )
+        if "terms" in msg:
+            data = await edata_history.get_recent_bill_series(
+                data_manager,
+                aggr=_aggr,
+                records=_records,
+                terms=msg["terms"],
+                now_as_ref=_now_as_ref,
+            )
+        else:
+            data = await edata_history.get_recent_bills(
+                data_manager,
+                aggr=_aggr,
+                records=_records,
+                term=_term,
+                now_as_ref=_now_as_ref,
+            )
     except KeyError:
         data = []
         _LOGGER.info("Stats not found for CUPS %s", _scups)

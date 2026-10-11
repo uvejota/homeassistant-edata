@@ -1,9 +1,5 @@
-import {
-  LitElement,
-  html,
-} from "https://cdn.jsdelivr.net/npm/lit-element@4.1.1/+esm";
+import { LitElement, html } from "./vendor/lit-core-3.3.3.min.js";
 import "https://cdnjs.cloudflare.com/ajax/libs/apexcharts/5.3.3/apexcharts.min.js?module";
-import tinycolor from "https://esm.sh/tinycolor2";
 // Set program constants and definitions
 const PROG_NAME = "edata-card";
 const VALID_CHART_TEMPLATES = [
@@ -155,6 +151,23 @@ Apex.tooltip = {
 
 Apex.colors = ["#e54304", "#ff9e22", "#9ccc65"];
 
+// WCAG relative luminance (0..1) of any CSS color; unparseable colors count as
+// black. The canvas normalizes the color to #rrggbb or rgba().
+function getLuminance(color) {
+  const ctx = document.createElement("canvas").getContext("2d");
+  ctx.fillStyle = "#000";
+  ctx.fillStyle = color.trim();
+  const value = ctx.fillStyle;
+  const rgb = value.startsWith("#")
+    ? [1, 3, 5].map((i) => parseInt(value.slice(i, i + 2), 16))
+    : value.match(/[\d.]+/g).slice(0, 3).map(Number);
+  const [r, g, b] = rgb.map((c) => {
+    c /= 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
 // EdataCard class
 class EdataCard extends LitElement {
   constructor() {
@@ -199,7 +212,7 @@ class EdataCard extends LitElement {
 
     // Override defaults based on dark mode
     let backgroundColor = window.getComputedStyle(document.documentElement).getPropertyValue('--card-background-color');
-    const isLightTheme = tinycolor(backgroundColor).getLuminance() > 0.5
+    const isLightTheme = getLuminance(backgroundColor) > 0.5
 
     if (hass.themes.darkMode || !isLightTheme) {
       Apex.theme = {
@@ -352,21 +365,18 @@ class EdataCard extends LitElement {
   }
 
   // splits: values of the `splitBy` websocket parameter (tariffs 1-3, or bill
-  // terms), drawn as stacked series that add up to the total
+  // terms), drawn as stacked series that add up to the total; all of them come
+  // in one call through its plural form (`tariffs`, `terms`)
   async getBarChartOptions(endpoint, unit, splits, splitBy = "tariff") {
     let results;
     if (splits?.length > 0) {
-      results = await Promise.all(
-        splits.map((split) =>
-          this._hass.callWS({
-            type: endpoint,
-            scups: this._scups,
-            aggr: this._aggr,
-            [splitBy]: split,
-            records: this._records,
-          })
-        )
-      );
+      results = await this._hass.callWS({
+        type: endpoint,
+        scups: this._scups,
+        aggr: this._aggr,
+        [splitBy + "s"]: splits,
+        records: this._records,
+      });
     } else {
       results = [
         await this._hass.callWS({
@@ -421,6 +431,15 @@ class EdataCard extends LitElement {
   }
 
   async getMaximeterChartOptions() {
+    const [p1, p2_3] = await Promise.all(
+      [1, 2].map((tariff) =>
+        this._hass.callWS({
+          type: "edata/ws/maximeter",
+          scups: this._scups,
+          tariff: tariff,
+        })
+      )
+    );
     return {
       chart: {
         id: "chart",
@@ -435,19 +454,11 @@ class EdataCard extends LitElement {
       series: [
         {
           name: getLabel("p1"),
-          data: await this._hass.callWS({
-            type: "edata/ws/maximeter",
-            scups: this._scups,
-            tariff: 1,
-          }),
+          data: p1,
         },
         {
           name: getLabel("p2_3"),
-          data: await this._hass.callWS({
-            type: "edata/ws/maximeter",
-            scups: this._scups,
-            tariff: 2,
-          }),
+          data: p2_3,
         },
       ],
     };

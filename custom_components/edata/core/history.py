@@ -12,19 +12,29 @@ from edata.core.utils import get_tariff
 from .data import DataManager
 
 
-def _filter_by_tariff(
+def _split_by_tariff(
     items: list,
     value_getter: Callable[[typing.Any], float],
-    tariff: int | None,
-) -> list[tuple[float, float]]:
-    """Build (timestamp_ms, value) tuples, keeping only rows matching tariff.
+    tariffs: list[int | None],
+) -> list[list[tuple[float, float]]]:
+    """Build one list of (timestamp_ms, value) tuples per requested tariff.
 
-    Runs off the event loop: get_tariff resolves ES holidays synchronously.
+    ``None`` keeps every row. Each row's tariff is resolved once, however many
+    tariffs are requested. Runs off the event loop: get_tariff resolves ES
+    holidays synchronously.
     """
-    return [
-        (item.datetime.timestamp() * 1000, value_getter(item))
+    split = any(tariff is not None for tariff in tariffs)
+    rows = [
+        (
+            item.datetime.timestamp() * 1000,
+            get_tariff(item.datetime) if split else None,
+            value_getter(item),
+        )
         for item in items
-        if tariff is None or get_tariff(item.datetime) == tariff
+    ]
+    return [
+        [(ts, value) for ts, row_tariff, value in rows if tariff in (None, row_tariff)]
+        for tariff in tariffs
     ]
 
 
@@ -64,6 +74,56 @@ def _sort_and_limit_results(
     return result[-records:] if len(result) > records else result
 
 
+async def get_recent_energy_series(
+    data_manager: DataManager,
+    kind: typing.Literal["consumption", "surplus"],
+    aggr: typing.Literal["hour", "day", "month"],
+    records: int,
+    tariffs: list[int | None],
+    now_as_ref: bool = False,
+) -> list[list[tuple[float, float]]]:
+    """Get one (timestamp, kWh) series per tariff from a single read.
+
+    A ``None`` tariff gives the total.
+    """
+    # Get reference date
+    most_recent = await data_manager.get_most_recent_energy_dt()
+    ref_date = _get_reference_date(most_recent, now_as_ref)
+    if ref_date is None:
+        return [[] for _ in tariffs]
+
+    # Calculate start date
+    start_date = _calculate_start_date(ref_date, aggr, records)
+
+    # For hourly data, use raw energy data
+    if aggr == "hour":
+        energy_data = await data_manager.get_energy(start=start_date, end=ref_date)
+        series = await asyncio.to_thread(
+            _split_by_tariff,
+            energy_data,
+            lambda e: getattr(e, f"{kind}_kwh"),
+            tariffs,
+        )
+    else:
+        # For day or month aggregation, use statistics
+        stats = await data_manager.get_aggr_energy(
+            aggregation=aggr,
+            start=start_date,
+            end=ref_date,
+        )
+        series = []
+        for tariff in tariffs:
+            field = f"{kind}_p{tariff}_kwh" if tariff else f"{kind}_kwh"
+            series.append(
+                [
+                    (stat.datetime.timestamp() * 1000, getattr(stat, field))
+                    for stat in stats
+                ]
+            )
+
+    return [_sort_and_limit_results(result, records) for result in series]
+
+
 async def get_recent_consumptions(
     data_manager: DataManager,
     aggr: typing.Literal["hour", "day", "month"],
@@ -72,46 +132,10 @@ async def get_recent_consumptions(
     now_as_ref: bool = False,
 ) -> list[tuple[float, float]]:
     """Get recent consumption data as a list of tuples (timestamp, consumption_kwh)."""
-    # Get reference date
-    most_recent = await data_manager.get_most_recent_energy_dt()
-    ref_date = _get_reference_date(most_recent, now_as_ref)
-    if ref_date is None:
-        return []
-
-    # Calculate start date
-    start_date = _calculate_start_date(ref_date, aggr, records)
-
-    # For hourly data, use raw energy data
-    if aggr == "hour":
-        energy_data = await data_manager.get_energy(start=start_date, end=ref_date)
-        result = await asyncio.to_thread(
-            _filter_by_tariff, energy_data, lambda e: e.consumption_kwh, tariff
-        )
-        return _sort_and_limit_results(result, records)
-
-    # For day or month aggregation, use statistics
-    stats = await data_manager.get_aggr_energy(
-        aggregation=aggr,
-        start=start_date,
-        end=ref_date,
+    series = await get_recent_energy_series(
+        data_manager, "consumption", aggr, records, [tariff], now_as_ref
     )
-
-    result = []
-    for stat in stats:
-        timestamp = stat.datetime.timestamp() * 1000
-        # Extract value based on tariff period
-        if tariff == 1:
-            value = stat.consumption_p1_kwh
-        elif tariff == 2:
-            value = stat.consumption_p2_kwh
-        elif tariff == 3:
-            value = stat.consumption_p3_kwh
-        else:
-            # No tariff specified, use total value
-            value = stat.consumption_kwh
-        result.append((timestamp, value))
-
-    return _sort_and_limit_results(result, records)
+    return series[0]
 
 
 async def get_recent_surplus(
@@ -122,46 +146,10 @@ async def get_recent_surplus(
     now_as_ref: bool = False,
 ) -> list[tuple[float, float]]:
     """Get recent surplus data as a list of tuples (timestamp, surplus_kwh)."""
-    # Get reference date
-    most_recent = await data_manager.get_most_recent_energy_dt()
-    ref_date = _get_reference_date(most_recent, now_as_ref)
-    if ref_date is None:
-        return []
-
-    # Calculate start date
-    start_date = _calculate_start_date(ref_date, aggr, records)
-
-    # For hourly data, use raw energy data
-    if aggr == "hour":
-        energy_data = await data_manager.get_energy(start=start_date, end=ref_date)
-        result = await asyncio.to_thread(
-            _filter_by_tariff, energy_data, lambda e: e.surplus_kwh, tariff
-        )
-        return _sort_and_limit_results(result, records)
-
-    # For day or month aggregation, use statistics
-    stats = await data_manager.get_aggr_energy(
-        aggregation=aggr,
-        start=start_date,
-        end=ref_date,
+    series = await get_recent_energy_series(
+        data_manager, "surplus", aggr, records, [tariff], now_as_ref
     )
-
-    result = []
-    for stat in stats:
-        timestamp = stat.datetime.timestamp() * 1000
-        # Extract surplus value based on tariff period
-        if tariff == 1:
-            value = stat.surplus_p1_kwh
-        elif tariff == 2:
-            value = stat.surplus_p2_kwh
-        elif tariff == 3:
-            value = stat.surplus_p3_kwh
-        else:
-            # No tariff specified, use total surplus
-            value = stat.surplus_kwh
-        result.append((timestamp, value))
-
-    return _sort_and_limit_results(result, records)
+    return series[0]
 
 
 BILL_TERMS = {
@@ -171,23 +159,22 @@ BILL_TERMS = {
 }
 
 
-async def get_recent_bills(
+async def get_recent_bill_series(
     data_manager: DataManager,
     aggr: typing.Literal["hour", "day", "month"],
     records: int,
-    term: typing.Literal["energy", "power", "others"] | None = None,
+    terms: list[typing.Literal["energy", "power", "others"] | None],
     now_as_ref: bool = False,
-) -> list[tuple[float, float]]:
-    """Get recent bill data as a list of tuples (timestamp, value_eur).
+) -> list[list[tuple[float, float]]]:
+    """Get one (timestamp, EUR) series per bill term from a single read.
 
-    With ``term``, return only that bill term (energy, power or others); the
-    three add up to the total.
+    A ``None`` term gives the total; the three terms add up to it.
     """
     # Get reference date
     most_recent = await data_manager.get_most_recent_energy_dt()
     ref_date = _get_reference_date(most_recent, now_as_ref)
     if ref_date is None:
-        return []
+        return [[] for _ in terms]
 
     # Calculate start date
     start_date = _calculate_start_date(ref_date, aggr, records)
@@ -203,12 +190,32 @@ async def get_recent_bills(
             end=ref_date,
         )
 
-    field = BILL_TERMS[term] if term else "value_eur"
-    result = [
-        (bill.datetime.timestamp() * 1000, getattr(bill, field)) for bill in bills
-    ]
+    series = []
+    for term in terms:
+        field = BILL_TERMS[term] if term else "value_eur"
+        result = [
+            (bill.datetime.timestamp() * 1000, getattr(bill, field)) for bill in bills
+        ]
+        series.append(_sort_and_limit_results(result, records))
+    return series
 
-    return _sort_and_limit_results(result, records)
+
+async def get_recent_bills(
+    data_manager: DataManager,
+    aggr: typing.Literal["hour", "day", "month"],
+    records: int,
+    term: typing.Literal["energy", "power", "others"] | None = None,
+    now_as_ref: bool = False,
+) -> list[tuple[float, float]]:
+    """Get recent bill data as a list of tuples (timestamp, value_eur).
+
+    With ``term``, return only that bill term (energy, power or others); the
+    three add up to the total.
+    """
+    series = await get_recent_bill_series(
+        data_manager, aggr, records, [term], now_as_ref
+    )
+    return series[0]
 
 
 async def get_recent_maximeter(
@@ -230,8 +237,8 @@ async def get_recent_maximeter(
     # Get power data
     power_data = await data_manager.get_power(start=start_date, end=ref_date)
 
-    result = await asyncio.to_thread(
-        _filter_by_tariff, power_data, lambda p: p.value_kw, tariff
+    (result,) = await asyncio.to_thread(
+        _split_by_tariff, power_data, lambda p: p.value_kw, [tariff]
     )
 
     result.sort(key=lambda x: x[0])

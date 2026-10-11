@@ -1,6 +1,7 @@
 """Tests for the edata websocket API."""
 
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -11,7 +12,7 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.edata.const import DOMAIN
 
-from .fixtures import SCUPS
+from .fixtures import SCUPS, FakeDataManager
 
 
 @pytest.mark.parametrize(
@@ -135,6 +136,118 @@ async def test_costs_reject_tariff(
 
     await client.send_json_auto_id(
         {"type": f"{DOMAIN}/ws/costs", "scups": SCUPS, "aggr": "month", "tariff": 1}
+    )
+    response = await client.receive_json()
+    assert not response["success"]
+    assert response["error"]["code"] == "invalid_format"
+
+
+@pytest.mark.parametrize("aggr", ["hour", "day", "month"])
+@pytest.mark.parametrize(
+    ("endpoint", "single", "values"),
+    [
+        ("consumptions", "tariff", [1, 2, 3]),
+        ("surplus", "tariff", [3, 1]),
+        ("costs", "term", ["energy", "power", "others"]),
+    ],
+)
+async def test_series_in_one_call_match_single_calls(
+    setup_integration: None,
+    hass: HomeAssistant,
+    billing_config_entry: MockConfigEntry,
+    mock_data_manager: None,
+    hass_ws_client: WebSocketGenerator,
+    aggr: str,
+    endpoint: str,
+    single: str,
+    values: list,
+) -> None:
+    """``tariffs``/``terms`` return, in order, the series of one call per value."""
+    billing_config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(billing_config_entry.entry_id)
+    await hass.async_block_till_done()
+    client = await hass_ws_client(hass)
+
+    async def fetch(**extra: Any) -> list:
+        await client.send_json_auto_id(
+            {"type": f"{DOMAIN}/ws/{endpoint}", "scups": SCUPS, "aggr": aggr, **extra}
+        )
+        response = await client.receive_json()
+        assert response["success"]
+        return response["result"]
+
+    series = await fetch(**{single + "s": values})
+    assert series == [await fetch(**{single: value}) for value in values]
+    assert any(point for result in series for point in result)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "aggr", "values", "read"),
+    [
+        ("consumptions", "day", {"tariffs": [1, 2, 3]}, "get_aggr_energy"),
+        ("consumptions", "hour", {"tariffs": [1, 2, 3]}, "get_energy"),
+        ("costs", "month", {"terms": ["energy", "power", "others"]}, "get_aggr_bills"),
+    ],
+)
+async def test_series_in_one_call_read_once(
+    setup_integration: None,
+    hass: HomeAssistant,
+    billing_config_entry: MockConfigEntry,
+    mock_data_manager: type[FakeDataManager],
+    hass_ws_client: WebSocketGenerator,
+    endpoint: str,
+    aggr: str,
+    values: dict,
+    read: str,
+) -> None:
+    """All the series of a call come from a single read of the data."""
+    billing_config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(billing_config_entry.entry_id)
+    await hass.async_block_till_done()
+    client = await hass_ws_client(hass)
+
+    with patch.object(
+        mock_data_manager,
+        read,
+        autospec=True,
+        side_effect=getattr(mock_data_manager, read),
+    ) as reader:
+        await client.send_json_auto_id(
+            {"type": f"{DOMAIN}/ws/{endpoint}", "scups": SCUPS, "aggr": aggr, **values}
+        )
+        response = await client.receive_json()
+
+    assert response["success"]
+    assert reader.await_count == 1
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "values"),
+    [
+        ("consumptions", {"tariff": 1, "tariffs": [1, 2]}),
+        ("surplus", {"tariff": 1, "tariffs": [1, 2]}),
+        ("costs", {"term": "energy", "terms": ["energy", "power"]}),
+        ("consumptions", {"tariffs": []}),
+        ("costs", {"terms": ["energy", "taxes"]}),
+    ],
+)
+async def test_invalid_series_requests_are_rejected(
+    setup_integration: None,
+    hass: HomeAssistant,
+    billing_config_entry: MockConfigEntry,
+    mock_data_manager: None,
+    hass_ws_client: WebSocketGenerator,
+    endpoint: str,
+    values: dict,
+) -> None:
+    """A single and a list filter together, or an empty/unknown list, are rejected."""
+    billing_config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(billing_config_entry.entry_id)
+    await hass.async_block_till_done()
+    client = await hass_ws_client(hass)
+
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/ws/{endpoint}", "scups": SCUPS, "aggr": "day", **values}
     )
     response = await client.receive_json()
     assert not response["success"]

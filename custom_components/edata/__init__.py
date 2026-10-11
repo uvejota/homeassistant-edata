@@ -9,6 +9,7 @@ from pathlib import Path
 from edata.models.bill import BillingRules, PVPCBillingRules
 from pydantic import ValidationError
 
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_START
 from homeassistant.core import CoreState, HomeAssistant
@@ -26,7 +27,7 @@ from .core.config import (
     CONF_USERNAME,
 )
 from .core.data import DataManager
-from .core.lovelace import init_resource, register_static_path
+from .core.lovelace import init_resource
 from .core.options import CONF_BILLING, CONF_DEBUG, CONF_PVPC, CONF_UPDATE_SINCE
 from .core.utils import get_shared_memory
 from .websockets import async_register_websockets
@@ -117,9 +118,12 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_setup(hass: HomeAssistant, config: ConfigType):
     """Set up edata-card resources."""
 
-    path = Path(__file__).parent / "www"
-    name = "edata-card.js"
-    register_static_path(hass.http.app, "/edata/" + name, path / name)
+    # the card and its vendored libraries are browser-cached for a month: the
+    # card resource URL carries the integration version and vendored files
+    # carry theirs in the name, so an update is always fetched anew
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig("/edata", str(Path(__file__).parent / "www"), True)]
+    )
     version = getattr(hass.data["integrations"][const.DOMAIN], "version", 0)
     await init_resource(hass, "/edata/edata-card.js", str(version))
     return True

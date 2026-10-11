@@ -145,3 +145,53 @@ async def test_full_sync_requests_whole_history(
     assert supply_start in starts
     assert datadis.async_get_max_power.await_args.args[2] == supply_start
     assert len(await manager.get_bills()) > 0
+
+
+async def test_most_recent_energy_dt_is_cached_until_energy_changes(
+    hass: HomeAssistant, mock_connectors: None
+) -> None:
+    """The last energy timestamp is read once and refreshed after each sync."""
+    manager = _make_manager(hass)
+    assert await manager.get_most_recent_energy_dt() is None
+
+    await manager.sync()
+    with patch.object(
+        manager._data_service,
+        "get_last_energy_dt",
+        wraps=manager._data_service.get_last_energy_dt,
+    ) as read:
+        first = await manager.get_most_recent_energy_dt()
+        assert await manager.get_most_recent_energy_dt() == first
+        assert read.await_count == 1
+    assert first == build_energy()[-1].datetime
+
+    # a later sync brings newer energy
+    datadis = manager._data_service.datadis
+    datadis.async_get_consumption_data.return_value = build_energy(72)
+    await manager.sync()
+    assert await manager.get_most_recent_energy_dt() == build_energy(72)[-1].datetime
+
+    # so does a full sync
+    datadis.async_get_consumption_data.return_value = build_energy(96)
+    await manager.full_sync()
+    assert await manager.get_most_recent_energy_dt() == build_energy(96)[-1].datetime
+
+
+async def test_most_recent_energy_dt_read_racing_a_write_is_not_cached(
+    hass: HomeAssistant, mock_connectors: None
+) -> None:
+    """A read that overlapped an energy write does not cache its result."""
+    manager = _make_manager(hass)
+    await manager.sync()
+    stale = build_energy()[0].datetime
+
+    async def read_then_write() -> datetime:
+        manager._energy_changed()  # a sync stored energy while this read ran
+        return stale
+
+    with patch.object(
+        manager._data_service, "get_last_energy_dt", side_effect=read_then_write
+    ):
+        assert await manager.get_most_recent_energy_dt() == stale
+
+    assert await manager.get_most_recent_energy_dt() == build_energy()[-1].datetime
