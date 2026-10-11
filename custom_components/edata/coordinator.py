@@ -154,6 +154,14 @@ class EdataCoordinator(DataUpdateCoordinator):
             await self._sync_store.async_save(
                 {"last_sync": self._last_sync.isoformat()}
             )
+        elif self._data_manager.login_rejected and self.config_entry is not None:
+            # retrying cannot help: ask the user for the new password (HA keeps
+            # a single re-authentication flow per entry)
+            _LOGGER.warning(
+                "%s: Datadis rejected the credentials, asking to re-authenticate",
+                self.scups,
+            )
+            self.config_entry.async_start_reauth(self.hass)
         return synced
 
     async def _sync_data(self):

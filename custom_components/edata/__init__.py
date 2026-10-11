@@ -133,6 +133,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up edata from a config entry."""
     _LOGGER.debug("Setting up platform 'edata'")
 
+    # entries created before the CUPS became the unique ID (done before
+    # registering the update listener, which would reload the entry)
+    if entry.unique_id is None:
+        unique_id = entry.data[CONF_CUPS].upper()
+        if not any(
+            other.unique_id == unique_id
+            for other in hass.config_entries.async_entries(const.DOMAIN)
+        ):
+            hass.config_entries.async_update_entry(entry, unique_id=unique_id)
+
     # Registers update listener to update config entry when options are updated.
     unsub_options_update_listener = entry.add_update_listener(options_update_listener)
     entry.async_on_unload(unsub_options_update_listener)

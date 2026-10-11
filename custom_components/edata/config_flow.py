@@ -1,14 +1,19 @@
 """Configuration Flow (GUI)."""
 
+from functools import partial
 import logging
-import tempfile
 from typing import Any
 
+from edata.models import Supply
 from edata.models.bill import BillingRules, PVPCBillingRules
-from edata.providers.datadis import DatadisConnector
+from edata.providers.datadis import DatadisConnector, LoginStatus
+import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import selector as sel
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import STORAGE_DIR
 
 from . import const
 from .core.config import (
@@ -17,6 +22,7 @@ from .core.config import (
     CONF_PASSWORD,
     CONF_SCUPS,
     CONF_USERNAME,
+    normalize_nif,
     step_choose_cups,
     step_user,
 )
@@ -39,18 +45,40 @@ _LOGGER = logging.getLogger(__name__)
 J2_EXPR_TOKENS = ("{{ ", " }}")
 
 
-def get_scups(hass: HomeAssistant, cups: str) -> None | str:
-    """Calculate a non-colliding scups."""
+def get_scups(cups: str, taken: set[str]) -> str:
+    """Return the shortest CUPS suffix (4+ chars, lower case) not in ``taken``."""
 
     for i in range(4, len(cups)):
         scups = cups[-i:].lower()
-        found = hass.data.get(const.DOMAIN, {}).get(scups)
-        if found is None:
-            break
-        elif found[CONF_CUPS] == cups.upper():  # noqa: RET508
-            return None
+        if scups not in taken:
+            return scups
+    return cups.lower()
 
-    return scups
+
+async def async_try_login(
+    hass: HomeAssistant, username: str, password: str
+) -> tuple[DatadisConnector, str | None]:
+    """Log in to Datadis; return the connector and the form error, if any.
+
+    A rejected login and Datadis not answering get different errors: only the
+    first one is about the credentials.
+    """
+
+    # the connector opens its query cache on disk, so build it off the loop
+    api = await hass.async_add_executor_job(
+        partial(
+            DatadisConnector,
+            username,
+            password,
+            storage_path=hass.config.path(STORAGE_DIR),
+            session=async_get_clientsession(hass),
+        )
+    )
+    if await api.async_login():
+        return api, None
+    if api.login_status is LoginStatus.REJECTED:
+        return api, "invalid_auth"
+    return api, "cannot_connect"
 
 
 async def simulate_last_month_billing(
@@ -78,66 +106,111 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
         """Initialize config flow."""
         super().__init__()
         self.user_input = {}
+        self._supplies: list[Supply] = []
+
+    def _configured_cups(self) -> set[str]:
+        """Return the CUPS of every entry, loaded or not.
+
+        Entries created before CUPS were used as unique IDs only get one when
+        they are next set up, so look at their data too.
+        """
+        return {
+            entry.data[CONF_CUPS].upper()
+            for entry in self._async_current_entries(include_ignore=False)
+        }
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Handle the credentials check step."""
         errors = {}
 
-        if user_input is None:
-            return self.async_show_form(step_id="user", data_schema=step_user())
+        if user_input is not None:
+            user_input[CONF_USERNAME] = normalize_nif(user_input[CONF_USERNAME]) or ""
+            nif = normalize_nif(user_input.get(CONF_AUTHORIZED_NIF))
+            if nif is not None and nif.upper() == user_input[CONF_USERNAME].upper():
+                _LOGGER.warning(
+                    "Ignoring authorized NIF since it is equal to the provided username"
+                )
+                nif = None
+            user_input[CONF_AUTHORIZED_NIF] = nif
 
-        if user_input.get(CONF_AUTHORIZED_NIF, None) == user_input[CONF_USERNAME]:
-            _LOGGER.warning(
-                "Ignoring authorized NIF since it is equal to the provided username"
+            # log in first: a rejected login would otherwise surface as an empty
+            # supply list, pointing at the CUPS or authorized NIF instead
+            api, error = await async_try_login(
+                self.hass, user_input[CONF_USERNAME], user_input[CONF_PASSWORD]
             )
-            user_input[CONF_AUTHORIZED_NIF] = None
+            if error:
+                errors["base"] = error
+            elif not (supplies := await api.async_get_supplies(authorized_nif=nif)):
+                errors["base"] = "no_supplies_found"
+            else:
+                configured = self._configured_cups()
+                self._supplies = [
+                    x for x in supplies if x.cups.upper() not in configured
+                ]
+                if not self._supplies:
+                    return self.async_abort(reason="all_configured")
+                self.user_input.update(user_input)
+                return await self.async_step_choosecups()
 
-        api = DatadisConnector(
-            user_input[CONF_USERNAME],
-            user_input[CONF_PASSWORD],
-            storage_path=tempfile.gettempdir(),
+        return self.async_show_form(
+            step_id="user", data_schema=step_user(user_input), errors=errors
         )
-        supplies = await api.async_get_supplies(
-            authorized_nif=user_input.get(CONF_AUTHORIZED_NIF)
-        )
-        if not supplies:
-            errors["base"] = (
-                "invalid_credentials" if supplies is None else "no_supplies_found"
-            )
-            return self.async_show_form(
-                step_id="user", data_schema=step_user(), errors=errors
-            )
-
-        self.user_input["cups_list"] = [x.cups for x in supplies]
-        self.user_input.update(user_input)
-        return await self.async_step_choosecups()
 
     async def async_step_choosecups(self, user_input=None):
         """Handle the 'choose cups' step."""
-        errors = {}
 
         if user_input is None:
             return self.async_show_form(
                 step_id="choosecups",
-                data_schema=step_choose_cups(self.user_input["cups_list"]),
+                data_schema=step_choose_cups(self._supplies),
             )
 
-        self.user_input.update(user_input)
-        scups = get_scups(self.hass, self.user_input[CONF_CUPS])
+        cups = user_input[CONF_CUPS]
+        await self.async_set_unique_id(cups.upper())
+        self._abort_if_unique_id_configured()
+        if cups.upper() in self._configured_cups():
+            return self.async_abort(reason="already_configured")
 
-        if scups is None:
-            errors.update({"base": "already_configured"})
+        taken = {
+            entry.data[CONF_SCUPS]
+            for entry in self._async_current_entries(include_ignore=False)
+        } | set(self.hass.data.get(const.DOMAIN, {}))
+        scups = get_scups(cups, taken)
+        return self.async_create_entry(
+            title=scups,
+            data={**self.user_input, CONF_CUPS: cups, CONF_SCUPS: scups},
+        )
 
-        if not errors:
-            self.user_input[CONF_SCUPS] = scups
-            return self.async_create_entry(
-                title=self.user_input[CONF_SCUPS],
-                data={**self.user_input},
+    async def async_step_reauth(self, entry_data: dict[str, Any]):
+        """Start re-authentication after Datadis rejected the credentials."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input=None):
+        """Ask for the new password and check it before saving it."""
+        entry = self._get_reauth_entry()
+        errors = {}
+
+        if user_input is not None:
+            _, error = await async_try_login(
+                self.hass, entry.data[CONF_USERNAME], user_input[CONF_PASSWORD]
             )
+            if error:
+                errors["base"] = error
+            else:
+                return self.async_update_reload_and_abort(
+                    entry, data_updates={CONF_PASSWORD: user_input[CONF_PASSWORD]}
+                )
 
         return self.async_show_form(
-            step_id="choosecups",
-            data_schema=step_choose_cups(self.user_input["cups_list"]),
+            step_id="reauth_confirm",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_PASSWORD): sel.TextSelector(
+                        sel.TextSelectorConfig(type=sel.TextSelectorType.PASSWORD)
+                    )
+                }
+            ),
+            description_placeholders={"username": entry.data[CONF_USERNAME]},
             errors=errors,
         )
 

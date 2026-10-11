@@ -52,16 +52,20 @@
     "abort": {
       "unknown": "Error desconocido",
       "already_configured": "Este CUPS ya está configurado",
-      "invalid_credentials": "Credenciales incorrectas",
+      "invalid_auth": "Datadis ha rechazado el usuario o la contraseña. Revisa que el usuario sea tu NIF/NIE y que la contraseña sea la de datadis.es (caduca cada cierto tiempo).",
+      "cannot_connect": "No se pudo conectar con Datadis o no está respondiendo. Inténtalo más tarde.",
       "invalid_cups": "CUPS inválido",
-      "no_supplies_found": "No se encontraron suministros en la cuenta proporcionada"
+      "no_supplies_found": "No se encontraron suministros en esta cuenta. Si los suministros son de otra persona que te ha autorizado, rellena el NIF autorizado con su NIF.",
+      "all_configured": "Todos los suministros de esta cuenta ya están configurados.",
+      "reauth_successful": "Contraseña actualizada. La integración se ha recargado."
     },
     "error": {
       "unknown": "Error desconocido",
       "already_configured": "Este CUPS ya está configurado",
-      "invalid_credentials": "Credenciales incorrectas",
+      "invalid_auth": "Datadis ha rechazado el usuario o la contraseña. Revisa que el usuario sea tu NIF/NIE y que la contraseña sea la de datadis.es (caduca cada cierto tiempo).",
+      "cannot_connect": "No se pudo conectar con Datadis o no está respondiendo. Inténtalo más tarde.",
       "invalid_cups": "CUPS inválido",
-      "no_supplies_found": "No se encontraron suministros en la cuenta proporcionada"
+      "no_supplies_found": "No se encontraron suministros en esta cuenta. Si los suministros son de otra persona que te ha autorizado, rellena el NIF autorizado con su NIF."
     },
     "step": {
       "user": {
@@ -70,12 +74,30 @@
           "username": "Nombre de usuario",
           "password": "Contraseña",
           "authorized_nif": "NIF autorizado"
+        },
+        "data_description": {
+          "username": "El NIF/NIE con el que entras en datadis.es.",
+          "password": "La contraseña de datadis.es.",
+          "authorized_nif": "Solo si los suministros son de otra persona que te ha autorizado en Datadis: su NIF. Déjalo vacío si eres el titular."
         }
       },
       "choosecups": {
         "title": "Seleccione el CUPS",
         "data": {
           "cups": "CUPS"
+        },
+        "data_description": {
+          "cups": "El suministro que quieres añadir. Los que ya están configurados no aparecen."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Volver a autenticar en Datadis",
+        "description": "Datadis ha rechazado la contraseña de {username}. Escribe la contraseña actual de datadis.es; la integración seguirá donde estaba.",
+        "data": {
+          "password": "Contraseña"
+        },
+        "data_description": {
+          "password": "La contraseña de datadis.es."
         }
       }
     }

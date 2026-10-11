@@ -5,6 +5,7 @@ from datetime import timedelta
 from freezegun.api import FrozenDateTimeFactory
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
@@ -117,3 +118,27 @@ async def test_sync_store_removed_with_entry(
     assert await hass.config_entries.async_remove(config_entry.entry_id)
     await hass.async_block_till_done()
     assert key not in hass_storage
+
+
+async def test_rejected_credentials_ask_to_reauthenticate(
+    setup_integration: None,
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    mock_data_manager: None,
+) -> None:
+    """When Datadis rejects the credentials, the user is asked for new ones."""
+    coordinator = await _setup(hass, config_entry)
+    manager = coordinator._data_manager
+
+    # Datadis not answering is only retried
+    manager.sync_result = False
+    coordinator._last_sync = None
+    await _refresh(hass, coordinator)
+    assert not list(config_entry.async_get_active_flows(hass, {SOURCE_REAUTH}))
+
+    manager.login_rejected = True
+    await _refresh(hass, coordinator)
+    await _refresh(hass, coordinator)
+    flows = list(config_entry.async_get_active_flows(hass, {SOURCE_REAUTH}))
+    assert len(flows) == 1
+    assert flows[0]["step_id"] == "reauth_confirm"

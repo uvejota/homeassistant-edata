@@ -8,6 +8,7 @@ import typing
 from edata.core.utils import get_month
 from edata.models import Bill, Contract, Energy, Power, Statistics, Supply
 from edata.models.bill import BillingRules, PVPCBillingRules
+from edata.providers import LoginStatus
 from edata.services.bill_service import BillService
 from edata.services.data_service import DataService
 
@@ -118,6 +119,11 @@ class DataManager:
                 is_pvpc=isinstance(self.billing, PVPCBillingRules),
             )
         return True
+
+    @property
+    def login_rejected(self) -> bool:
+        """Whether Datadis rejected the credentials in the last login."""
+        return self._data_service.login_status is LoginStatus.REJECTED
 
     async def run_migrations(self) -> list:
         """Import legacy 1.x on-disk storage into the 2.0 database, if present."""

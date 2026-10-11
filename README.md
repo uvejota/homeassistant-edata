@@ -433,6 +433,7 @@ Todos devuelven una lista de pares `[marca de tiempo en ms, valor]`, salvo `edat
 **Error de credenciales, o no encuentra mi suministro**
 
 > - El usuario y la contraseña son los mismos con los que entras en la web de Datadis. Comprueba que funcionan allí, porque la contraseña caduca.
+> - Si la contraseña caduca o la cambias, Home Assistant te pedirá la nueva con un aviso de _Volver a autenticar_ en _Ajustes_. No hace falta borrar la integración: al guardarla, sigue donde estaba.
 > - Deja vacío el _NIF autorizado_ salvo que el suministro sea de otro titular que te lo haya autorizado en Datadis. Si eres el titular y lo rellenas, fallará.
 > - Copia el CUPS completo desde _Mis suministros_ en la web de Datadis, incluidos los dos últimos caracteres (por ejemplo, `0F`).
 > - Si acabas de dar de alta el suministro o la cuenta, puede tardar en aparecer en Datadis. Hasta que no salga allí, no hay nada que hacer.
