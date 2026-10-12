@@ -115,7 +115,7 @@
           "surplus": "Compute surplus (unsupported for PVPC)"
         },
         "data_description": {
-          "sync_mode": "Datadis answers each query only once every 24 h, so data is synced once a day. In automatic mode, while yesterday's data is not there yet, each day it tries 30 minutes later; once it gets it, that time is kept, and an occasional Datadis delay does not change it. With a fixed time, it syncs every day at the time you choose.\n\n⚠️ Changing the mode or the time does not bring the sync forward: the next one may come 24 to 48 h after the last one."
+          "sync_mode": "Data is synced once a day, since Datadis does not repeat a query within 24 h.\n\n**Automatic:** if yesterday's data is not there, it tries 30 minutes later the next day, until it finds the time when Datadis has it.\n\n**At a fixed time:** always at the time you choose.\n\n⚠️ After changing this option, the next sync may take 24 to 48 h."
         }
       },
       "sync_time": {

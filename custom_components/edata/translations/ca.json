@@ -112,7 +112,7 @@
           "pvpc": "PVPC"
         },
         "data_description": {
-          "sync_mode": "Datadis només atén cada consulta una vegada cada 24 h, així que se sincronitza una vegada al dia. En automàtic, mentre no arriben les dades d'ahir, cada dia es prova 30 minuts més tard; quan s'aconsegueixen es manté aquesta hora, i un retard puntual de Datadis no la canvia. Amb hora fixa, se sincronitza cada dia a l'hora que triïs.\n\n⚠️ Canviar el mode o l'hora no avança la sincronització: la següent pot arribar entre 24 i 48 h després de l'última."
+          "sync_mode": "Se sincronitza una vegada al dia, perquè Datadis no repeteix una consulta en menys de 24 h.\n\n**Automàtica:** si no hi ha les dades d'ahir, l'endemà ho prova 30 minuts més tard, fins a trobar l'hora en què Datadis les té.\n\n**A una hora fixa:** sempre a l'hora que triïs.\n\n⚠️ En canviar aquesta opció, la propera sincronització pot trigar entre 24 i 48 h."
         }
       },
       "sync_time": {

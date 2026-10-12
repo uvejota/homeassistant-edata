@@ -115,7 +115,7 @@
           "surplus": "Cálculo de excedente (no soportado con PVPC)"
         },
         "data_description": {
-          "sync_mode": "Datadis solo atiende cada consulta una vez cada 24 h, así que se sincroniza una vez al día. En automático, mientras no lleguen los datos de ayer, cada día se prueba 30 minutos más tarde; al conseguirlos se mantiene esa hora, y un retraso puntual de Datadis no la cambia. Con hora fija, se sincroniza cada día a la hora que elijas.\n\n⚠️ Cambiar el modo o la hora no adelanta la sincronización: la siguiente puede llegar entre 24 y 48 h después de la última."
+          "sync_mode": "Se sincroniza una vez al día, porque Datadis no repite una consulta en menos de 24 h.\n\n**Automática:** si no están los datos de ayer, al día siguiente lo intenta 30 minutos más tarde, hasta dar con la hora a la que Datadis los tiene.\n\n**A una hora fija:** siempre a la hora que elijas.\n\n⚠️ Al cambiar esta opción, la próxima sincronización puede tardar entre 24 y 48 h."
         }
       },
       "sync_time": {
