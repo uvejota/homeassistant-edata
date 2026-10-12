@@ -38,6 +38,10 @@ SYNC_MAX_DELAY = timedelta(hours=1)
 # automatic mode: syncs without yesterday's data tolerated once it was reached
 # (an occasional Datadis delay) before the sync time is moved later
 SYNC_MISSES_TOLERATED = 1
+# automatic mode: syncs in a row without yesterday's data (a whole turn of the
+# clock) after which the supply is taken to lag two days behind, so the day
+# before yesterday is awaited instead
+SYNC_LAG_ATTEMPTS = int(timedelta(days=1) / SYNC_STEP)
 SYNC_STORAGE_VERSION = 1
 
 
@@ -81,6 +85,8 @@ class EdataCoordinator(DataUpdateCoordinator):
         self._sync_at: time | None = None
         self._sync_stable = False
         self._sync_misses = 0
+        # automatic mode: days behind today of the last day awaited complete
+        self._sync_lag = 1
         self._sync_mode = sync_mode
         self._sync_time = sync_time
         self._unsub_sync_timer: CALLBACK_TYPE | None = None
@@ -150,6 +156,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             self._sync_at = dt_util.parse_time(sync_at)
         self._sync_stable = stored.get("stable", False)
         self._sync_misses = stored.get("misses", 0)
+        self._sync_lag = stored.get("lag", 1)
         self._last_sync_loaded = True
 
     async def _async_sync_due(self) -> bool:
@@ -245,41 +252,68 @@ class EdataCoordinator(DataUpdateCoordinator):
             self._unsub_sync_timer = None
 
     async def _async_update_sync_time(self) -> None:
-        """Move the automatic sync time later while yesterday's data is missing."""
+        """Move the automatic sync time later while the awaited day is missing.
+
+        The awaited day is yesterday, or the day before for supplies that a
+        whole turn of the clock showed to lag two days behind.
+        """
 
         if self._sync_at is None:
             self._sync_at = (
                 dt_util.as_local(self._last_sync).time().replace(microsecond=0)
             )
-        if await self._async_has_yesterday():
+        if await self._async_has_day(1):
+            if self._sync_lag != 1:
+                _LOGGER.info("%s: yesterday's data arrived, awaiting it", self.scups)
+            self._sync_lag = 1
+            self._sync_stable = True
+            self._sync_misses = 0
+            return
+        if self._sync_lag == 2 and await self._async_has_day(2):
             self._sync_stable = True
             self._sync_misses = 0
             return
 
         self._sync_misses += 1
+        if (
+            self._sync_lag == 1
+            and self._sync_misses >= SYNC_LAG_ATTEMPTS
+            and await self._async_has_day(2)
+        ):
+            _LOGGER.info(
+                "%s: no data for yesterday at any time of the day, "
+                "awaiting the day before yesterday",
+                self.scups,
+            )
+            self._sync_lag = 2
+            self._sync_stable = True
+            self._sync_misses = 0
+            return
         if self._sync_stable and self._sync_misses <= SYNC_MISSES_TOLERATED:
             _LOGGER.info(
-                "%s: no data for yesterday yet, keeping the sync time", self.scups
+                "%s: awaited day not there yet, keeping the sync time", self.scups
             )
             return
         self._sync_at = (
             datetime.combine(dt_util.now().date(), self._sync_at) + SYNC_STEP
         ).time()
         _LOGGER.info(
-            "%s: no data for yesterday yet, syncing at %s from now on",
+            "%s: awaited day not there yet, syncing at %s from now on",
             self.scups,
             self._sync_at,
         )
 
-    async def _async_has_yesterday(self) -> bool:
-        """Return whether the stored data already covers the whole of yesterday."""
+    async def _async_has_day(self, days_ago: int) -> bool:
+        """Return whether the stored data covers the whole day ``days_ago`` ago."""
 
         last = await self._data_manager.get_most_recent_energy_dt()
         if last is None:
             return False
         # energy records are local (Spanish) time and start at the hour
-        midnight = datetime.combine(dt_util.now().date(), time.min)
-        return last.replace(tzinfo=None) >= midnight - timedelta(hours=1)
+        day_end = datetime.combine(
+            dt_util.now().date() - timedelta(days=days_ago - 1), time.min
+        )
+        return last.replace(tzinfo=None) >= day_end - timedelta(hours=1)
 
     async def _async_sync_datadis(self, full: bool = False) -> bool:
         """Sync from Datadis and record the time when it succeeds.
@@ -305,6 +339,7 @@ class EdataCoordinator(DataUpdateCoordinator):
                     "sync_at": self._sync_at.isoformat() if self._sync_at else None,
                     "stable": self._sync_stable,
                     "misses": self._sync_misses,
+                    "lag": self._sync_lag,
                 }
             )
             _LOGGER.info(

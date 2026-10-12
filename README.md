@@ -440,7 +440,7 @@ Todos devuelven una lista de pares `[marca de tiempo en ms, valor]`, salvo `edat
 
 > Una vez al día, a la hora que indica el atributo `next_sync` del sensor principal (`sensor.edata_xxxx`). Se elige en las opciones de la integración:
 >
-> - **Automática** (por defecto): mientras una sincronización no trae los datos de ayer, la siguiente se hace 30 minutos más tarde. Cuando los consigue, mantiene esa hora. Si después Datadis se retrasa un día puntual, no la cambia; solo vuelve a retrasarla si falla dos días seguidos.
+> - **Automática** (por defecto): mientras una sincronización no trae los datos de ayer, la siguiente se hace 30 minutos más tarde. Cuando los consigue, mantiene esa hora. Si después Datadis se retrasa un día puntual, no la cambia; solo vuelve a retrasarla si falla dos días seguidos. Si tu distribuidora va siempre 48 h por detrás, tras probar todas las horas del día (unas 3–4 semanas) pasa a esperar los datos de anteayer y fija la hora igual.
 > - **A una hora fija**: sincroniza cada día a la hora que elijas. Como entre dos sincronizaciones tienen que pasar al menos 24 h, si una termina unos segundos tarde la siguiente espera esos segundos; cuando el retraso acumulado llega a una hora, se salta un día para volver a la hora elegida. Lo mismo ocurre el día del cambio al horario de verano, que solo tiene 23 h.
 >
 > Si Datadis no responde, se reintenta cada hora sin cambiar la hora de sincronización.

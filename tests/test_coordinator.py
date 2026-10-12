@@ -16,6 +16,7 @@ from homeassistant.util import dt as dt_util
 from custom_components.edata.const import DOMAIN
 from custom_components.edata.coordinator import (
     SYNC_INTERVAL,
+    SYNC_LAG_ATTEMPTS,
     SYNC_STEP,
     EdataCoordinator,
 )
@@ -221,6 +222,45 @@ async def test_auto_sync_tolerates_one_miss(
     assert coordinator.next_sync == coordinator._last_sync + SYNC_INTERVAL
 
 
+async def test_auto_sync_learns_two_day_lag(
+    setup_integration: None,
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    mock_data_manager: None,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """A supply that never has yesterday's data awaits the day before instead."""
+    # the fake data ends with the day before yesterday
+    freezer.move_to("2023-01-04 12:00:00+00:00")
+    coordinator = await _setup(hass, config_entry)
+    manager = coordinator._data_manager
+
+    # a whole turn of the clock without yesterday's data
+    for _ in range(SYNC_LAG_ATTEMPTS - 1):
+        assert coordinator._sync_lag == 1
+        assert coordinator.next_sync == (
+            coordinator._last_sync + SYNC_INTERVAL + SYNC_STEP
+        )
+        freezer.move_to(coordinator.next_sync)
+        manager.last_energy_dt = _yesterday_end() - timedelta(days=1)
+        await _refresh(hass, coordinator)
+    assert manager.synced == SYNC_LAG_ATTEMPTS
+    assert coordinator._sync_lag == 2
+    # the day before yesterday is there: the time is kept from now on
+    assert coordinator.next_sync == coordinator._last_sync + SYNC_INTERVAL
+
+    freezer.move_to(coordinator.next_sync)
+    manager.last_energy_dt = _yesterday_end() - timedelta(days=1)
+    await _refresh(hass, coordinator)
+    assert (coordinator._sync_lag, coordinator._sync_misses) == (2, 0)
+
+    # yesterday's data shows up again: back to awaiting it
+    freezer.move_to(coordinator.next_sync)
+    manager.last_energy_dt = _yesterday_end()
+    await _refresh(hass, coordinator)
+    assert (coordinator._sync_lag, coordinator._sync_misses) == (1, 0)
+
+
 async def test_failed_sync_keeps_schedule(
     setup_integration: None,
     hass: HomeAssistant,
@@ -284,12 +324,14 @@ async def test_sync_time_survives_restart(
     stored = {"last_sync": last_sync.isoformat()}
     if sync_at is not None:
         stored["sync_at"] = dt_util.as_local(last_sync + sync_at).time().isoformat()
+        stored["lag"] = 2
     key = f"{DOMAIN}.{SCUPS.lower()}.sync"
     hass_storage[key] = {"version": 1, "key": key, "data": stored}
 
     coordinator = await _setup(hass, config_entry)
     assert coordinator._data_manager.synced == 0
     assert coordinator.next_sync == last_sync + delay
+    assert coordinator._sync_lag == (1 if sync_at is None else 2)
 
 
 async def test_manual_sync_keeps_sync_time(
