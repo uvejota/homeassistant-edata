@@ -28,7 +28,15 @@ from .core.config import (
 )
 from .core.data import DataManager
 from .core.lovelace import init_resource
-from .core.options import CONF_BILLING, CONF_DEBUG, CONF_PVPC, CONF_UPDATE_SINCE
+from .core.options import (
+    CONF_BILLING,
+    CONF_DEBUG,
+    CONF_PVPC,
+    CONF_SYNC_MODE,
+    CONF_SYNC_TIME,
+    CONF_UPDATE_SINCE,
+    SYNC_MODE_AUTO,
+)
 from .core.utils import get_shared_memory
 from .websockets import async_register_websockets
 
@@ -58,6 +66,16 @@ def _apply_debug_level(options: dict) -> None:
         logging.getLogger("edata").setLevel(logging.INFO)
     else:
         logging.getLogger("edata").setLevel(logging.WARNING)
+
+
+def _sync_schedule(options: dict) -> tuple[str, time | None]:
+    """Return the sync mode and fixed time from the config entry options."""
+
+    mode = options.get(CONF_SYNC_MODE, SYNC_MODE_AUTO)
+    sync_time = None
+    if raw_time := options.get(CONF_SYNC_TIME):
+        sync_time = dt_util.parse_time(raw_time)
+    return mode, sync_time
 
 
 def _remove_legacy_file(path: Path) -> None:
@@ -160,6 +178,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.data[CONF_SCUPS],
         entry.data.get(CONF_AUTHORIZED_NIF),
         billing_rules,
+        *_sync_schedule(entry.options),
     )
     shared = get_shared_memory(hass, entry.data[CONF_SCUPS])
     shared["coordinator"] = coordinator
@@ -212,6 +231,8 @@ async def options_update_listener(hass: HomeAssistant, entry: ConfigEntry):
     )
     if coordinator is None:
         return
+
+    coordinator.set_sync_schedule(*_sync_schedule(entry.options))
 
     since: datetime | None = None
     if raw_since := entry.options.get(CONF_UPDATE_SINCE):

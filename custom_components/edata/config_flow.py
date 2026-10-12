@@ -32,11 +32,15 @@ from .core.options import (
     CONF_BILLING,
     CONF_CONFIRM,
     CONF_PVPC,
+    CONF_SYNC_MODE,
+    CONF_SYNC_TIME,
     CONF_UPDATE_SINCE,
+    SYNC_MODE_FIXED,
     step_confirm,
     step_costs,
     step_formulas,
     step_init,
+    step_sync_time,
 )
 from .core.utils import get_shared_memory
 
@@ -239,12 +243,28 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 data_schema=step_init(prev_options=self.config_entry.options.copy()),
             )
 
-        if not user_input[CONF_BILLING]:
-            return self.async_create_entry(
-                data=user_input,
+        self.user_input = user_input
+        if user_input[CONF_SYNC_MODE] == SYNC_MODE_FIXED:
+            return await self.async_step_sync_time()
+        return await self._async_step_after_sync()
+
+    async def async_step_sync_time(self, user_input=None):
+        """Ask for the time of the daily sync."""
+
+        if user_input is None:
+            return self.async_show_form(
+                step_id="sync_time",
+                data_schema=step_sync_time(self.config_entry.options.copy()),
             )
 
-        self.user_input = user_input
+        self.user_input[CONF_SYNC_TIME] = user_input[CONF_SYNC_TIME]
+        return await self._async_step_after_sync()
+
+    async def _async_step_after_sync(self):
+        """Go on to the billing steps, or finish if billing is disabled."""
+
+        if not self.user_input[CONF_BILLING]:
+            return self.async_create_entry(data=self.user_input)
         return await self.async_step_costs()
 
     async def async_step_costs(self, user_input=None):

@@ -1,5 +1,6 @@
 """Tests for the edata config and options flows."""
 
+from datetime import time
 from unittest.mock import AsyncMock, patch
 
 import aiohttp
@@ -29,7 +30,11 @@ from custom_components.edata.core.options import (
     CONF_CONFIRM,
     CONF_DEBUG,
     CONF_PVPC,
+    CONF_SYNC_MODE,
+    CONF_SYNC_TIME,
     CONF_UPDATE_SINCE,
+    SYNC_MODE_AUTO,
+    SYNC_MODE_FIXED,
     step_costs,
     step_formulas,
 )
@@ -215,6 +220,45 @@ async def test_options_flow_billing_disabled(
         {CONF_DEBUG: False, CONF_BILLING: False, CONF_PVPC: False},
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+async def test_options_flow_fixed_sync_time(
+    setup_integration: None,
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    mock_data_manager: None,
+) -> None:
+    """Choosing a fixed sync time asks for it and applies it to the coordinator."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = hass.data[DOMAIN][SCUPS]["coordinator"]
+
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    # automatic by default
+    assert _schema_defaults(result["data_schema"])[CONF_SYNC_MODE] == SYNC_MODE_AUTO
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_SYNC_MODE: SYNC_MODE_FIXED,
+            CONF_DEBUG: False,
+            CONF_BILLING: False,
+            CONF_PVPC: False,
+        },
+    )
+    assert result["step_id"] == "sync_time"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_SYNC_TIME: "07:30:00"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_SYNC_MODE] == SYNC_MODE_FIXED
+    assert result["data"][CONF_SYNC_TIME] == "07:30:00"
+    await hass.async_block_till_done()
+    assert (coordinator._sync_mode, coordinator._sync_time) == (
+        SYNC_MODE_FIXED,
+        time(7, 30),
+    )
 
 
 @pytest.mark.parametrize("is_pvpc", [False, True], ids=["custom", "pvpc"])

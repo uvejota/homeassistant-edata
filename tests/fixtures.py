@@ -165,6 +165,7 @@ class FakeDataManager:
         self._monthly = build_monthly_stats()
         self._bills = build_hourly_bills()
         self._monthly_bills = build_monthly_bills()
+        self.last_energy_dt = self._energy[-1].datetime
 
     async def sync(self) -> bool:
         """Record that a sync happened."""
@@ -204,7 +205,7 @@ class FakeDataManager:
 
     async def get_most_recent_energy_dt(self) -> datetime:
         """Return the last energy timestamp."""
-        return self._energy[-1].datetime
+        return self.last_energy_dt
 
     async def get_power(self, start=None, end=None) -> list[Power]:
         """Return the fake power records within the range."""

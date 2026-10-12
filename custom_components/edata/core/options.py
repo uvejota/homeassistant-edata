@@ -16,6 +16,12 @@ CONF_PVPC = "pvpc"
 CONF_APPLYFROM = "apply_from"
 CONF_CONFIRM = "confirm"
 CONF_UPDATE_SINCE = "update_billing_since"
+CONF_SYNC_MODE = "sync_mode"
+CONF_SYNC_TIME = "sync_time"
+
+SYNC_MODE_AUTO = "auto"
+SYNC_MODE_FIXED = "fixed"
+DEFAULT_SYNC_TIME = "19:00:00"
 
 
 def step_init(prev_options: dict[str, typing.Any]) -> vol.Schema:
@@ -23,6 +29,16 @@ def step_init(prev_options: dict[str, typing.Any]) -> vol.Schema:
 
     return vol.Schema(
         {
+            vol.Required(
+                CONF_SYNC_MODE,
+                default=prev_options.get(CONF_SYNC_MODE, SYNC_MODE_AUTO),
+            ): sel.SelectSelector(
+                sel.SelectSelectorConfig(
+                    options=[SYNC_MODE_AUTO, SYNC_MODE_FIXED],
+                    mode=sel.SelectSelectorMode.LIST,
+                    translation_key=CONF_SYNC_MODE,
+                )
+            ),
             vol.Required(
                 CONF_DEBUG,
                 default=prev_options.get(CONF_DEBUG, False),
@@ -35,6 +51,19 @@ def step_init(prev_options: dict[str, typing.Any]) -> vol.Schema:
                 CONF_PVPC,
                 default=prev_options.get(CONF_PVPC, False),
             ): bool,
+        }
+    )
+
+
+def step_sync_time(prev_options: dict[str, typing.Any]) -> vol.Schema:
+    """Build the options step that asks for the fixed sync time."""
+
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_SYNC_TIME,
+                default=prev_options.get(CONF_SYNC_TIME, DEFAULT_SYNC_TIME),
+            ): sel.TimeSelector(),
         }
     )
 

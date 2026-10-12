@@ -107,11 +107,25 @@
       "init": {
         "title": "Configuración",
         "data": {
+          "sync_mode": "Sincronización con Datadis",
           "cycle_start_day": "Primer día del ciclo (de 1 a 30)",
           "billing": "Activar facturación",
           "pvpc": "PVPC",
           "debug": "Activar depuración",
           "surplus": "Cálculo de excedente (no soportado con PVPC)"
+        },
+        "data_description": {
+          "sync_mode": "Datadis solo atiende cada consulta una vez cada 24 h, así que se sincroniza una vez al día. En automático, mientras no lleguen los datos de ayer, cada día se prueba 30 minutos más tarde; al conseguirlos se mantiene esa hora, y un retraso puntual de Datadis no la cambia. Con hora fija, se sincroniza cada día a la hora que elijas."
+        }
+      },
+      "sync_time": {
+        "title": "Hora de sincronización",
+        "description": "Entre dos sincronizaciones tienen que pasar al menos 24 h, así que la primera a la nueva hora puede ser pasado mañana.",
+        "data": {
+          "sync_time": "Hora"
+        },
+        "data_description": {
+          "sync_time": "Si a esa hora Datadis todavía no tiene los datos de ayer, llegarán en la sincronización del día siguiente."
         }
       },
       "costs": {
@@ -161,6 +175,14 @@
           "apply_from": "Recalcular facturas desde...",
           "confirm": "Confirmar cambios"
         }
+      }
+    }
+  },
+  "selector": {
+    "sync_mode": {
+      "options": {
+        "auto": "Automática: busca la hora a la que Datadis tiene los datos de ayer",
+        "fixed": "A una hora fija"
       }
     }
   }

@@ -12,7 +12,7 @@ INFO_SENSORS_DESC = [
     (
         "info",
         "last_datetime",
-        ["contract_p1_kw", "contract_p2_kw"],
+        ["contract_p1_kw", "contract_p2_kw", "next_sync"],
     ),
 ]
 

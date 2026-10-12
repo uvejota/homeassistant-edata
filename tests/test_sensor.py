@@ -4,6 +4,7 @@ from datetime import datetime
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from syrupy.assertion import SnapshotAssertion
+from syrupy.filters import props
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -32,7 +33,8 @@ async def test_sensor_states(
         }
         for state in hass.states.async_all("sensor")
     }
-    assert states == snapshot
+    # the next sync depends on the wall clock
+    assert states == snapshot(exclude=props("next_sync"))
 
 
 async def test_sensor_attributes_rounded(
