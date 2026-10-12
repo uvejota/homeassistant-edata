@@ -7,6 +7,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 from syrupy.assertion import SnapshotAssertion
+from syrupy.filters import props
 
 from homeassistant.core import HomeAssistant
 
@@ -46,7 +47,8 @@ async def test_websocket_commands(
     response = await client.receive_json()
 
     assert response["success"]
-    assert response["result"] == snapshot
+    # the next sync depends on the wall clock
+    assert response["result"] == snapshot(exclude=props("next_sync"))
 
 
 @pytest.mark.parametrize("aggr", ["hour", "day", "month"])

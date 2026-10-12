@@ -117,9 +117,13 @@ La integración combina almacenamiento local (una base de datos SQLite propia), 
 
 ## Configurar la tarificación
 
-Navegue hasta `Ajustes > Dispositivos y Servicios > XXXX (edata) - Configurar`. Primero deberá seleccionar si desea activar o no las funciones de facturación, y en caso de utilizar PVPC seleccionará también dicha casilla.
+Navegue hasta `Ajustes > Dispositivos y Servicios > XXXX (edata) - Configurar`. Primero deberá elegir cuándo se sincroniza con Datadis y si desea activar o no las funciones de facturación, y en caso de utilizar PVPC seleccionará también dicha casilla.
 
-1. Activar la facturación y/o PVPC.
+1. Elegir la sincronización con Datadis y activar la facturación y/o PVPC.
+   - **Automática** (por defecto): busca sola la hora a la que Datadis tiene los datos de ayer.
+   - **A una hora fija**: en el paso siguiente se pide la hora.
+
+   Ver _¿Cuándo se sincroniza con Datadis?_ en el [FAQ](#faq).
 
 ![Opciones de edata](assets/configure-step1.png)
 
@@ -428,9 +432,20 @@ Todos devuelven una lista de pares `[marca de tiempo en ms, valor]`, salvo `edat
 
 **Los datos ya aparecen en Datadis, pero no en edata**
 
-> Datadis solo permite repetir la misma consulta una vez cada 24 h, así que edata sincroniza como mucho una vez al día. Si a tu instalación le toca a las 17 h y tu distribuidora sube los datos a las 19 h, no los verás hasta el día siguiente.
+> Datadis solo permite repetir la misma consulta una vez cada 24 h, así que edata sincroniza una vez al día. Si la sincronización se hace a las 17 h y tu distribuidora sube los datos a las 19 h, no los verás hasta el día siguiente. Mira la pregunta siguiente para ajustar la hora.
 >
-> Si no quieres esperar, pulsa _Forzar sincronización_ en el dispositivo de edata: vuelve a pedir todo el histórico disponible, que es una consulta distinta, y trae lo último que tenga Datadis. Solo funciona una vez al día.
+> Si no quieres esperar, pulsa _Forzar sincronización_ en el dispositivo de edata: vuelve a pedir todo el histórico disponible, que es una consulta distinta, y trae lo último que tenga Datadis. Solo funciona una vez al día, y la siguiente sincronización automática esperará al menos 24 h desde ese momento.
+
+**¿Cuándo se sincroniza con Datadis?**
+
+> Una vez al día, a la hora que indica el atributo `next_sync` del sensor principal (`sensor.edata_xxxx`). Se elige en las opciones de la integración:
+>
+> - **Automática** (por defecto): mientras una sincronización no trae los datos de ayer, la siguiente se hace 30 minutos más tarde. Cuando los consigue, mantiene esa hora. Si después Datadis se retrasa un día puntual, no la cambia; solo vuelve a retrasarla si falla dos días seguidos. Si tu distribuidora va siempre 48 h por detrás, tras probar todas las horas del día (unas 3–4 semanas) pasa a esperar los datos de anteayer y fija la hora igual.
+> - **A una hora fija**: sincroniza cada día a la hora que elijas. Como entre dos sincronizaciones tienen que pasar al menos 24 h, si una termina unos segundos tarde la siguiente espera esos segundos; cuando el retraso acumulado llega a una hora, se salta un día para volver a la hora elegida. Lo mismo ocurre el día del cambio al horario de verano, que solo tiene 23 h.
+>
+> Si Datadis no responde, se reintenta cada hora sin cambiar la hora de sincronización.
+>
+> ⚠️ Cambiar el modo o la hora no adelanta la sincronización: la siguiente puede llegar entre 24 y 48 h después de la última.
 
 **¿Sirve de algo reiniciar Home Assistant o borrar la caché?**
 

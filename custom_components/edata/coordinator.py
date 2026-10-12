@@ -1,13 +1,14 @@
 """Data update coordinator definitions."""
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 import logging
 
 from dateutil.relativedelta import relativedelta
 from edata.models.bill import BillingRules
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
@@ -15,6 +16,7 @@ from homeassistant.util import dt as dt_util
 from . import const
 from .core.config import CONF_CUPS
 from .core.data import DataManager
+from .core.options import SYNC_MODE_AUTO, SYNC_MODE_FIXED
 from .core.statistics import (
     clear_statistics,
     get_integration_stat_ids,
@@ -24,9 +26,22 @@ from .core.statistics import (
 _LOGGER = logging.getLogger(__name__)
 
 # Datadis serves each query at most once every 24 h (repeats come from the
-# connector's cache), so syncing more often only costs a login and uncached
-# supply/contract requests without bringing new data.
+# connector's cache, which expires 24 h after each answer), so two syncs are
+# always at least this far apart, counted from the end of the previous one.
 SYNC_INTERVAL = timedelta(hours=24)
+# automatic mode: how much later the sync time moves while syncs do not bring
+# yesterday's data yet
+SYNC_STEP = timedelta(minutes=30)
+# how late after its time a sync may run to keep 24 h after the previous one;
+# from this delay on, it rather waits for its time the next day
+SYNC_MAX_DELAY = timedelta(hours=1)
+# automatic mode: syncs without yesterday's data tolerated once it was reached
+# (an occasional Datadis delay) before the sync time is moved later
+SYNC_MISSES_TOLERATED = 1
+# automatic mode: syncs in a row without yesterday's data (a whole turn of the
+# clock) after which the supply is taken to lag two days behind, so the day
+# before yesterday is awaited instead
+SYNC_LAG_ATTEMPTS = int(timedelta(days=1) / SYNC_STEP)
 SYNC_STORAGE_VERSION = 1
 
 
@@ -48,6 +63,8 @@ class EdataCoordinator(DataUpdateCoordinator):
         scups: str,
         authorized_nif: str | None = None,
         billing: BillingRules | None = None,
+        sync_mode: str = SYNC_MODE_AUTO,
+        sync_time: time | None = None,
     ) -> None:
         """Initialize the data handler."""
 
@@ -63,6 +80,16 @@ class EdataCoordinator(DataUpdateCoordinator):
         self._sync_store = sync_store(hass, self.scups)
         self._last_sync: datetime | None = None
         self._last_sync_loaded = False
+        # automatic mode: the time of day it syncs at, whether a sync ever
+        # brought yesterday's data, and how many in a row have not since
+        self._sync_at: time | None = None
+        self._sync_stable = False
+        self._sync_misses = 0
+        # automatic mode: days behind today of the last day awaited complete
+        self._sync_lag = 1
+        self._sync_mode = sync_mode
+        self._sync_time = sync_time
+        self._unsub_sync_timer: CALLBACK_TYPE | None = None
 
         # Init shared data
         hass.data[const.DOMAIN][self.id] = {CONF_CUPS: self.cups}
@@ -99,9 +126,11 @@ class EdataCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         """Update data via API."""
 
+        await self._async_load_sync_state()
         await self._load_data()
 
         if not await self._async_sync_due():
+            self._schedule_sync()
             return self._shared
 
         # Never let a slow full sync stack: skip if the previous one is still running.
@@ -115,18 +144,28 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         return self._shared
 
+    async def _async_load_sync_state(self) -> None:
+        """Load the persisted sync state once."""
+
+        if self._last_sync_loaded:
+            return
+        stored = await self._sync_store.async_load() or {}
+        if last := stored.get("last_sync"):
+            self._last_sync = dt_util.parse_datetime(last)
+        if sync_at := stored.get("sync_at"):
+            self._sync_at = dt_util.parse_time(sync_at)
+        self._sync_stable = stored.get("stable", False)
+        self._sync_misses = stored.get("misses", 0)
+        self._sync_lag = stored.get("lag", 1)
+        self._last_sync_loaded = True
+
     async def _async_sync_due(self) -> bool:
-        """Return whether the last successful Datadis sync is old enough."""
+        """Return whether it is time for the next Datadis sync."""
 
-        if not self._last_sync_loaded:
-            stored = await self._sync_store.async_load() or {}
-            if last := stored.get("last_sync"):
-                self._last_sync = dt_util.parse_datetime(last)
-            self._last_sync_loaded = True
-
-        if self._last_sync is None:
+        await self._async_load_sync_state()
+        next_sync = self.next_sync
+        if next_sync is None:
             return True
-        next_sync = self._last_sync + SYNC_INTERVAL
         if dt_util.utcnow() < next_sync:
             _LOGGER.debug(
                 "%s: last Datadis sync at %s, skipping until %s",
@@ -136,6 +175,145 @@ class EdataCoordinator(DataUpdateCoordinator):
             )
             return False
         return True
+
+    @property
+    def next_sync(self) -> datetime | None:
+        """Return when the next Datadis sync is due (``None``: right away)."""
+
+        if self._last_sync is None:
+            return None
+        if self._sync_mode == SYNC_MODE_FIXED and self._sync_time is not None:
+            sync_at = self._sync_time
+        elif self._sync_at is not None:
+            sync_at = self._sync_at
+        else:
+            # stored by an older version: keep the time it synced at
+            sync_at = dt_util.as_local(self._last_sync).time()
+        return self._next_sync_at(sync_at)
+
+    def _next_sync_at(self, sync_at: time) -> datetime:
+        """Return the first sync at ``sync_at``, at least 24 h after the last.
+
+        A sync ends some seconds after its time, so the next one has to wait
+        those seconds too. Once that delay adds up to an hour (or the last sync
+        ran late, e.g. after a restart), a day is skipped to get back to the
+        sync time.
+        """
+
+        earliest = self._last_sync + SYNC_INTERVAL
+        day = dt_util.as_local(self._last_sync).date()
+        while True:
+            candidate = datetime.combine(
+                day, sync_at, tzinfo=dt_util.get_default_time_zone()
+            )
+            if earliest - candidate < SYNC_MAX_DELAY:
+                return max(candidate, earliest)
+            day += timedelta(days=1)
+
+    @callback
+    def _schedule_sync(self) -> None:
+        """Wake up exactly when the next Datadis sync is due."""
+
+        if self._unsub_sync_timer is not None:
+            self._unsub_sync_timer()
+            self._unsub_sync_timer = None
+        next_sync = self.next_sync
+        if next_sync is None or next_sync <= dt_util.utcnow():
+            # due now: the next hourly refresh takes care of it
+            return
+
+        @callback
+        def _sync_time_reached(_now: datetime) -> None:
+            self._unsub_sync_timer = None
+            self.hass.async_create_background_task(
+                self.async_refresh(), f"{const.DOMAIN}_{self.id}_scheduled_sync"
+            )
+
+        self._unsub_sync_timer = async_track_point_in_utc_time(
+            self.hass, _sync_time_reached, next_sync
+        )
+
+    @callback
+    def set_sync_schedule(self, mode: str, sync_time: time | None) -> None:
+        """Apply a new sync mode and fixed time."""
+
+        if (mode, sync_time) == (self._sync_mode, self._sync_time):
+            return
+        self._sync_mode, self._sync_time = mode, sync_time
+        if self._last_sync_loaded:
+            self._schedule_sync()
+
+    async def async_shutdown(self) -> None:
+        """Cancel the scheduled sync."""
+
+        await super().async_shutdown()
+        if self._unsub_sync_timer is not None:
+            self._unsub_sync_timer()
+            self._unsub_sync_timer = None
+
+    async def _async_update_sync_time(self) -> None:
+        """Move the automatic sync time later while the awaited day is missing.
+
+        The awaited day is yesterday, or the day before for supplies that a
+        whole turn of the clock showed to lag two days behind.
+        """
+
+        if self._sync_at is None:
+            self._sync_at = (
+                dt_util.as_local(self._last_sync).time().replace(microsecond=0)
+            )
+        if await self._async_has_day(1):
+            if self._sync_lag != 1:
+                _LOGGER.info("%s: yesterday's data arrived, awaiting it", self.scups)
+            self._sync_lag = 1
+            self._sync_stable = True
+            self._sync_misses = 0
+            return
+        if self._sync_lag == 2 and await self._async_has_day(2):
+            self._sync_stable = True
+            self._sync_misses = 0
+            return
+
+        self._sync_misses += 1
+        if (
+            self._sync_lag == 1
+            and self._sync_misses >= SYNC_LAG_ATTEMPTS
+            and await self._async_has_day(2)
+        ):
+            _LOGGER.info(
+                "%s: no data for yesterday at any time of the day, "
+                "awaiting the day before yesterday",
+                self.scups,
+            )
+            self._sync_lag = 2
+            self._sync_stable = True
+            self._sync_misses = 0
+            return
+        if self._sync_stable and self._sync_misses <= SYNC_MISSES_TOLERATED:
+            _LOGGER.info(
+                "%s: awaited day not there yet, keeping the sync time", self.scups
+            )
+            return
+        self._sync_at = (
+            datetime.combine(dt_util.now().date(), self._sync_at) + SYNC_STEP
+        ).time()
+        _LOGGER.info(
+            "%s: awaited day not there yet, syncing at %s from now on",
+            self.scups,
+            self._sync_at,
+        )
+
+    async def _async_has_day(self, days_ago: int) -> bool:
+        """Return whether the stored data covers the whole day ``days_ago`` ago."""
+
+        last = await self._data_manager.get_most_recent_energy_dt()
+        if last is None:
+            return False
+        # energy records are local (Spanish) time and start at the hour
+        day_end = datetime.combine(
+            dt_util.now().date() - timedelta(days=days_ago - 1), time.min
+        )
+        return last.replace(tzinfo=None) >= day_end - timedelta(hours=1)
 
     async def _async_sync_datadis(self, full: bool = False) -> bool:
         """Sync from Datadis and record the time when it succeeds.
@@ -149,11 +327,25 @@ class EdataCoordinator(DataUpdateCoordinator):
         else:
             synced = await self._data_manager.sync()
         if synced:
+            await self._async_load_sync_state()
             self._last_sync = dt_util.utcnow()
-            self._last_sync_loaded = True
+            # a manual sync only delays the next one: its time says nothing
+            # about when Datadis has the data
+            if not full and self._sync_mode != SYNC_MODE_FIXED:
+                await self._async_update_sync_time()
             await self._sync_store.async_save(
-                {"last_sync": self._last_sync.isoformat()}
+                {
+                    "last_sync": self._last_sync.isoformat(),
+                    "sync_at": self._sync_at.isoformat() if self._sync_at else None,
+                    "stable": self._sync_stable,
+                    "misses": self._sync_misses,
+                    "lag": self._sync_lag,
+                }
             )
+            _LOGGER.info(
+                "%s: Datadis synced, next sync at %s", self.scups, self.next_sync
+            )
+            self._schedule_sync()
         elif self._data_manager.login_rejected and self.config_entry is not None:
             # retrying cannot help: ask the user for the new password (HA keeps
             # a single re-authentication flow per entry)
@@ -204,7 +396,10 @@ class EdataCoordinator(DataUpdateCoordinator):
         )
 
         attrs.update(
-            {"last_datetime": await self._data_manager.get_most_recent_energy_dt()}
+            {
+                "last_datetime": await self._data_manager.get_most_recent_energy_dt(),
+                "next_sync": self.next_sync,
+            }
         )
 
         energy_daily = await self._data_manager.get_aggr_energy(

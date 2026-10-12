@@ -107,11 +107,25 @@
       "init": {
         "title": "Configuration",
         "data": {
+          "sync_mode": "Datadis sync",
           "cycle_start_day": "First day of your billing cycle (from 1 to 30)",
           "billing": "Enable billing",
           "pvpc": "PVPC",
           "debug": "Enable debugging",
           "surplus": "Compute surplus (unsupported for PVPC)"
+        },
+        "data_description": {
+          "sync_mode": "Data is synced once a day, since Datadis does not repeat a query within 24 h.\n\n**Automatic:** if yesterday's data is not there, it tries 30 minutes later the next day, until it finds the time when Datadis has it.\n\n**At a fixed time:** always at the time you choose.\n\n⚠️ After changing this option, the next sync may take 24 to 48 h."
+        }
+      },
+      "sync_time": {
+        "title": "Sync time",
+        "description": "Two syncs must be at least 24 h apart, so the next one may come 24 to 48 h after the last one.",
+        "data": {
+          "sync_time": "Time"
+        },
+        "data_description": {
+          "sync_time": "If Datadis does not have yesterday's data yet at that time, it will arrive with the next day's sync."
         }
       },
       "costs": {
@@ -161,6 +175,14 @@
           "apply_from": "Update bills since...",
           "confirm": "Confirm changes"
         }
+      }
+    }
+  },
+  "selector": {
+    "sync_mode": {
+      "options": {
+        "auto": "Automatic: finds the time when Datadis has yesterday's data",
+        "fixed": "At a fixed time"
       }
     }
   }
