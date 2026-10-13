@@ -57,6 +57,7 @@ ENERGY_SENSORS_DESC = [
         "last_month_consumption_kwh",
         [
             "last_month_delta_h",
+            "last_month_daily_kwh",
             "last_month_consumption_by_tariff",
         ],
     ),
