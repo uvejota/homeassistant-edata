@@ -15,6 +15,7 @@
         <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'AA0A Last month consumption',
         <EntityStateAttribute.ICON: 'icon'>: 'mdi:counter',
         'last_month_consumption_by_tariff': None,
+        'last_month_daily_kwh': None,
         'last_month_delta_h': None,
         <EntityStateAttribute.UNIT_OF_MEASUREMENT: 'unit_of_measurement'>: <UnitOfEnergy.KILO_WATT_HOUR: 'kWh'>,
       }),

@@ -2,6 +2,7 @@
 
 from datetime import datetime
 
+from freezegun.api import FrozenDateTimeFactory
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from syrupy.assertion import SnapshotAssertion
 from syrupy.filters import props
@@ -90,3 +91,30 @@ async def test_numeric_sensors_display_two_decimals(
     for key in ("last_day_kwh", "month_surplus_kwh", "max_power_kw", "month_eur"):
         assert precision(key) == 2, key
     assert precision("info") is None
+
+
+async def test_monthly_daily_average(
+    setup_integration: None,
+    hass: HomeAssistant,
+    billing_config_entry: MockConfigEntry,
+    mock_data_manager: None,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """The month sensors show the average daily consumption over their hours."""
+    # within a year of the fake monthly statistics (January and February 2023)
+    freezer.move_to("2023-02-20 12:00:00+00:00")
+    billing_config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(billing_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    registry = er.async_get(hass)
+
+    def attrs(key: str) -> dict:
+        entity_id = registry.async_get_entity_id(
+            "sensor", DOMAIN, f"{SCUPS.lower()} {key}"
+        )
+        return hass.states.get(entity_id).attributes
+
+    # 160 kWh and 150 kWh over 720 h (30 days)
+    assert attrs("month_kwh")["month_daily_kwh"] == 5.33
+    assert attrs("last_month_kwh")["last_month_daily_kwh"] == 5.0

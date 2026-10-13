@@ -5,6 +5,7 @@ from datetime import datetime, time, timedelta
 import logging
 
 from dateutil.relativedelta import relativedelta
+from edata.models import Statistics
 from edata.models.bill import BillingRules
 
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
@@ -49,6 +50,13 @@ def sync_store(hass: HomeAssistant, scups: str) -> Store[dict[str, str]]:
     """Return the store that persists the last successful Datadis sync."""
 
     return Store(hass, SYNC_STORAGE_VERSION, f"{const.DOMAIN}.{scups.lower()}.sync")
+
+
+def _daily_kwh(stats: Statistics) -> float:
+    """Return the average daily consumption over the hours with data."""
+
+    days = stats.delta_h / 24
+    return stats.consumption_kwh / days if days > 0 else 0.0
 
 
 class EdataCoordinator(DataUpdateCoordinator):
@@ -415,11 +423,13 @@ class EdataCoordinator(DataUpdateCoordinator):
         if energy_monthly:
             last_month = energy_monthly[-1]
             attrs.update({f"month_{x}": y for x, y in last_month.model_dump().items()})
+            attrs["month_daily_kwh"] = _daily_kwh(last_month)
         if len(energy_monthly) > 1:
             last_month = energy_monthly[-2]
             attrs.update(
                 {f"last_month_{x}": y for x, y in last_month.model_dump().items()}
             )
+            attrs["last_month_daily_kwh"] = _daily_kwh(last_month)
 
         power = await self._data_manager.get_power(start=a_year_ago)
         attrs.update(
