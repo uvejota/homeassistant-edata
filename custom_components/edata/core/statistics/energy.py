@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 
 from homeassistant.components.recorder.models import (
@@ -20,7 +21,7 @@ from ..utils import async_get_tariffs, iter_month_windows
 from .utils import (
     add_statistics,
     calculate_cumulative_sum,
-    get_last_stat,
+    get_starting_points,
     make_stat_id,
     resolve_load_window,
     should_add_statistic,
@@ -34,8 +35,13 @@ async def update_energy_statistics(
     service: DataManager,
     integration_id: str,
     scups: str,
+    since: datetime | None = None,
 ) -> None:
-    """Update energy consumption and surplus statistics one month at a time."""
+    """Update energy consumption and surplus statistics one month at a time.
+
+    With ``since`` (naive local time), the statistics from then on are rewritten
+    instead of only extended (see ``get_starting_points``).
+    """
     _LOGGER.debug("%s: updating energy statistics", scups)
 
     # Define stat IDs
@@ -47,10 +53,8 @@ async def update_energy_statistics(
         "surplus": make_stat_id(DOMAIN, integration_id, "surplus"),
     }
 
-    # Get last recorded (datetime, cumulative sum) per statistic
-    last_stats = {
-        key: await get_last_stat(hass, stat_id) for key, stat_id in stat_ids.items()
-    }
+    # Where to build each statistic from: (datetime, cumulative sum)
+    last_stats = await get_starting_points(hass, stat_ids, since)
 
     # Load only from the earliest already-recorded stat onwards, month by month,
     # carrying the cumulative sum across windows so totals stay continuous

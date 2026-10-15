@@ -20,8 +20,7 @@ from ..utils import async_get_tariffs, iter_month_windows
 from .utils import (
     add_statistics,
     calculate_cumulative_sum,
-    get_last_stat,
-    get_stat_before,
+    get_starting_points,
     make_stat_id,
     resolve_load_window,
     should_add_statistic,
@@ -40,8 +39,7 @@ async def update_bill_statistics(
     """Update billing/cost statistics one month at a time.
 
     With ``since`` (naive local time), the statistics from then on are rewritten
-    instead of only extended: rows already recorded are overwritten, older ones
-    are kept, and the sum carries on from the last value before ``since``.
+    instead of only extended (see ``get_starting_points``).
     """
     _LOGGER.debug("%s: updating bill statistics", scups)
 
@@ -58,19 +56,8 @@ async def update_bill_statistics(
         "energy_cost_p3": make_stat_id(DOMAIN, integration_id, "p3_energy_cost"),
     }
 
-    # Get last recorded (datetime, cumulative sum) per statistic
-    if since is None:
-        last_stats = {
-            key: await get_last_stat(hass, stat_id) for key, stat_id in stat_ids.items()
-        }
-    else:
-        since_utc = dt_util.as_utc(
-            since.replace(tzinfo=dt_util.get_default_time_zone())
-        )
-        last_stats = {
-            key: await get_stat_before(hass, stat_id, since_utc)
-            for key, stat_id in stat_ids.items()
-        }
+    # Where to build each statistic from: (datetime, cumulative sum)
+    last_stats = await get_starting_points(hass, stat_ids, since)
 
     # Load only from the earliest already-recorded stat onwards, month by month,
     # carrying the cumulative sum across windows so totals stay continuous

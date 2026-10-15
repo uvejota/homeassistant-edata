@@ -231,3 +231,80 @@ async def test_cleared_statistics_can_be_rebuilt_right_away(
             hass, data_manager, SCUPS, SCUPS.upper()
         )
         assert len(await _cost_rows(hass)) == 48
+
+
+async def _rows(hass: HomeAssistant, key: str, types: set) -> list[dict]:
+    """Return every recorded row of an edata statistic."""
+    stat_id = make_stat_id(DOMAIN, SCUPS, key)
+    await async_wait_recording_done(hass)
+    stats = await get_instance(hass).async_add_executor_job(
+        statistics_during_period,
+        hass,
+        datetime(1970, 1, 1, tzinfo=dt_util.UTC),
+        None,
+        {stat_id},
+        "hour",
+        None,
+        types,
+    )
+    return stats.get(stat_id, [])
+
+
+async def test_energy_statistics_rewrite_from_since(
+    setup_integration: None,
+    hass: HomeAssistant,
+) -> None:
+    """A full import rewrites the consumption from its date on and keeps the rest."""
+    data_manager = FakeDataManager()
+    await energy_stats.update_energy_statistics(
+        hass, data_manager, SCUPS, SCUPS.upper()
+    )
+    before = await _rows(hass, "consumption", {"state", "sum"})
+    assert len(before) == 48
+
+    since = datetime(2023, 1, 2)
+    data_manager._energy = [
+        x.model_copy(update={"consumption_kwh": x.consumption_kwh * 2})
+        if x.datetime >= since
+        else x
+        for x in data_manager._energy
+    ]
+    await energy_stats.update_energy_statistics(
+        hass, data_manager, SCUPS, SCUPS.upper(), since=since
+    )
+    after = await _rows(hass, "consumption", {"state", "sum"})
+
+    assert len(after) == 48
+    assert after[:24] == before[:24]
+    values = [x.consumption_kwh for x in data_manager._energy]
+    assert [x["state"] for x in after[24:]] == pytest.approx(values[24:])
+    assert after[-1]["sum"] == pytest.approx(sum(values))
+
+
+async def test_power_statistics_rewrite_from_since(
+    setup_integration: None,
+    hass: HomeAssistant,
+) -> None:
+    """A full import rewrites the maximeter from its date on and keeps the rest."""
+    data_manager = FakeDataManager()
+    await power_stats.update_power_statistics(hass, data_manager, SCUPS, SCUPS.upper())
+    before = await _rows(hass, "maximeter", {"max"})
+    assert len(before) == 6
+
+    since = datetime(2023, 1, 25)
+    data_manager._power = [
+        x.model_copy(update={"value_kw": x.value_kw + 1})
+        if x.datetime >= since
+        else x
+        for x in data_manager._power
+    ]
+    await power_stats.update_power_statistics(
+        hass, data_manager, SCUPS, SCUPS.upper(), since=since
+    )
+    after = await _rows(hass, "maximeter", {"max"})
+
+    assert len(after) == 6
+    assert after[:3] == before[:3]
+    assert [x["max"] for x in after[3:]] == pytest.approx(
+        [x.value_kw for x in data_manager._power[3:]]
+    )

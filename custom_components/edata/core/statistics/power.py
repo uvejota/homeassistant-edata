@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 
 from homeassistant.components.recorder.models import (
@@ -18,7 +19,7 @@ from ..data import DataManager
 from ..utils import async_get_tariffs
 from .utils import (
     add_statistics,
-    get_last_stat_datetime,
+    get_starting_points,
     make_stat_id,
     resolve_load_window,
     should_add_statistic,
@@ -32,8 +33,13 @@ async def update_power_statistics(
     service: DataManager,
     integration_id: str,
     scups: str,
+    since: datetime | None = None,
 ) -> None:
-    """Update power (maximeter) statistics."""
+    """Update power (maximeter) statistics.
+
+    With ``since`` (naive local time), the statistics from then on are rewritten
+    instead of only extended (see ``get_starting_points``).
+    """
     _LOGGER.debug("%s: updating power statistics", scups)
 
     # Define stat IDs
@@ -44,9 +50,12 @@ async def update_power_statistics(
     }
 
     # Get last recorded datetimes
-    last_stat_dts = {}
-    for key, stat_id in stat_ids.items():
-        last_stat_dts[key] = await get_last_stat_datetime(hass, stat_id)
+    last_stat_dts = {
+        key: start
+        for key, (start, _) in (
+            await get_starting_points(hass, stat_ids, since)
+        ).items()
+    }
 
     # Load only from the earliest already-recorded stat onwards instead of the
     # whole maximeter history

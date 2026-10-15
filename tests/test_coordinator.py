@@ -3,6 +3,7 @@
 from datetime import datetime, time, timedelta
 from unittest.mock import AsyncMock, patch
 
+from edata.providers.datadis import earliest_query_start
 from freezegun.api import FrozenDateTimeFactory
 import pytest
 from pytest_homeassistant_custom_component.common import (
@@ -125,6 +126,32 @@ async def test_full_import_always_syncs(
     await coordinator.async_full_import()
     assert (manager.synced, manager.full_synced) == (1, 1)
     assert coordinator._last_sync > first_sync
+
+
+async def test_full_import_rewrites_statistics_from_datadis_window(
+    setup_integration: None,
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    mock_data_manager: None,
+    mock_coordinator_statistics: AsyncMock,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """A full import rewrites what Datadis serves and keeps older statistics."""
+    freezer.move_to("2026-10-15 12:00:00+00:00")
+    coordinator = await _setup(hass, config_entry)
+    mock_coordinator_statistics.reset_mock()
+
+    with patch(
+        "custom_components.edata.coordinator.clear_statistics", AsyncMock()
+    ) as clear:
+        await coordinator.async_full_import()
+
+    clear.assert_not_awaited()
+    mock_coordinator_statistics.assert_awaited_once()
+    # the fake supply starts in 2023: Datadis's two-year window is what counts
+    assert mock_coordinator_statistics.await_args.kwargs["since"] == (
+        earliest_query_start()
+    )
 
 
 async def test_sync_store_removed_with_entry(
