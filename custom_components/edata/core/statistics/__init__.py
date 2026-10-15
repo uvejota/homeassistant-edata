@@ -18,6 +18,7 @@ __all__ = [
     "clear_statistics",
     "get_integration_stat_ids",
     "update_all_statistics",
+    "update_bill_statistics",
 ]
 
 

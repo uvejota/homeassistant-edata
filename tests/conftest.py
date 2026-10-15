@@ -63,6 +63,15 @@ def mock_coordinator_statistics() -> Generator[AsyncMock]:
         yield mock
 
 
+@pytest.fixture(autouse=True)
+def mock_bill_statistics() -> Generator[AsyncMock]:
+    """Skip the cost statistics rewrite after a billing change, likewise."""
+    with patch(
+        "custom_components.edata.coordinator.update_bill_statistics", AsyncMock()
+    ) as mock:
+        yield mock
+
+
 @pytest.fixture
 def setup_integration(
     recorder_mock: None,

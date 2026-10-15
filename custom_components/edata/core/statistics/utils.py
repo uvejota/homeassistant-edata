@@ -9,6 +9,7 @@ from homeassistant.components.recorder.statistics import (
     async_add_external_statistics,
     get_last_statistics,
     list_statistic_ids,
+    statistics_during_period,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
@@ -54,6 +55,35 @@ async def get_last_stat(
         else dt_util.as_utc(datetime(1970, 1, 1))
     )
     return last_dt, row.get("sum") or 0.0
+
+
+async def get_stat_before(
+    hass: HomeAssistant,
+    stat_id: str,
+    before: datetime,
+) -> tuple[datetime, float]:
+    """Return the (start datetime, cumulative sum) of the last value before a time.
+
+    Looks back a month first and then over the whole history, so a gap in the
+    data does not restart the sum from 0.
+    """
+    recorder = recorder_util.get_instance(hass)
+    epoch = dt_util.as_utc(datetime(1970, 1, 1))
+    for start in (before - timedelta(days=31), epoch):
+        stats = await recorder.async_add_executor_job(
+            statistics_during_period,
+            hass,
+            start,
+            before,
+            {stat_id},
+            "hour",
+            None,
+            {"sum"},
+        )
+        if rows := stats.get(stat_id):
+            row = rows[-1]
+            return dt_util.utc_from_timestamp(row["start"]), row.get("sum") or 0.0
+    return epoch, 0.0
 
 
 async def get_last_stat_datetime(
@@ -147,8 +177,10 @@ async def get_integration_stat_ids(
     ]
 
 
-def clear_statistics(hass: HomeAssistant, stat_ids: list[str], scups: str) -> None:
-    """Clear statistics from Home Assistant recorder."""
+async def clear_statistics(
+    hass: HomeAssistant, stat_ids: list[str], scups: str
+) -> None:
+    """Clear statistics from Home Assistant recorder and wait until it is done."""
     if not stat_ids:
         _LOGGER.info("%s: no statistics to clear", scups)
         return
@@ -159,5 +191,13 @@ def clear_statistics(hass: HomeAssistant, stat_ids: list[str], scups: str) -> No
         len(stat_ids),
         stat_ids,
     )
-    recorder = recorder_util.get_instance(hass)
-    recorder.async_clear_statistics(stat_ids)
+    # the recorder clears them later on, in its own thread: a rebuild right
+    # away would still see the old statistics, add nothing, and then they
+    # would be cleared. Wait until it is actually done.
+    done = hass.loop.create_future()
+
+    def _on_done() -> None:
+        hass.loop.call_soon_threadsafe(done.set_result, None)
+
+    recorder_util.get_instance(hass).async_clear_statistics(stat_ids, on_done=_on_done)
+    await done
