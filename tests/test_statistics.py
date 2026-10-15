@@ -1,21 +1,33 @@
 """Tests for the edata recorder statistics generation."""
 
+from datetime import datetime
 from itertools import accumulate
+import time
 from typing import Any
 from unittest.mock import patch
 
 import pytest
+from pytest_homeassistant_custom_component.components.recorder.common import (
+    async_wait_recording_done,
+)
 from syrupy.assertion import SnapshotAssertion
 
+from homeassistant.components.recorder import statistics as recorder_statistics
 from homeassistant.components.recorder.models import StatisticData
+from homeassistant.components.recorder.statistics import statistics_during_period
 from homeassistant.components.recorder.util import get_instance
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
 from custom_components.edata.const import DOMAIN
 from custom_components.edata.core.statistics import bill as bill_stats
 from custom_components.edata.core.statistics import energy as energy_stats
 from custom_components.edata.core.statistics import power as power_stats
-from custom_components.edata.core.statistics.utils import get_last_stat, make_stat_id
+from custom_components.edata.core.statistics.utils import (
+    clear_statistics,
+    get_last_stat,
+    make_stat_id,
+)
 
 from .fixtures import SCUPS, FakeDataManager, build_energy
 
@@ -144,3 +156,78 @@ async def test_energy_statistics_carry_sum_across_month_windows(
     # Sums form a single continuous running total with no per-window reset.
     expected = list(accumulate(r["state"] for r in rows))
     assert [r["sum"] for r in rows] == pytest.approx(expected, abs=1e-6)
+
+
+async def _cost_rows(hass: HomeAssistant) -> list[tuple[float, float]]:
+    """Return the (state, sum) of every recorded total cost row."""
+    stat_id = make_stat_id(DOMAIN, SCUPS, "cost")
+    recorder = get_instance(hass)
+    await async_wait_recording_done(hass)
+    stats = await recorder.async_add_executor_job(
+        statistics_during_period,
+        hass,
+        datetime(1970, 1, 1, tzinfo=dt_util.UTC),
+        None,
+        {stat_id},
+        "hour",
+        None,
+        {"state", "sum"},
+    )
+    return [(row["state"], row["sum"]) for row in stats.get(stat_id, [])]
+
+
+async def test_bill_statistics_rewrite_from_since(
+    setup_integration: None,
+    hass: HomeAssistant,
+) -> None:
+    """A billing change rewrites the costs from its date on and keeps the rest."""
+    data_manager = FakeDataManager()
+    await bill_stats.update_bill_statistics(hass, data_manager, SCUPS, SCUPS.upper())
+    before = await _cost_rows(hass)
+    assert len(before) == 48
+
+    # new prices from the second day on
+    since = datetime(2023, 1, 2)
+    data_manager._bills = [
+        x.model_copy(update={"value_eur": x.value_eur * 2})
+        if x.datetime >= since
+        else x
+        for x in data_manager._bills
+    ]
+    await bill_stats.update_bill_statistics(
+        hass, data_manager, SCUPS, SCUPS.upper(), since=since
+    )
+    after = await _cost_rows(hass)
+
+    # no row added or removed; the first day is untouched
+    assert len(after) == 48
+    assert after[:24] == before[:24]
+    # the second day is rewritten, and the sum carries on from the first
+    values = [x.value_eur for x in data_manager._bills]
+    assert [state for state, _ in after[24:]] == pytest.approx(values[24:])
+    assert after[-1][1] == pytest.approx(sum(values))
+
+
+async def test_cleared_statistics_can_be_rebuilt_right_away(
+    setup_integration: None,
+    hass: HomeAssistant,
+) -> None:
+    """Rebuilding right after clearing does not race the recorder (#355)."""
+    data_manager = FakeDataManager()
+    await bill_stats.update_bill_statistics(hass, data_manager, SCUPS, SCUPS.upper())
+    assert len(await _cost_rows(hass)) == 48
+
+    # a large history takes the recorder a while to clear
+    clear = recorder_statistics.clear_statistics
+
+    def slow_clear(*args: Any) -> None:
+        time.sleep(0.5)
+        clear(*args)
+
+    stat_ids = [make_stat_id(DOMAIN, SCUPS, "cost")]
+    with patch.object(recorder_statistics, "clear_statistics", slow_clear):
+        await clear_statistics(hass, stat_ids, SCUPS.upper())
+        await bill_stats.update_bill_statistics(
+            hass, data_manager, SCUPS, SCUPS.upper()
+        )
+        assert len(await _cost_rows(hass)) == 48

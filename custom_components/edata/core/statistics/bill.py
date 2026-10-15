@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 
 from homeassistant.components.recorder.models import (
@@ -20,6 +21,7 @@ from .utils import (
     add_statistics,
     calculate_cumulative_sum,
     get_last_stat,
+    get_stat_before,
     make_stat_id,
     resolve_load_window,
     should_add_statistic,
@@ -33,8 +35,14 @@ async def update_bill_statistics(
     service: DataManager,
     integration_id: str,
     scups: str,
+    since: datetime | None = None,
 ) -> None:
-    """Update billing/cost statistics one month at a time."""
+    """Update billing/cost statistics one month at a time.
+
+    With ``since`` (naive local time), the statistics from then on are rewritten
+    instead of only extended: rows already recorded are overwritten, older ones
+    are kept, and the sum carries on from the last value before ``since``.
+    """
     _LOGGER.debug("%s: updating bill statistics", scups)
 
     # Define stat IDs
@@ -51,9 +59,18 @@ async def update_bill_statistics(
     }
 
     # Get last recorded (datetime, cumulative sum) per statistic
-    last_stats = {
-        key: await get_last_stat(hass, stat_id) for key, stat_id in stat_ids.items()
-    }
+    if since is None:
+        last_stats = {
+            key: await get_last_stat(hass, stat_id) for key, stat_id in stat_ids.items()
+        }
+    else:
+        since_utc = dt_util.as_utc(
+            since.replace(tzinfo=dt_util.get_default_time_zone())
+        )
+        last_stats = {
+            key: await get_stat_before(hass, stat_id, since_utc)
+            for key, stat_id in stat_ids.items()
+        }
 
     # Load only from the earliest already-recorded stat onwards, month by month,
     # carrying the cumulative sum across windows so totals stay continuous
