@@ -7,6 +7,7 @@ import logging
 from dateutil.relativedelta import relativedelta
 from edata.models import Statistics
 from edata.models.bill import BillingRules
+from edata.providers.datadis import earliest_query_start
 
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_point_in_utc_time
@@ -493,12 +494,20 @@ class EdataCoordinator(DataUpdateCoordinator):
         )
 
     async def async_full_import(self):
-        """Fetch all available data from Datadis and rebuild statistics."""
+        """Fetch all available data from Datadis and rewrite its statistics."""
 
         _LOGGER.warning("%s: importing all available data from Datadis", self.scups)
         await self._async_sync_datadis(full=True)
         await self._load_data()
-        await self.async_soft_reset()
+
+        # Datadis only serves the last two years: rewrite the statistics from
+        # there on, keeping the older ones (e.g. from 1.x, before edata.db starts)
+        since = earliest_query_start()
+        if supply := await self._data_manager.get_supply():
+            since = max(since, supply.date_start)
+        await update_all_statistics(
+            self.hass, self._data_manager, self.id, self.scups, since=since
+        )
 
     async def update_billing(
         self, billing_rules: BillingRules | None, since: datetime | None

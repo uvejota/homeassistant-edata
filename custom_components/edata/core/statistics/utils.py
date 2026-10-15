@@ -78,12 +78,33 @@ async def get_stat_before(
             {stat_id},
             "hour",
             None,
-            {"sum"},
+            {"max", "sum"},
         )
         if rows := stats.get(stat_id):
             row = rows[-1]
             return dt_util.utc_from_timestamp(row["start"]), row.get("sum") or 0.0
     return epoch, 0.0
+
+
+async def get_starting_points(
+    hass: HomeAssistant,
+    stat_ids: dict[str, str],
+    since: datetime | None,
+) -> dict[str, tuple[datetime, float]]:
+    """Return the (start datetime, cumulative sum) to build each statistic from.
+
+    Without ``since``, the last recorded value: only newer rows are added. With
+    ``since`` (naive local time), the last value before it: rows from then on
+    are rewritten (the recorder overwrites an existing hour), older ones are
+    kept, and the sum carries on from that value.
+    """
+    if since is None:
+        return {key: await get_last_stat(hass, sid) for key, sid in stat_ids.items()}
+    since_utc = dt_util.as_utc(since.replace(tzinfo=dt_util.get_default_time_zone()))
+    return {
+        key: await get_stat_before(hass, sid, since_utc)
+        for key, sid in stat_ids.items()
+    }
 
 
 async def get_last_stat_datetime(

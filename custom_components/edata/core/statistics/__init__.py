@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 
 from homeassistant.core import HomeAssistant
@@ -27,21 +28,26 @@ async def update_all_statistics(
     service: DataManager,
     integration_id: str,
     scups: str,
+    since: datetime | None = None,
 ) -> None:
-    """Update all statistics for the integration."""
+    """Update all statistics for the integration.
+
+    With ``since`` (naive local time), they are rewritten from then on instead
+    of only extended.
+    """
 
     try:
-        await update_energy_statistics(hass, service, integration_id, scups)
+        await update_energy_statistics(hass, service, integration_id, scups, since)
     except Exception:
         _LOGGER.exception("%s: failed to update energy statistics", scups)
 
     try:
-        await update_power_statistics(hass, service, integration_id, scups)
+        await update_power_statistics(hass, service, integration_id, scups, since)
     except Exception:
         _LOGGER.exception("%s: failed to update power statistics", scups)
 
     try:
-        await update_bill_statistics(hass, service, integration_id, scups)
+        await update_bill_statistics(hass, service, integration_id, scups, since)
     except Exception:
         _LOGGER.exception("%s: failed to update bill statistics", scups)
 
