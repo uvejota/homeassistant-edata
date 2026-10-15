@@ -83,6 +83,13 @@ def _remove_legacy_file(path: Path) -> None:
     path.unlink(missing_ok=True)
 
 
+def _legacy_file(hass: HomeAssistant, cups: str) -> Path:
+    """Return the 1.x JSON cache path of a supply."""
+
+    # 1.x wrote .storage/edata/edata_{cups}.json (full CUPS, lower-cased).
+    return Path(hass.config.path(STORAGE_DIR)) / "edata" / f"edata_{cups.lower()}.json"
+
+
 async def _migrate_legacy_storage(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Import the 1.x JSON cache into the 2.0 database, then remove it.
 
@@ -113,11 +120,7 @@ async def _migrate_legacy_storage(hass: HomeAssistant, entry: ConfigEntry) -> No
         return
 
     _LOGGER.info("%s: imported legacy 1.x storage (%s)", scups, results)
-    # 1.x wrote .storage/edata/edata_{cups}.json (full CUPS, lower-cased).
-    legacy_file = (
-        Path(hass.config.path(STORAGE_DIR)) / "edata" / f"edata_{cups.lower()}.json"
-    )
-    await hass.async_add_executor_job(_remove_legacy_file, legacy_file)
+    await hass.async_add_executor_job(_remove_legacy_file, _legacy_file(hass, cups))
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -160,6 +163,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             for other in hass.config_entries.async_entries(const.DOMAIN)
         ):
             hass.config_entries.async_update_entry(entry, unique_id=unique_id)
+
+    # a 1.x JSON cache left in place (a failed import) or restored from a backup
+    # is imported again: records are upserted, so it rewrites that history
+    if await hass.async_add_executor_job(
+        _legacy_file(hass, entry.data[CONF_CUPS]).exists
+    ):
+        await _migrate_legacy_storage(hass, entry)
 
     # Registers update listener to update config entry when options are updated.
     unsub_options_update_listener = entry.add_update_listener(options_update_listener)
