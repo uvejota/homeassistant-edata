@@ -22,6 +22,7 @@ from .core.statistics import (
     clear_statistics,
     get_integration_stat_ids,
     update_all_statistics,
+    update_bill_statistics,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -483,7 +484,7 @@ class EdataCoordinator(DataUpdateCoordinator):
             const.DOMAIN,
             self.id,
         )
-        clear_statistics(self.hass, stat_ids, self.scups)
+        await clear_statistics(self.hass, stat_ids, self.scups)
         await update_all_statistics(
             self.hass,
             self._data_manager,
@@ -510,14 +511,30 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         await self._data_manager.rebuild_billing(since)
 
-        stat_ids = await get_integration_stat_ids(self.hass, const.DOMAIN, self.id)
-        cost_stat_ids = [stat_id for stat_id in stat_ids if "cost" in stat_id]
-        clear_statistics(self.hass, cost_stat_ids, self.scups)
-
-        await update_all_statistics(
-            self.hass,
-            self._data_manager,
-            self.id,
-            self.scups,
-        )
+        if billing_rules is None:
+            # billing turned off: there are no costs any more
+            stat_ids = await get_integration_stat_ids(self.hass, const.DOMAIN, self.id)
+            cost_stat_ids = [stat_id for stat_id in stat_ids if "cost" in stat_id]
+            await clear_statistics(self.hass, cost_stat_ids, self.scups)
+        elif (start := since or await self._async_first_bill_dt()) is not None:
+            # rewrite the cost statistics from the rebuilt bills on, keeping the
+            # older ones (e.g. imported from 1.x, from before edata.db starts)
+            try:
+                await update_bill_statistics(
+                    self.hass, self._data_manager, self.id, self.scups, since=start
+                )
+            except Exception:
+                _LOGGER.exception("%s: failed to update bill statistics", self.scups)
         await self._load_data()
+
+    async def _async_first_bill_dt(self) -> datetime | None:
+        """Return the time of the first stored hourly bill."""
+
+        months = await self._data_manager.get_aggr_bills(aggregation="month")
+        if not months:
+            return None
+        first_month = months[0].datetime
+        bills = await self._data_manager.get_bills(
+            start=first_month, end=first_month + relativedelta(months=1)
+        )
+        return min((x.datetime for x in bills), default=first_month)

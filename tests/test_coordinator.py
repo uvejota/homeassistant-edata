@@ -1,6 +1,7 @@
 """Tests for the coordinator's Datadis sync throttling."""
 
 from datetime import datetime, time, timedelta
+from unittest.mock import AsyncMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 import pytest
@@ -386,3 +387,63 @@ async def test_fixed_sync_time(
     ):
         coordinator._last_sync = dt_util.as_utc(last)
         assert coordinator.next_sync == expected, last
+
+
+@pytest.mark.parametrize(
+    ("since", "expected"),
+    [
+        (datetime(2023, 1, 2), datetime(2023, 1, 2)),
+        # recalculated from the start: from the first bill, so the costs
+        # recorded before edata.db begins (e.g. by 1.x) are kept
+        (None, datetime(2023, 1, 1)),
+    ],
+    ids=["since_date", "from_the_start"],
+)
+async def test_billing_change_rewrites_costs_from_its_date(
+    setup_integration: None,
+    hass: HomeAssistant,
+    billing_config_entry: MockConfigEntry,
+    mock_data_manager: None,
+    mock_bill_statistics: AsyncMock,
+    since: datetime | None,
+    expected: datetime,
+) -> None:
+    """New billing rules rewrite the cost statistics instead of clearing them."""
+    coordinator = await _setup(hass, billing_config_entry)
+
+    with patch(
+        "custom_components.edata.coordinator.clear_statistics", AsyncMock()
+    ) as clear:
+        await coordinator.update_billing(coordinator.billing_rules, since)
+
+    clear.assert_not_awaited()
+    mock_bill_statistics.assert_awaited_once()
+    assert mock_bill_statistics.await_args.kwargs["since"] == expected
+
+
+async def test_billing_disabled_clears_costs(
+    setup_integration: None,
+    hass: HomeAssistant,
+    billing_config_entry: MockConfigEntry,
+    mock_data_manager: None,
+    mock_bill_statistics: AsyncMock,
+) -> None:
+    """Turning billing off clears the cost statistics."""
+    coordinator = await _setup(hass, billing_config_entry)
+
+    with (
+        patch(
+            "custom_components.edata.coordinator.get_integration_stat_ids",
+            AsyncMock(
+                return_value=[f"{DOMAIN}:{SCUPS}_cost", f"{DOMAIN}:{SCUPS}_consumption"]
+            ),
+        ),
+        patch(
+            "custom_components.edata.coordinator.clear_statistics", AsyncMock()
+        ) as clear,
+    ):
+        await coordinator.update_billing(None, None)
+
+    clear.assert_awaited_once()
+    assert clear.await_args.args[1] == [f"{DOMAIN}:{SCUPS}_cost"]
+    mock_bill_statistics.assert_not_awaited()
