@@ -176,6 +176,34 @@ async def test_migrate_v1_entry_without_legacy_file_just_bumps_version(
     assert entry.version == 2
 
 
+async def test_setup_imports_restored_legacy_storage(
+    setup_integration: None,
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    mock_data_manager: None,
+) -> None:
+    """A 1.x cache found on an already migrated entry (restored) is imported."""
+    storage = Path(hass.config.path(STORAGE_DIR))
+    legacy_dir = storage / "edata"
+    legacy_dir.mkdir(parents=True, exist_ok=True)
+    legacy_file = legacy_dir / f"edata_{CUPS.lower()}.json"
+    legacy_file.write_text(json.dumps(_LEGACY_PAYLOAD), encoding="utf-8")
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=2,
+        title=SCUPS,
+        data=config_entry.data,
+        options={},
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert not legacy_file.exists()
+    assert (storage / "edata.db").exists()
+
+
 def test_build_billing_rules_guards_invalid_options() -> None:
     """Invalid or disabled billing options degrade to no billing without raising."""
     assert _build_billing_rules({}) is None
