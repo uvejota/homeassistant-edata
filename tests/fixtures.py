@@ -5,6 +5,7 @@ import typing
 
 from edata.models import Bill, Contract, Energy, Power, Statistics, Supply
 from edata.models.bill import BillingRules
+from edata.providers.datadis import earliest_query_start
 
 from custom_components.edata.core.data import BillSimulation
 
@@ -198,6 +199,22 @@ class FakeDataManager:
     async def get_contracts(self) -> list[Contract]:
         """Return the fake contracts."""
         return self._contracts
+
+    async def get_history_start(self) -> datetime:
+        """Return the fake supply's start, within Datadis's two-year window."""
+        return max(self._supply.date_start, earliest_query_start())
+
+    async def get_first_energy_dt(self) -> datetime | None:
+        """Return the first fake energy timestamp."""
+        return self._energy[0].datetime if self._energy else None
+
+    async def get_first_power_dt(self) -> datetime | None:
+        """Return the first fake power timestamp."""
+        return self._power[0].datetime if self._power else None
+
+    async def get_first_bill_dt(self) -> datetime | None:
+        """Return the first fake hourly bill timestamp."""
+        return self._bills[0].datetime if self._bills else None
 
     async def get_energy(self, start=None, end=None) -> list[Energy]:
         """Return the fake energy records within the range."""

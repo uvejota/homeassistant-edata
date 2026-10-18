@@ -59,9 +59,8 @@ async def update_power_statistics(
 
     # Load only from the earliest already-recorded stat onwards instead of the
     # whole maximeter history
-    supply = await service.get_supply()
     load_start, load_end = resolve_load_window(
-        min(last_stat_dts.values()), supply.date_start if supply else None
+        min(last_stat_dts.values()), await service.get_first_power_dt()
     )
     data = await service.get_power(start=load_start, end=load_end)
     if not data:

@@ -53,16 +53,18 @@ async def update_energy_statistics(
         "surplus": make_stat_id(DOMAIN, integration_id, "surplus"),
     }
 
+    if (first_dt := await service.get_first_energy_dt()) is None:
+        _LOGGER.debug("%s: no energy data available", scups)
+        return
+
     # Where to build each statistic from: (datetime, cumulative sum)
     last_stats = await get_starting_points(hass, stat_ids, since)
 
-    # Load only from the earliest already-recorded stat onwards, month by month,
-    # carrying the cumulative sum across windows so totals stay continuous
-    supply = await service.get_supply()
+    # Load only from the earliest already-recorded stat onwards (or from the
+    # first record, however later the supply starts), month by month, carrying
+    # the cumulative sum across windows so totals stay continuous
     earliest = min(last_stats[key][0] for key in stat_ids)
-    load_start, load_end = resolve_load_window(
-        earliest, supply.date_start if supply else None
-    )
+    load_start, load_end = resolve_load_window(earliest, first_dt)
     running_sum = {key: last_stats[key][1] for key in stat_ids}
     added = 0
 
