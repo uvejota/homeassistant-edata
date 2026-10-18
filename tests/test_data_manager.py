@@ -130,7 +130,7 @@ async def test_rebuild_and_simulate(
 async def test_full_sync_requests_whole_history(
     hass: HomeAssistant, mock_connectors: None
 ) -> None:
-    """full_sync asks Datadis from the supply start, not just what is missing."""
+    """full_sync asks Datadis from the history start, not just what is missing."""
     rules = default_billing_rules()
     manager = _make_manager(hass, billing=rules)
     await manager.sync()
@@ -140,10 +140,10 @@ async def test_full_sync_requests_whole_history(
 
     assert await manager.full_sync()
 
-    supply_start = build_supply().date_start
+    history_start = await manager.get_history_start()
     starts = [call.args[2] for call in datadis.async_get_consumption_data.await_args_list]
-    assert supply_start in starts
-    assert datadis.async_get_max_power.await_args.args[2] == supply_start
+    assert history_start in starts
+    assert datadis.async_get_max_power.await_args.args[2] == history_start
     assert len(await manager.get_bills()) > 0
 
 

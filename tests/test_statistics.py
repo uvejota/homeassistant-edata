@@ -118,6 +118,53 @@ async def test_energy_statistics_are_incremental(
     )
 
 
+async def test_statistics_build_from_the_first_record(
+    setup_integration: None,
+    hass: HomeAssistant,
+) -> None:
+    """Records older than the supply's start get statistics too (issue #361).
+
+    Datadis moves the supply's start to the latest contract (e.g. after
+    switching marketers), while edata.db keeps the older records.
+    """
+    data_manager = FakeDataManager()
+    data_manager._supply.date_start = data_manager._energy[24].datetime
+    captured: dict[str, list[StatisticData]] = {}
+
+    def _capture(
+        _hass: HomeAssistant,
+        metadata: dict[str, Any],
+        statistics: list[StatisticData],
+        _scups: str,
+    ) -> None:
+        captured[metadata["statistic_id"]] = statistics
+
+    with (
+        patch.object(energy_stats, "add_statistics", side_effect=_capture),
+        patch.object(power_stats, "add_statistics", side_effect=_capture),
+        patch.object(bill_stats, "add_statistics", side_effect=_capture),
+    ):
+        await energy_stats.update_energy_statistics(
+            hass, data_manager, SCUPS, SCUPS.upper()
+        )
+        await power_stats.update_power_statistics(
+            hass, data_manager, SCUPS, SCUPS.upper()
+        )
+        await bill_stats.update_bill_statistics(
+            hass, data_manager, SCUPS, SCUPS.upper()
+        )
+
+    for suffix, records in (
+        ("consumption", data_manager._energy),
+        ("maximeter", data_manager._power),
+        ("cost", data_manager._bills),
+    ):
+        rows = captured[make_stat_id(DOMAIN, SCUPS, suffix)]
+        assert rows[0]["start"] == dt_util.as_utc(
+            records[0].datetime.replace(tzinfo=dt_util.get_default_time_zone())
+        )
+
+
 async def test_energy_statistics_carry_sum_across_month_windows(
     setup_integration: None,
     hass: HomeAssistant,

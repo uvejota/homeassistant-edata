@@ -502,9 +502,7 @@ class EdataCoordinator(DataUpdateCoordinator):
 
         # Datadis only serves the last two years: rewrite the statistics from
         # there on, keeping the older ones (e.g. from 1.x, before edata.db starts)
-        since = earliest_query_start()
-        if supply := await self._data_manager.get_supply():
-            since = max(since, supply.date_start)
+        since = await self._data_manager.get_history_start() or earliest_query_start()
         await update_all_statistics(
             self.hass, self._data_manager, self.id, self.scups, since=since
         )
