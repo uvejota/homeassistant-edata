@@ -108,6 +108,7 @@
         "title": "Configuration",
         "data": {
           "sync_mode": "Datadis sync",
+          "import_since": "Import history since",
           "cycle_start_day": "First day of your billing cycle (from 1 to 30)",
           "billing": "Enable billing",
           "pvpc": "PVPC",
@@ -115,7 +116,8 @@
           "surplus": "Compute surplus (unsupported for PVPC)"
         },
         "data_description": {
-          "sync_mode": "Data is synced once a day, since Datadis does not repeat a query within 24 h.\n\n**Automatic:** if yesterday's data is not there, it tries 30 minutes later the next day, until it finds the time when Datadis has it.\n\n**At a fixed time:** always at the time you choose.\n\n⚠️ After changing this option, the next sync may take 24 to 48 h."
+          "sync_mode": "Data is synced once a day, since Datadis does not repeat a query within 24 h.\n\n**Automatic:** if yesterday's data is not there, it tries 30 minutes later the next day, until it finds the time when Datadis has it.\n\n**At a fixed time:** always at the time you choose.\n\n⚠️ After changing this option, the next sync may take 24 to 48 h.",
+          "import_since": "Date \"Force sync\" fetches Datadis's data from and rewrites the statistics from. Leave it empty for the two years Datadis serves. Useful after switching marketers, when Datadis no longer lists the earlier contract."
         }
       },
       "sync_time": {
@@ -176,6 +178,9 @@
           "confirm": "Confirm changes"
         }
       }
+    },
+    "error": {
+      "import_since_out_of_range": "Choose a date between {earliest} and today: Datadis does not serve older data."
     }
   },
   "selector": {

@@ -6,7 +6,11 @@ from typing import Any
 
 from edata.models import Supply
 from edata.models.bill import BillingRules, PVPCBillingRules
-from edata.providers.datadis import DatadisConnector, LoginStatus
+from edata.providers.datadis import (
+    DatadisConnector,
+    LoginStatus,
+    earliest_query_start,
+)
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -14,6 +18,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector as sel
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import STORAGE_DIR
+from homeassistant.util import dt as dt_util
 
 from . import const
 from .core.config import (
@@ -31,6 +36,7 @@ from .core.options import (
     CONF_APPLYFROM,
     CONF_BILLING,
     CONF_CONFIRM,
+    CONF_IMPORT_SINCE,
     CONF_PVPC,
     CONF_SYNC_MODE,
     CONF_SYNC_TIME,
@@ -237,10 +243,21 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage the options."""
 
-        if user_input is None:
+        errors = {}
+        earliest = earliest_query_start().date()
+        if user_input is not None and (since := user_input.get(CONF_IMPORT_SINCE)):
+            day = dt_util.parse_date(since)
+            if day is None or not earliest <= day <= dt_util.now().date():
+                errors[CONF_IMPORT_SINCE] = "import_since_out_of_range"
+
+        if user_input is None or errors:
             return self.async_show_form(
                 step_id="init",
-                data_schema=step_init(prev_options=self.config_entry.options.copy()),
+                data_schema=step_init(
+                    prev_options={**self.config_entry.options, **(user_input or {})}
+                ),
+                errors=errors,
+                description_placeholders={"earliest": f"{earliest:%d/%m/%Y}"},
             )
 
         self.user_input = user_input

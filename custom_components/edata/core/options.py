@@ -18,6 +18,7 @@ CONF_CONFIRM = "confirm"
 CONF_UPDATE_SINCE = "update_billing_since"
 CONF_SYNC_MODE = "sync_mode"
 CONF_SYNC_TIME = "sync_time"
+CONF_IMPORT_SINCE = "import_since"
 
 SYNC_MODE_AUTO = "auto"
 SYNC_MODE_FIXED = "fixed"
@@ -39,6 +40,11 @@ def step_init(prev_options: dict[str, typing.Any]) -> vol.Schema:
                     translation_key=CONF_SYNC_MODE,
                 )
             ),
+            # empty: the whole two years Datadis serves
+            vol.Optional(
+                CONF_IMPORT_SINCE,
+                description={"suggested_value": prev_options.get(CONF_IMPORT_SINCE)},
+            ): sel.DateSelector(),
             vol.Required(
                 CONF_DEBUG,
                 default=prev_options.get(CONF_DEBUG, False),

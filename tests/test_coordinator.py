@@ -23,6 +23,7 @@ from custom_components.edata.coordinator import (
     EdataCoordinator,
 )
 from custom_components.edata.core.options import (
+    CONF_IMPORT_SINCE,
     CONF_SYNC_MODE,
     CONF_SYNC_TIME,
     SYNC_MODE_FIXED,
@@ -148,10 +149,50 @@ async def test_full_import_rewrites_statistics_from_datadis_window(
 
     clear.assert_not_awaited()
     mock_coordinator_statistics.assert_awaited_once()
-    # the fake supply starts in 2023: Datadis's two-year window is what counts
+    # no date chosen: Datadis's whole two-year window
+    assert coordinator._data_manager.full_sync_starts == [earliest_query_start()]
     assert mock_coordinator_statistics.await_args.kwargs["since"] == (
         earliest_query_start()
     )
+
+
+@pytest.mark.parametrize(
+    ("import_since", "expected"),
+    [
+        ("2025-03-10", datetime(2025, 3, 10)),
+        # older than Datadis serves (e.g. chosen long ago): its oldest month
+        ("2023-05-01", datetime(2024, 11, 1)),
+    ],
+)
+async def test_full_import_since_chosen_date(
+    setup_integration: None,
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    mock_data_manager: None,
+    mock_coordinator_statistics: AsyncMock,
+    freezer: FrozenDateTimeFactory,
+    import_since: str,
+    expected: datetime,
+) -> None:
+    """A full import fetches and rewrites from the date chosen in the options.
+
+    After switching marketers Datadis may list only the current contract, so
+    the date is not taken from the contracts.
+    """
+    freezer.move_to("2026-10-15 12:00:00+00:00")
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=SCUPS,
+        data=config_entry.data,
+        options={CONF_IMPORT_SINCE: import_since},
+    )
+    coordinator = await _setup(hass, entry)
+    mock_coordinator_statistics.reset_mock()
+
+    await coordinator.async_full_import()
+
+    assert coordinator._data_manager.full_sync_starts == [expected]
+    assert mock_coordinator_statistics.await_args.kwargs["since"] == expected
 
 
 async def test_sync_store_removed_with_entry(

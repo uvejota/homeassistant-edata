@@ -109,11 +109,13 @@
         "title": "Configuración",
         "data": {
           "sync_mode": "Sincronización con Datadis",
+          "import_since": "Importar histórico desde",
           "billing": "Activar facturación",
           "pvpc": "PVPC"
         },
         "data_description": {
-          "sync_mode": "Sincronízase unha vez ao día, porque Datadis non repite unha consulta en menos de 24 h.\n\n**Automática:** se non están os datos de onte, ao día seguinte téntao 30 minutos máis tarde, ata dar coa hora á que Datadis os ten.\n\n**A unha hora fixa:** sempre á hora que escollas.\n\n⚠️ Ao cambiar esta opción, a próxima sincronización pode tardar entre 24 e 48 h."
+          "sync_mode": "Sincronízase unha vez ao día, porque Datadis non repite unha consulta en menos de 24 h.\n\n**Automática:** se non están os datos de onte, ao día seguinte téntao 30 minutos máis tarde, ata dar coa hora á que Datadis os ten.\n\n**A unha hora fixa:** sempre á hora que escollas.\n\n⚠️ Ao cambiar esta opción, a próxima sincronización pode tardar entre 24 e 48 h.",
+          "import_since": "Data desde a que \"Forzar a sincronización\" pide os datos a Datadis e refai as estatísticas. Déixaa baleira para os dous anos que serve Datadis. Útil tras cambiar de comercializadora, cando Datadis xa non lista o contrato anterior."
         }
       },
       "sync_time": {
@@ -174,6 +176,9 @@
           "confirm": "Confirmar cambios"
         }
       }
+    },
+    "error": {
+      "import_since_out_of_range": "Escolle unha data entre o {earliest} e hoxe: Datadis non serve datos máis antigos."
     }
   },
   "selector": {

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import aiohttp
 from edata.providers.datadis import URL_TOKEN, LoginStatus
+from freezegun.api import FrozenDateTimeFactory
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -29,6 +30,7 @@ from custom_components.edata.core.options import (
     CONF_BILLING,
     CONF_CONFIRM,
     CONF_DEBUG,
+    CONF_IMPORT_SINCE,
     CONF_PVPC,
     CONF_SYNC_MODE,
     CONF_SYNC_TIME,
@@ -259,6 +261,48 @@ async def test_options_flow_fixed_sync_time(
         SYNC_MODE_FIXED,
         time(7, 30),
     )
+
+
+@pytest.mark.parametrize(
+    ("import_since", "error"),
+    [
+        ("2024-11-01", None),
+        (None, None),
+        # Datadis serves two years, counted in whole months
+        ("2024-10-31", "import_since_out_of_range"),
+        ("2026-10-16", "import_since_out_of_range"),
+    ],
+)
+async def test_options_flow_import_since(
+    setup_integration: None,
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    mock_data_manager: None,
+    freezer: FrozenDateTimeFactory,
+    import_since: str | None,
+    error: str | None,
+) -> None:
+    """The date to import history from must be within what Datadis serves."""
+    freezer.move_to("2026-10-15 12:00:00+00:00")
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    user_input = {CONF_DEBUG: False, CONF_BILLING: False, CONF_PVPC: False}
+    if import_since is not None:
+        user_input[CONF_IMPORT_SINCE] = import_since
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input
+    )
+
+    if error is None:
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert result["data"].get(CONF_IMPORT_SINCE) == import_since
+    else:
+        assert result["type"] is FlowResultType.FORM
+        assert result["errors"] == {CONF_IMPORT_SINCE: error}
+        assert result["description_placeholders"] == {"earliest": "01/11/2024"}
 
 
 @pytest.mark.parametrize("is_pvpc", [False, True], ids=["custom", "pvpc"])

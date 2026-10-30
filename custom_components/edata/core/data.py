@@ -89,22 +89,21 @@ class DataManager:
             )
         return synced
 
-    async def full_sync(self) -> bool:
-        """Re-fetch every record Datadis still serves, not just what is missing.
+    async def full_sync(self, start: datetime) -> bool:
+        """Re-fetch every record Datadis still serves from ``start``.
 
         The regular sync only asks for days that are missing or newer than the
         last record, and Datadis answers a repeated query from the connector's
         24 h cache. Requesting the whole history uses a different query, so it
         brings the latest data Datadis has (and fills older gaps it now has).
-        It starts at the oldest contract, within Datadis's two-year window.
+        ``start`` is not taken from the contracts: after switching marketers,
+        Datadis may list only the current one while still serving the earlier
+        consumptions.
         """
         try:
             if not await self._data_service.update():
                 return False
 
-            start = await self._data_service.get_history_start()
-            if start is None:
-                return False
             end = datetime.now()
 
             await self._data_service.update_energy(start, end)
@@ -137,10 +136,6 @@ class DataManager:
     ) -> Supply | None:
         """Get supply data."""
         return await self._data_service.get_supply()
-
-    async def get_history_start(self) -> datetime | None:
-        """Get the oldest date Datadis serves for the supply."""
-        return await self._data_service.get_history_start()
 
     async def get_first_energy_dt(self) -> datetime | None:
         """Get the time of the oldest stored energy record."""
