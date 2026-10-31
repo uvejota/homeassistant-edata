@@ -8,7 +8,7 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/uvejota/homeassistant-edata/issues",
   "requirements": [
-    "e-data==2.2.3"
+    "e-data==2.2.4"
   ],
-  "version": "2026.10.4"
+  "version": "2026.10.5"
 }
