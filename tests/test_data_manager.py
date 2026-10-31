@@ -130,7 +130,7 @@ async def test_rebuild_and_simulate(
 async def test_full_sync_requests_whole_history(
     hass: HomeAssistant, mock_connectors: None
 ) -> None:
-    """full_sync asks Datadis from the history start, not just what is missing."""
+    """full_sync asks Datadis from the given start, not just what is missing."""
     rules = default_billing_rules()
     manager = _make_manager(hass, billing=rules)
     await manager.sync()
@@ -138,12 +138,13 @@ async def test_full_sync_requests_whole_history(
     datadis.async_get_consumption_data.reset_mock()
     datadis.async_get_max_power.reset_mock()
 
-    assert await manager.full_sync()
+    # older than the fixture contracts: Datadis may not list every past one
+    start = datetime(2022, 6, 1)
+    assert await manager.full_sync(start)
 
-    history_start = await manager.get_history_start()
     starts = [call.args[2] for call in datadis.async_get_consumption_data.await_args_list]
-    assert history_start in starts
-    assert datadis.async_get_max_power.await_args.args[2] == history_start
+    assert start in starts
+    assert datadis.async_get_max_power.await_args.args[2] == start
     assert len(await manager.get_bills()) > 0
 
 
@@ -173,7 +174,7 @@ async def test_most_recent_energy_dt_is_cached_until_energy_changes(
 
     # so does a full sync
     datadis.async_get_consumption_data.return_value = build_energy(96)
-    await manager.full_sync()
+    await manager.full_sync(datetime(2023, 1, 1))
     assert await manager.get_most_recent_energy_dt() == build_energy(96)[-1].datetime
 
 
