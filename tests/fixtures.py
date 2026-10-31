@@ -5,7 +5,6 @@ import typing
 
 from edata.models import Bill, Contract, Energy, Power, Statistics, Supply
 from edata.models.bill import BillingRules
-from edata.providers.datadis import earliest_query_start
 
 from custom_components.edata.core.data import BillSimulation
 
@@ -155,6 +154,7 @@ class FakeDataManager:
         self.billing = billing
         self.synced = 0
         self.full_synced = 0
+        self.full_sync_starts: list[datetime] = []
         self.sync_result = True
         self.login_rejected = False
         self.rebuilt: list[datetime | None] = []
@@ -173,9 +173,10 @@ class FakeDataManager:
         self.synced += 1
         return self.sync_result
 
-    async def full_sync(self) -> bool:
-        """Record that a full-history sync happened."""
+    async def full_sync(self, start: datetime) -> bool:
+        """Record that a full-history sync happened and where it started."""
         self.full_synced += 1
+        self.full_sync_starts.append(start)
         return self.sync_result
 
     async def rebuild_billing(self, since: datetime | None = None) -> None:
@@ -199,10 +200,6 @@ class FakeDataManager:
     async def get_contracts(self) -> list[Contract]:
         """Return the fake contracts."""
         return self._contracts
-
-    async def get_history_start(self) -> datetime:
-        """Return the fake supply's start, within Datadis's two-year window."""
-        return max(self._supply.date_start, earliest_query_start())
 
     async def get_first_energy_dt(self) -> datetime | None:
         """Return the first fake energy timestamp."""

@@ -148,7 +148,8 @@ async def test_full_import_rewrites_statistics_from_datadis_window(
 
     clear.assert_not_awaited()
     mock_coordinator_statistics.assert_awaited_once()
-    # the fake supply starts in 2023: Datadis's two-year window is what counts
+    # Datadis's two-year window, whatever the supply and contracts say
+    assert coordinator._data_manager.full_sync_starts == [earliest_query_start()]
     assert mock_coordinator_statistics.await_args.kwargs["since"] == (
         earliest_query_start()
     )
@@ -344,10 +345,13 @@ async def test_sync_time_survives_restart(
     hass_storage: dict,
     config_entry: MockConfigEntry,
     mock_data_manager: None,
+    freezer: FrozenDateTimeFactory,
     sync_at: timedelta | None,
     delay: timedelta,
 ) -> None:
     """The automatic sync time is restored; older stores keep the last sync's."""
+    # away from a DST change: the next sync keeps the local time of day
+    freezer.move_to(FRESH_DATA_NOW)
     last_sync = dt_util.utcnow().replace(microsecond=0) - timedelta(hours=1)
     stored = {"last_sync": last_sync.isoformat()}
     if sync_at is not None:

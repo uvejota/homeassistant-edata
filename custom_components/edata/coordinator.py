@@ -325,15 +325,16 @@ class EdataCoordinator(DataUpdateCoordinator):
         )
         return last.replace(tzinfo=None) >= day_end - timedelta(hours=1)
 
-    async def _async_sync_datadis(self, full: bool = False) -> bool:
+    async def _async_sync_datadis(self, full_since: datetime | None = None) -> bool:
         """Sync from Datadis and record the time when it succeeds.
 
-        ``full`` re-fetches the whole history Datadis serves instead of only
-        what is missing (see ``DataManager.full_sync``).
+        ``full_since`` re-fetches everything Datadis serves from then on instead
+        of only what is missing (see ``DataManager.full_sync``).
         """
 
+        full = full_since is not None
         if full:
-            synced = await self._data_manager.full_sync()
+            synced = await self._data_manager.full_sync(full_since)
         else:
             synced = await self._data_manager.sync()
         if synced:
@@ -496,13 +497,16 @@ class EdataCoordinator(DataUpdateCoordinator):
     async def async_full_import(self):
         """Fetch all available data from Datadis and rewrite its statistics."""
 
+        # everything Datadis serves (the last two years), not from the oldest
+        # contract: after switching marketers, Datadis may list only the new one
+        # while it still serves the earlier consumptions
+        since = earliest_query_start()
         _LOGGER.warning("%s: importing all available data from Datadis", self.scups)
-        await self._async_sync_datadis(full=True)
+        await self._async_sync_datadis(full_since=since)
         await self._load_data()
 
-        # Datadis only serves the last two years: rewrite the statistics from
-        # there on, keeping the older ones (e.g. from 1.x, before edata.db starts)
-        since = await self._data_manager.get_history_start() or earliest_query_start()
+        # rewrite the statistics from there on, keeping the older ones (e.g.
+        # from 1.x, before edata.db starts)
         await update_all_statistics(
             self.hass, self._data_manager, self.id, self.scups, since=since
         )
